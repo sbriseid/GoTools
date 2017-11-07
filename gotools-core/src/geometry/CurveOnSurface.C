@@ -2462,7 +2462,9 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
     const double deg_tol = 1.0e-06;
     const double length_uder = sf_pt[1].length();
     const double length_vder = sf_pt[2].length();
-    if ((length_uder < deg_tol) || (length_vder < deg_tol))
+    const bool deg_uder = (length_uder < deg_tol);
+    const bool deg_vder = (length_vder < deg_tol);
+    if (deg_uder || deg_vder)
     {
         // We need to use a marching approach to find the correct parameter. Or use the space
         // tangent. For the cone case this should suffice. The same with the sphere.
@@ -2476,14 +2478,15 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
         surface_->closestPoint(space_pt2[0], clo_u2, clo_v2, clo_pt2, clo_dist2, eps, NULL, seed);
         std::cout << "DEBUG: clo_u: " << clo_u << ", clo_u2: " << clo_u2 << ", clo_v: " << clo_v <<
             ", clo_v2: " << clo_v2 << std::endl;
-#if 1
+#if 0
         MESSAGE("Degenerate point, we need to enable special handling!");
 #else
-        if (length_uder < deg_tol)
+        MESSAGE("Degenerate point, enabling special handling!");
+        if (deg_uder)
         {
             clo_u = clo_u2;
         }
-        if (length_vder < deg_tol)
+        if (deg_vder)
         {
             clo_v = clo_v2;
         }
@@ -2525,7 +2528,7 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
     const bool at_u_bd = (at_u_start || at_u_end);
     const bool at_v_bd = (at_v_start || at_v_end);
 
-    if ((!(closed_dir_u && at_u_bd) && !(closed_dir_v && at_v_bd)) || (seed != NULL))
+    if ((seed != NULL) || ((!(closed_dir_u && at_u_bd) && !(closed_dir_v && at_v_bd))))// && (!deg_uder && !deg_vder)))
     {
 	// Simple case.
 	shared_ptr<Point> par_pt(new Point(clo_u, clo_v));
@@ -2592,6 +2595,8 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
 	    ang_v = 0.0;
 	}
 
+        // ElementarySurface* elem_sf = surface_->elementarySurface();
+        // const double sign = (elem_sf == nullptr) ? 1.0 : (elem_sf->isSwapped() ? -1.0 : 1.0);
 	if (handle_u_seam)
 	{
 	    if ((fabs(ang_v) < tang_tol) || ((fabs(ang_v + M_PI) < tang_tol)) || ((fabs(ang_v - M_PI) < tang_tol)))

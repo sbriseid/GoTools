@@ -4136,19 +4136,21 @@ bool BoundedUtils::createMissingParCvs(vector<CurveLoop>& bd_loops)
 {
     bool all_par_cvs_ok = true;
 
-    for (size_t kj=0; kj<bd_loops.size(); kj++)
+    int loop_id = -1;
+    for ( auto bd_loop : bd_loops )
     {
+        ++loop_id;
 	// Make ParamCurve pointers
 	// For cases with end pt at a seam and tangent following the seam, we may need to project the previous/next curve first.
 //	vector<int> second_attempt;
-	int num_segments = bd_loops[kj].size();
+	//CurveLoop bd_loop = bd_loops[kj];
+	int num_segments = bd_loop.size();
 	vector<int> loop_cv_ind(num_segments);
 	vector<bool> failed_once(num_segments, false);
-	CurveLoop bd_loop = bd_loops[kj];
 	double epsgeo = bd_loop.getSpaceEpsilon();
-	const bool loop_is_ccw = (kj == 0);
+	const bool loop_is_ccw = (loop_id == 0);
 	vector<pair<shared_ptr<Point>, shared_ptr<Point> > > loop_end_par_pts = getEndParamPoints(bd_loop, loop_is_ccw);
-	for (int kr = 0; kr < bd_loops[kj].size(); ++kr)
+	for (int kr = 0; kr < bd_loop.size(); ++kr)
 	  loop_cv_ind[kr] = kr;
 
 	// We start by creating parameter end points.
@@ -4170,9 +4172,9 @@ bool BoundedUtils::createMissingParCvs(vector<CurveLoop>& bd_loops)
 	    shared_ptr<Point> start_pt = loop_end_par_pts[curr_cv_ind].first;
 	    shared_ptr<Point> end_pt = loop_end_par_pts[curr_cv_ind].second;
 
-	    int num_loop_cvs = bd_loops[kj].size();
+	    int num_loop_cvs = bd_loop.size();
             const int prev_cv_ind = (curr_cv_ind-1+num_loop_cvs)%num_loop_cvs;
-	    shared_ptr<ParamCurve> prev_cv = bd_loops[kj][prev_cv_ind];
+	    shared_ptr<ParamCurve> prev_cv = bd_loop[prev_cv_ind];
 	    shared_ptr<CurveOnSurface> prev_cos = dynamic_pointer_cast<CurveOnSurface>(prev_cv);
 	    if ((start_pt.get() == NULL) && (prev_cos->parameterCurve()))
 	    {
@@ -4180,7 +4182,7 @@ bool BoundedUtils::createMissingParCvs(vector<CurveLoop>& bd_loops)
                     (new Point(prev_cos->parameterCurve()->point(prev_cos->parameterCurve()->endparam())));
 	    }
             const int next_cv_ind = (curr_cv_ind+1)%num_loop_cvs;
-	    shared_ptr<ParamCurve> next_cv = bd_loops[kj][next_cv_ind];
+	    shared_ptr<ParamCurve> next_cv = bd_loop[next_cv_ind];
 	    shared_ptr<CurveOnSurface> next_cos = dynamic_pointer_cast<CurveOnSurface>(next_cv);
 	    if ((end_pt.get() == NULL) && (next_cos->parameterCurve()))
 	    {
