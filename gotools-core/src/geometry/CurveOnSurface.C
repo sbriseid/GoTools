@@ -1557,7 +1557,7 @@ bool CurveOnSurface::ensureParCrvExistence(double epsgeo,
 
 #ifndef NDEBUG
       {
-	  if ((start.size() == 0) && (start_par_pt == NULL) || ((end.size() == 0) && end_par_pt == NULL))
+	  if (((start.size() == 0) && (start_par_pt == NULL)) || (((end.size() == 0) && end_par_pt == NULL)))
 	  {
 	      MESSAGE("Oops, missing end point(s).");
 	  }
@@ -2460,12 +2460,18 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
     surface_->closestPoint(space_pt[0], clo_u, clo_v, clo_pt, clo_dist, eps, NULL, seed);
     vector<Point> sf_pt = surface_->point(clo_u, clo_v, 1);
     const double deg_tol = 1.0e-06;
+    const double length_cv_der = space_pt[1].length();
+    const bool deg_cv_pt = (length_cv_der < deg_tol);
     const double length_uder = sf_pt[1].length();
     const double length_vder = sf_pt[2].length();
     const bool deg_uder = (length_uder < deg_tol);
     const bool deg_vder = (length_vder < deg_tol);
     if (deg_uder || deg_vder)
     {
+        if (deg_cv_pt)
+        {
+            return shared_ptr<Point>(NULL);
+        }
         // We need to use a marching approach to find the correct parameter. Or use the space
         // tangent. For the cone case this should suffice. The same with the sphere.
         double ang_rad = (length_uder < deg_tol) ? space_pt[1].angle(sf_pt[2]) : space_pt[1].angle(sf_pt[1]);
@@ -2764,6 +2770,8 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
 	    }
 	}
     }
+
+    return shared_ptr<Point>(new Point(clo_u, clo_v));
 }
 
 
