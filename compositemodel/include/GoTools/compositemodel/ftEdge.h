@@ -115,7 +115,7 @@ public:
     /// Maximum parameter of curve restricted to edge
     virtual double tMax() const
     {   // We may not return the maximum of the values as the top edge may cross the seam of a closed curve.
-        // This implies that tMax() may actually be smaller than tMin(), in which edge case the edge must be split.
+        // This implies that tMax() may actually be smaller than tMin(), in which case the edge must be split.
 	return (is_reversed_) ? v1_par_ : v2_par_;
     }
     //virtual void turnOrientation();

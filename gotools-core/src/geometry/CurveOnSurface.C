@@ -2453,14 +2453,14 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
     Go::SurfaceTools::checkSurfaceClosed(*surface_, closed_dir_u, closed_dir_v, epsgeo);
     bool is_closed = (closed_dir_u || closed_dir_v);
 
-    vector<Point> space_pt = spacecurve_->point(tpar, 1);
+    vector<Point> cv_pt = spacecurve_->point(tpar, 1);
     double clo_u, clo_v, clo_dist;
     Point clo_pt;
     const double eps = 1e-10;
-    surface_->closestPoint(space_pt[0], clo_u, clo_v, clo_pt, clo_dist, eps, NULL, seed);
+    surface_->closestPoint(cv_pt[0], clo_u, clo_v, clo_pt, clo_dist, eps, NULL, seed);
     vector<Point> sf_pt = surface_->point(clo_u, clo_v, 1);
     const double deg_tol = 1.0e-06;
-    const double length_cv_der = space_pt[1].length();
+    const double length_cv_der = cv_pt[1].length();
     const bool deg_cv_pt = (length_cv_der < deg_tol);
     const double length_uder = sf_pt[1].length();
     const double length_vder = sf_pt[2].length();
@@ -2474,20 +2474,21 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
         }
         // We need to use a marching approach to find the correct parameter. Or use the space
         // tangent. For the cone case this should suffice. The same with the sphere.
-        double ang_rad = (length_uder < deg_tol) ? space_pt[1].angle(sf_pt[2]) : space_pt[1].angle(sf_pt[1]);
+        double ang_rad = (length_uder < deg_tol) ? cv_pt[1].angle(sf_pt[2]) : cv_pt[1].angle(sf_pt[1]);
         std::cout << "DEBUG: The surface is degenerate is this point! ang_rad = " << ang_rad << std::endl;
         double tstep = 1.0e-03;
         double tpar2 = (tpar > spacecurve_->startparam() + tstep) ? tpar - tstep : tpar + tstep;
-        vector<Point> space_pt2 = spacecurve_->point(tpar2, 1);
+        vector<Point> cv_pt2 = spacecurve_->point(tpar2, 1);
         double clo_u2, clo_v2, clo_dist2;
         Point clo_pt2;
-        surface_->closestPoint(space_pt2[0], clo_u2, clo_v2, clo_pt2, clo_dist2, eps, NULL, seed);
+        surface_->closestPoint(cv_pt2[0], clo_u2, clo_v2, clo_pt2, clo_dist2, eps, NULL, seed);
         std::cout << "DEBUG: clo_u: " << clo_u << ", clo_u2: " << clo_u2 << ", clo_v: " << clo_v <<
             ", clo_v2: " << clo_v2 << std::endl;
-#if 0
+#if 1
         MESSAGE("Degenerate point, we need to enable special handling!");
 #else
-        MESSAGE("Degenerate point, enabling special handling!");
+        std::cout << "Degenerate point, enabling special handling! clo_dist: " << clo_dist << ", clo_dist2: " <<
+            clo_dist2 << std::endl;
         if (deg_uder)
         {
             clo_u = clo_u2;
@@ -2504,7 +2505,7 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
 	try {
 	    double clo_u_bd, clo_v_bd, clo_dist_bd;
 	    Point clo_pt_bd;
-	    surface_->closestBoundaryPoint(space_pt[0], clo_u_bd, clo_v_bd, clo_pt_bd, clo_dist_bd, eps, NULL, seed);
+	    surface_->closestBoundaryPoint(cv_pt[0], clo_u_bd, clo_v_bd, clo_pt_bd, clo_dist_bd, eps, NULL, seed);
 	    if (clo_dist_bd < clo_dist)
 	    {
 		clo_dist = clo_dist_bd;
@@ -2568,7 +2569,7 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
 	}
 
 	vector<Point> sf_pt = surface_->point(clo_u, clo_v, 1);
-	vector<Point> cv_pt = spacecurve_->point(tpar, 1);
+	// vector<Point> cv_pt = spacecurve_->point(tpar, 1);
 	double ang_u_space = cv_pt[1].angle(sf_pt[1]);
 	double ang_v_space = cv_pt[1].angle(sf_pt[2]);
 
@@ -3206,7 +3207,8 @@ void CurveOnSurface::marchOutSeamPoint(double tpar, bool to_the_right, bool at_u
     {
 	double clo_u, clo_v, clo_dist;
 	Point clo_pt;
-	surface_->closestPoint(space_pt, clo_u, clo_v, clo_pt, clo_dist, epsgeo, NULL, &seed_pt[0]);
+        Point step_space_pt = ParamCurve::point(step_tpar);
+	surface_->closestPoint(step_space_pt, clo_u, clo_v, clo_pt, clo_dist, epsgeo, NULL, &seed_pt[0]);
 	if ((at_u_seam) && (fabs(par_pt[0] - clo_u) > knot_diff_tol))
 	{
 	    par_pt[0] = (clo_u < 0.5*(rect_dom.umin() + rect_dom.umax())) ? rect_dom.umin() : rect_dom.umax();
