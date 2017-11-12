@@ -2484,7 +2484,7 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
         surface_->closestPoint(cv_pt2[0], clo_u2, clo_v2, clo_pt2, clo_dist2, eps, NULL, seed);
         std::cout << "DEBUG: clo_u: " << clo_u << ", clo_u2: " << clo_u2 << ", clo_v: " << clo_v <<
             ", clo_v2: " << clo_v2 << std::endl;
-#if 1
+#if 0
         MESSAGE("Degenerate point, we need to enable special handling!");
 #else
         std::cout << "Degenerate point, enabling special handling! clo_dist: " << clo_dist << ", clo_dist2: " <<
