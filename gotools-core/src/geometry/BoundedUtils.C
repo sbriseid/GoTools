@@ -4151,7 +4151,9 @@ bool BoundedUtils::createMissingParCvs(vector<CurveLoop>& bd_loops)
 	const bool loop_is_ccw = (loop_id == 0);
 	vector<pair<shared_ptr<Point>, shared_ptr<Point> > > loop_end_par_pts = getEndParamPoints(bd_loop, loop_is_ccw);
 	for (int kr = 0; kr < bd_loop.size(); ++kr)
-	  loop_cv_ind[kr] = kr;
+        {
+            loop_cv_ind[kr] = kr;
+        }
 
 	// We start by creating parameter end points.
 	// If that fails for a curve there is no need to even try to project ...
@@ -4193,10 +4195,6 @@ bool BoundedUtils::createMissingParCvs(vector<CurveLoop>& bd_loops)
 	    if ((start_pt.get() == NULL) || (end_pt.get() == NULL))
 	    {
 		if (!failed_once[curr_cv_ind])
-		// {
-		//     all_par_cvs_ok = false;
-                // }
-                // else
                 {
                     failed_once[curr_cv_ind] = true;
                     loop_cv_ind.erase(loop_cv_ind.begin() + ki);

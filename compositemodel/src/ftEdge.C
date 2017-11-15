@@ -190,6 +190,9 @@ void ftEdge::setVertices(shared_ptr<Vertex> v1,
     if (geom_cv_closed) {
 
         // For the special case of a circle we must check if the seam should be moved.
+#if 1
+        MESSAGE("Turned off rotation of circle. If needed it should be performed after all edges are processed.");
+#else
         if (edge_cv_closed) {
             if (geom_curve_->instanceType() == Class_Circle) {
                 shared_ptr<Circle> circle_cv = dynamic_pointer_cast<Circle>(geom_curve_);
@@ -203,7 +206,7 @@ void ftEdge::setVertices(shared_ptr<Vertex> v1,
                 Point x_axis = new_start_pt - circle_cv->getCentre();
                 x_axis.normalize();
                 shared_ptr<Circle> rot_circle(new Circle(circle_cv->getRadius(), circle_cv->getCentre(),
-                                                         circle_cv->getNormal(), x_axis));
+                                                         circle_cv->getNormal(), x_axis, is_reversed_));
                 //std::cout << "Assigning the geom_curve_!" << std::endl;
                 geom_curve_ = rot_circle;
                 // We verify the rotation ...
@@ -217,6 +220,7 @@ void ftEdge::setVertices(shared_ptr<Vertex> v1,
                 }
             }
         }
+#endif
 
 	// First snap the endpoints if necessary
 	Point startpt, endpt;

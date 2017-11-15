@@ -2468,37 +2468,53 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
     const bool deg_vder = (length_vder < deg_tol);
     if (deg_uder || deg_vder)
     {
-        if (deg_cv_pt)
+        if (deg_cv_pt) // If the curve is degenerate in the point the projection must be handled by other
+                       // methods (like using parameters of neighbouring curves if this is a bd point).
         {
             return shared_ptr<Point>(NULL);
         }
+
+        if (seed)
+        { // @@sbr201711 We must decide on how to handle this situation. Trust seed to give satisfactory param value?
+            std::cout << "DEBUG: We were given a seed!" << std::endl;
+        }
+
         // We need to use a marching approach to find the correct parameter. Or use the space
         // tangent. For the cone case this should suffice. The same with the sphere.
-        double ang_rad = (length_uder < deg_tol) ? cv_pt[1].angle(sf_pt[2]) : cv_pt[1].angle(sf_pt[1]);
-        std::cout << "DEBUG: The surface is degenerate is this point! ang_rad = " << ang_rad << std::endl;
+        double ang_rad = (deg_uder) ? cv_pt[1].angle(sf_pt[2]) : cv_pt[1].angle(sf_pt[1]);
+        std::cout << "DEBUG: The surface is degenerate in this point! ang_rad = " << ang_rad << std::endl;
         double tstep = 1.0e-03;
-        double tpar2 = (tpar > spacecurve_->startparam() + tstep) ? tpar - tstep : tpar + tstep;
+        double tpar2 = (tpar + tstep < spacecurve_->endparam()) ? tpar + tstep : tpar - tstep;
         vector<Point> cv_pt2 = spacecurve_->point(tpar2, 1);
         double clo_u2, clo_v2, clo_dist2;
         Point clo_pt2;
         surface_->closestPoint(cv_pt2[0], clo_u2, clo_v2, clo_pt2, clo_dist2, eps, NULL, seed);
         std::cout << "DEBUG: clo_u: " << clo_u << ", clo_u2: " << clo_u2 << ", clo_v: " << clo_v <<
             ", clo_v2: " << clo_v2 << std::endl;
-#if 0
+#if 1
         MESSAGE("Degenerate point, we need to enable special handling!");
 #else
-        std::cout << "Degenerate point, enabling special handling! clo_dist: " << clo_dist << ", clo_dist2: " <<
-            clo_dist2 << std::endl;
-        if (deg_uder)
+        double upar = (deg_uder) ? clo_u2 : clo_u;
+        double vpar = (deg_vder) ? clo_v2 : clo_v;
+        Point sf_pt_deg = surface_->point(upar, vpar);
+        double sf_pt_deg_dist = sf_pt_deg.dist(clo_pt); // We compare with the projection, not with the
+                                                        // curve (which may be relatively far away).
+        if (sf_pt_deg_dist < epsgeo) // We only accept the point if it is within epsgeo.
         {
-            clo_u = clo_u2;
-        }
-        if (deg_vder)
-        {
-            clo_v = clo_v2;
+            std::cout << "Degenerate point, enabling special handling! clo_dist: " << clo_dist << ", clo_dist2: " <<
+                clo_dist2 << std::endl;
+            if (deg_uder)
+            {
+                clo_u = clo_u2;
+            }
+            if (deg_vder)
+            {
+                clo_v = clo_v2;
+            }
         }
 #endif
     }
+
     bool sf_is_bounded = surface_->isBounded();
     if (sf_is_bounded && check_bd)
     {
