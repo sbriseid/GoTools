@@ -427,6 +427,7 @@ private:
 
     int entry_id_;
 
+    /// If the edge is reversed then it traverses from v2_ to v1_, with domain [v2_par_, v1_par_].
     bool is_reversed_;
 
     /// This entity is intended for volume models or other non-manifold
@@ -438,7 +439,7 @@ private:
 	   shared_ptr<Vertex> v1, double t2, shared_ptr<Vertex> v2, 
            bool is_reversed = false, int entry_id = -1);
 
-    /// Split function with no shared_ptr. The returned edge is the reponsibility of the caller.
+    /// Split function with no shared_ptr. The returned edge is the responsibility of the caller.
     /// Does not split the twin edge.
     ftEdge* splitAtVertexNoSharedPtr(shared_ptr<Vertex> vx);
 };

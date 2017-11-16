@@ -1241,33 +1241,61 @@ bool ftEdge::translateDomainClosedCurve()
     bool translated = false;
     // @@sbr201711 This does not handle cases were the edge crosses the seam but is not closed!
     const bool geom_cv_closed = geom_curve_->isClosed();
-    const bool is_circle = (geom_curve_->instanceType() == Class_Circle);
-    // This approach will not handle cases where the edge does not cross the seam, i.e.
-    // when the edge is closes at the end params. But those cases do not need this translation
-    // of parameter domain.
-    const double pareps = 1.0e-5;
-    const bool edge_cv_closed = (fabs(tMax() - tMin()) < pareps);
-    if (geom_cv_closed && edge_cv_closed && is_circle)
+    if (geom_cv_closed)
     {
-        shared_ptr<Circle> circle_cv = dynamic_pointer_cast<Circle>(geom_curve_);
+        const bool is_circle = (geom_curve_->instanceType() == Class_Circle);
+        // This approach will not handle cases where the edge does not cross the seam, i.e.
+        // when the edge is closes at the end params. But those cases do not need this translation
+        // of parameter domain.
+        const double pareps = 1.0e-5;
+        const bool edge_cv_closed = (fabs(tMax() - tMin()) < pareps);
+        bool crossing_seam = (tMin() >= tMax());//(is_reversed_) ? tMin() < tMax() : tMax() < tMin();
+        if (edge_cv_closed && is_circle)
+//        if (crossing_seam && is_circle)
+        {
+            // @@sbr201711 Consider allowing circle and ellipse to use an extended range [-2*pi, 2*pi).
+            // Needed for CAxMan mould files (1006 circles & 94 ellipses).
+            // It seems like closestPoint() and other functions perhaps need updating to handle this extension.
+            double range = geom_curve_->endparam() - tMin() + tMax() - geom_curve_->startparam();
+            shared_ptr<Circle> circle_cv = dynamic_pointer_cast<Circle>(geom_curve_);
             // We move the seam by rotating the curve.
 #if 0
-        Point new_start_pt = circle_cv->ParamCurve::point(circle_cv->startparam());
-        GeometryTools::rotatePoint(circle_cv->getNormal(), t1, new_start_pt);
+            Point new_start_pt = circle_cv->ParamCurve::point(circle_cv->startparam());
+            GeometryTools::rotatePoint(circle_cv->getNormal(), t1, new_start_pt);
 #else
-        Point new_start_pt = v1_->getVertexPoint();
+            Point new_start_pt = (is_reversed_) ? v2_->getVertexPoint() : v1_->getVertexPoint();
 #endif                
-        Point x_axis = new_start_pt - circle_cv->getCentre();
-        x_axis.normalize();
-        shared_ptr<Circle> rot_circle(new Circle(circle_cv->getRadius(), circle_cv->getCentre(),
-                                                 circle_cv->getNormal(), x_axis, circle_cv->isReversed()));
+            Point x_axis = new_start_pt - circle_cv->getCentre();
+            x_axis.normalize();
+            shared_ptr<Circle> rot_circle(new Circle(circle_cv->getRadius(), circle_cv->getCentre(),
+                                                     circle_cv->getNormal(), x_axis, circle_cv->isReversed()));
             //std::cout << "Assigning the geom_curve_!" << std::endl;
-        std::cout << "DEBUG: Assigning the rotated circle to the ftEdge!" << std::endl;
-        geom_curve_ = rot_circle;
-        v1_par_ = (is_reversed_) ? geom_curve_->endparam() : geom_curve_->startparam();
-        v2_par_ = (is_reversed_) ? geom_curve_->startparam() : geom_curve_->endparam();
+            std::cout << "DEBUG: Assigning the rotated circle to the ftEdge!" << std::endl;
+            double from = (circle_cv->isReversed()) ? circle_cv->endparam() : circle_cv->startparam();
+            double to = (circle_cv->isReversed()) ? from - range : range;
+            rot_circle->setParamBounds(0.0, range);
+//            rot_circle->setParameterInterval(from, to);
+            geom_curve_ = rot_circle;
+            v1_par_ = (is_reversed_) ? geom_curve_->endparam() : geom_curve_->startparam();
+            v2_par_ = (is_reversed_) ? geom_curve_->startparam() : geom_curve_->endparam();
 
-        translated = true;
+            translated = true;
+        }
+        else
+        {
+            bool crossing_seam = (tMin() > tMax());//(is_reversed_) ? tMin() < tMax() : tMax() < tMin();
+            if (crossing_seam)
+            {
+                std::cout << "DEBUG: Crossing seam for non-closed edge! is_reversed_: " << is_reversed_ <<
+                    ", tMin(): " << tMin() << ", tMax(): " << tMax() << ", type: " << 
+                    geom_curve_->instanceType() << std::endl;
+            }
+            else
+            {
+                std::cout << "DEBUG: Not crossing seam for non-closed edge! is_reversed_: " << is_reversed_ <<
+                    ", tMin(): " << tMin() << ", tMax(): " << tMax() << std::endl;
+            }
+        }
     }
 
     return translated;
