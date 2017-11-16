@@ -401,6 +401,10 @@ public:
     /// edge. This must be handled on the outside, i.e. where the edges are stored.
     // When the return value is true the object is not valid!
     bool crossesSeam();
+
+    // If the geometry curve is closed (like a circle) and the edge crosses the curve seam we translate
+    // the parametrization.
+    bool translateDomainClosedCurve();
     
 private:
     /// The face associated this edge
