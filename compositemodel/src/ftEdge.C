@@ -881,6 +881,10 @@ Point ftEdge::faceParameter(double t, double* seed) const
       Point pt = point(t);
       Point clo_pt;
       double clo_u, clo_v, clo_dist;
+      if (face_ == nullptr)
+      {
+        THROW("The edge is missing a face pointer!");
+      }
       // Find the closest point on the surface
       face_->surface()->closestBoundaryPoint(pt, clo_u, clo_v, clo_pt, clo_dist,
 					     1e-10, NULL, seed);
