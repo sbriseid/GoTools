@@ -191,7 +191,7 @@ void ftEdge::setVertices(shared_ptr<Vertex> v1,
 
         // For the special case of a circle we must check if the seam should be moved.
 #if 1
-        MESSAGE("Turned off rotation of circle. If needed it should be performed after all edges are processed.");
+        ;//MESSAGE("Turned off rotation of circle. If needed it should be performed after all edges are processed.");
 #else
         if (edge_cv_closed) {
             if (geom_curve_->instanceType() == Class_Circle) {
