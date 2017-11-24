@@ -191,7 +191,7 @@ void ftEdge::setVertices(shared_ptr<Vertex> v1,
 
         // For the special case of a circle we must check if the seam should be moved.
 #if 1
-        MESSAGE("Turned off rotation of circle. If needed it should be performed after all edges are processed.");
+        ;//MESSAGE("Turned off rotation of circle. If needed it should be performed after all edges are processed.");
 #else
         if (edge_cv_closed) {
             if (geom_curve_->instanceType() == Class_Circle) {
@@ -881,6 +881,10 @@ Point ftEdge::faceParameter(double t, double* seed) const
       Point pt = point(t);
       Point clo_pt;
       double clo_u, clo_v, clo_dist;
+      if (face_ == nullptr)
+      {
+        THROW("The edge is missing a face pointer!");
+      }
       // Find the closest point on the surface
       face_->surface()->closestBoundaryPoint(pt, clo_u, clo_v, clo_pt, clo_dist,
 					     1e-10, NULL, seed);
