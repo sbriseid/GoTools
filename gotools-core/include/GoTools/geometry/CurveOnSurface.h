@@ -497,7 +497,12 @@ public:
     /// not unique (like a curve following seam or crossing the seam,
     /// with no seed or loop info given) we return a NULL pointer. We
     /// may include a boundary check, which is disabled as default due
-    /// to cost of the call.
+    /// to cost of the call. We may also include information about
+    /// whether the segment is part of a ccw or cw loop, which is
+    /// essential information when dealing with a point at the seam of
+    /// a closed surface.
+    /// \param ccw_loop if true the segment is part of a ccw loop.
+    /// \param cw_loop if true the segment is part of a cw loop.
     shared_ptr<Point> projectSpacePoint(double tpar, double epsgeo,
 					double* seed = NULL,
 					bool ccw_loop = false,

@@ -386,8 +386,8 @@ void ftEdge::closestPoint(const Point& pt,
         std::cout << "Split1. Radial edge missing" << std::endl;
 #endif
 
-    const bool crosses_seam = crossesSeam();
-  
+    const bool crosses_seam = crossesSeam(); // True if geom_curve_ is closed and the edge crosses the curve seam.
+
     // If t is close, but not equal, to existing knot, we make it equal.
     double knot_diff_tol = 1e-05;
     shared_ptr<SplineCurve> spline_cv =
@@ -395,8 +395,8 @@ void ftEdge::closestPoint(const Point& pt,
     if (spline_cv.get() != 0)
       spline_cv->basis().knotIntervalFuzzy(t, knot_diff_tol);
 
-    const double tmin = std::min(v1_par_, v2_par_);
-    const double tmax = std::max(v1_par_, v2_par_);
+    const double tmin = tMin();
+    const double tmax = tMax();
     if ((!crosses_seam) && (t <= tmin || t >= tmax))
     {
 	int stop_break = 1;
@@ -419,6 +419,7 @@ void ftEdge::closestPoint(const Point& pt,
     ftEdge* newedge;
     double new_edge_v1_par = (crosses_seam) ?
         (is_reversed_ ? geom_curve_->endparam() : geom_curve_->startparam()) : t;
+    // @@sbr201712 If is_reversed_ == true the split_vx should be the 2nd vertex! The first vertex should be v1_.
     newedge = new ftEdge(face_, geom_curve_, new_edge_v1_par, split_vx, v2_par_, tmp_vx, is_reversed_);
     v2_par_ = t;
     v2_ = split_vx;
@@ -443,20 +444,20 @@ void ftEdge::closestPoint(const Point& pt,
 		MESSAGE("ftEdge::split: No split at vertex");
             }
 
-	    shared_ptr<Vertex> v3, v4;
-	    e2->getVertices(v3, v4);
-	    if (v3.get() == v1_.get() || v4.get() == v1_.get())
-	      {
-		e2->ftEdgeBase::connectTwin(this, status);
-		if (e3)
-		  e3->ftEdgeBase::connectTwin(newedge, status);
-	      }
-	    else
-	      {
+	    // shared_ptr<Vertex> v3, v4;
+	    // e2->getVertices(v3, v4);
+	    // if (v3.get() == v1_.get() || v4.get() == v1_.get())
+	    //   {
+	    //     e2->ftEdgeBase::connectTwin(this, status);
+	    //     if (e3)
+	    //       e3->ftEdgeBase::connectTwin(newedge, status);
+	    //   }
+	    // else
+	    //   {
 		if (e3)
 		  e3->ftEdgeBase::connectTwin(this, status);
 		e2->ftEdgeBase::connectTwin(newedge, status);
-	      }
+	      // }
 	  }
       }
 
@@ -767,7 +768,7 @@ void ftEdge::disconnectTwin()
   //   std::cout << "Disconnect2. Radial edge inconsistency" << std::endl;
   MESSAGE("EdgeVertex::checkTwins() removed!");
   if (all_edges_ && !all_edges_->hasEdge(this))
-    std::cout << "Disonnect2. Radial edge missing" << std::endl;
+    std::cout << "Disconnect2. Radial edge missing" << std::endl;
 #endif
 }
 
@@ -775,6 +776,10 @@ void ftEdge::disconnectTwin()
 Point ftEdge::point(double t) const
 //===========================================================================
 {
+    // The parametrization is in the same dir as geom_curve, even though the reversed_dir_ may be true.
+    // Considering the split function on the reversed case, we can not let the parametrization go in the
+    // opposite direction as the startparam of the two segments would have conflicting domains.
+    // Hence there is no way to let the parametrization go in the opposite direction.
     return geom_curve_->point(t);
 }
 
@@ -1292,8 +1297,8 @@ ftEdge* ftEdge::splitAtVertexNoSharedPtr(shared_ptr<Vertex> vx)
     closestPoint(vx->getVertexPoint(), par, pt, dist);
 
     const bool crosses_seam = crossesSeam();
-    const double tmin = std::min(v1_par_, v2_par_);
-    const double tmax = std::max(v1_par_, v2_par_);
+    const double tmin = tMin();
+    const double tmax = tMax();
     if ((!crosses_seam) && (par <= tmin || par >= tmax))
     {
         int stop_break = 1;

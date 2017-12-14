@@ -663,7 +663,7 @@ CurveCreators::projectSpaceCurve(shared_ptr<ParamCurve>& space_cv,
     double kink_tol = 1e-02; // We only want it to be reasonably smooth.
     HermiteAppC approximator(proj_crv.get(),
 			     &initpars[0], (int)initpars.size(),
-			       epsge, kink_tol);
+                             epsge, kink_tol);
     approximator.refineApproximation();
     shared_ptr<SplineCurve> projection_cv = approximator.getCurve();
 

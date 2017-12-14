@@ -2491,18 +2491,18 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
         surface_->closestPoint(cv_pt2[0], clo_u2, clo_v2, clo_pt2, clo_dist2, eps, NULL, seed);
         std::cout << "DEBUG: clo_u: " << clo_u << ", clo_u2: " << clo_u2 << ", clo_v: " << clo_v <<
             ", clo_v2: " << clo_v2 << std::endl;
-#if 1
+#if 0
         MESSAGE("Degenerate point, we need to enable special handling!");
 #else
         double upar = (deg_uder) ? clo_u2 : clo_u;
         double vpar = (deg_vder) ? clo_v2 : clo_v;
         Point sf_pt_deg = surface_->point(upar, vpar);
-        double sf_pt_deg_dist = sf_pt_deg.dist(clo_pt); // We compare with the projection, not with the
+        double sf_pt_deg_dist = sf_pt_deg.dist(cv_pt[0]); // We compare with the projection, not with the
                                                         // curve (which may be relatively far away).
         if (sf_pt_deg_dist < epsgeo) // We only accept the point if it is within epsgeo.
         {
-            std::cout << "Degenerate point, enabling special handling! clo_dist: " << clo_dist << ", clo_dist2: " <<
-                clo_dist2 << std::endl;
+            std::cout << "DEBUG: Degenerate point, enabling special handling! clo_dist: " << clo_dist <<
+                ", sf_pt_deg_dist: " << sf_pt_deg_dist << std::endl;
             if (deg_uder)
             {
                 clo_u = clo_u2;
@@ -3219,7 +3219,7 @@ void CurveOnSurface::marchOutSeamPoint(double tpar, bool to_the_right, bool at_u
     int mult = 1;
     double step_tpar = tpar + sign*tstep_frac*mult*range;
     Point seed_pt = par_pt;
-    while (step_tpar > tmin)
+    while ((step_tpar > tmin) && (step_tpar < tmax))
     {
 	double clo_u, clo_v, clo_dist;
 	Point clo_pt;

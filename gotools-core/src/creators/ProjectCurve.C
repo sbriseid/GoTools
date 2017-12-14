@@ -228,7 +228,8 @@ void ProjectCurve::eval(double t, int n, Go::Point der[]) const
             // projection defining the 3d curve.
             MESSAGE("clo_dist = " << clo_dist << ", epsgeo1_ = " << epsgeo1_);
         }
-	if (closeToSurfaceBoundary(clo_u, clo_v)) {
+        // If a seed was used we do not replace the found value.
+	if ((!seed_ptr) && (closeToSurfaceBoundary(clo_u, clo_v))) {
 	    snapIfBoundaryIsCloser(space_pt[0], clo_u, clo_v, clo_dist);
 	}
 
@@ -428,7 +429,7 @@ vector<double> ProjectCurve::createSeed(double tpar) const
 				     &cv_pt[1][0], dim, 1, &coef1, &coef2);
 
 	    Point dir_der = Point(coef1, coef2);
-	
+            dir_der.normalize();
 	    Point ext_pt = base_par_pt + (tpar - base_t)*dir_der;
 	    seed.insert(seed.end(), ext_pt.begin(), ext_pt.end());
 	    return seed;
