@@ -4218,14 +4218,14 @@ bool BoundedUtils::createMissingParCvs(CurveLoop& bd_loop, bool loop_is_ccw)
                             {
                                 // 1) We miss a degenerate edge (i.e. the surface point is a singularity, the par
                                 //    points share parameter value in one of the directions).
-                                std::cout << "WARNING: Suspecting: Add a degenerate edge! pardist = " <<
-                                    pardist << " (epspar = " << epspar << "). end_length: " << end_length <<
-                                    ", start_length: " << start_length << ". UPDATE BD_SF WITH LOOP!" << std::endl;
+                                // std::cout << "WARNING: Suspecting: Add a degenerate edge! pardist = " <<
+                                //     pardist << " (epspar = " << epspar << "). end_length: " << end_length <<
+                                //     ", start_length: " << start_length << ". UPDATE BD_SF WITH LOOP!" << std::endl;
+                                // The Line object relies on a non-zero directional vector, hence we use a SplineCurve.
 #if 1
-                                shared_ptr<SplineCurve> deg_line(new SplineCurve(end_sf_pt[0], 0.0, start_sf_pt[0], 1.0));
-#else
-                                // The Line object relies on a non-zero directional vector.
                                 shared_ptr<Line> deg_line(new Line(end_sf_pt[0], start_sf_pt[0], 0.0, 1.0));
+#else
+                                shared_ptr<SplineCurve> deg_line(new SplineCurve(end_sf_pt[0], 0.0, start_sf_pt[0], 1.0));
 #endif
                                 const double par_pref = false;
                                 shared_ptr<CurveOnSurface> deg_cv_on_sf(new CurveOnSurface(sf, deg_line, par_pref));
