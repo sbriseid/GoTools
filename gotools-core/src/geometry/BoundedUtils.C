@@ -4079,7 +4079,6 @@ bool BoundedUtils::createMissingParCvs(Go::BoundedSurface& bd_sf)
 	;//MESSAGE("All OK, epsgeo = " << epsgeo << ", max_gap = " << max_gap);
     }
 
-    vector<CurveLoop> bd_loops = bd_sf.absolutelyAllBoundaryLoops();
 #ifndef NDEBUG
     {
 	std::ofstream debug("tmp/debug_pre.g2");
@@ -4112,7 +4111,18 @@ bool BoundedUtils::createMissingParCvs(Go::BoundedSurface& bd_sf)
             surf_of_lin_extr->setParameterBounds(umin, vmin, umax, vmax);
         }
     }
+
+    for (int ki = 0; ki < bd_sf.numberOfLoops(); ++ki)
+    {
+        shared_ptr<CurveLoop> loop = bd_sf.loop(ki);
+	const bool loop_is_ccw = (ki == 0);
+        all_par_cvs_ok = createMissingParCvs(*loop, loop_is_ccw);
+    }
+
+#if 0
+    vector<CurveLoop> bd_loops = bd_sf.absolutelyAllBoundaryLoops();
     all_par_cvs_ok = createMissingParCvs(bd_loops);
+#endif
 
 #ifndef NDEBUG
     {
@@ -4137,19 +4147,129 @@ bool BoundedUtils::createMissingParCvs(vector<CurveLoop>& bd_loops)
     bool all_par_cvs_ok = true;
 
     int loop_id = -1;
-    for ( auto bd_loop : bd_loops )
+    for ( auto& bd_loop : bd_loops )
     {
         ++loop_id;
+	const bool loop_is_ccw = (loop_id == 0);        
+        bool loop_cvs_ok = createMissingParCvs(bd_loop, loop_is_ccw);
+        if (!loop_cvs_ok)
+        {
+            all_par_cvs_ok = false;
+        }
+    }
+
+    return all_par_cvs_ok;
+}
+
+//==========================================================================
+bool BoundedUtils::createMissingParCvs(CurveLoop& bd_loop, bool loop_is_ccw)
+//==========================================================================
+{
+    bool all_par_cvs_ok = true;
+
+    // for ( auto& bd_loop : bd_loops )
+    // {
 	// Make ParamCurve pointers
 	// For cases with end pt at a seam and tangent following the seam, we may need to project the previous/next curve first.
 //	vector<int> second_attempt;
 	//CurveLoop bd_loop = bd_loops[kj];
+	vector<pair<shared_ptr<Point>, shared_ptr<Point> > > loop_end_par_pts = getEndParamPoints(bd_loop, loop_is_ccw);
+
+        // If an end point is in a singularity and we are missing a deg space curve we must add one.
+        // We are assuming that all projected end points are within epsgeo. If the corresponding par pts
+        // differ by more than epspar the point is assumed to be a singularity in need of a degenerete
+        // segment in space and a corresponding linear segment in the paremeter domain.
+        shared_ptr<CurveOnSurface> first_cv = dynamic_pointer_cast<CurveOnSurface>(bd_loop[0]);
+        ASSERT(first_cv.get() != NULL);
+        shared_ptr<ParamSurface> sf = first_cv->underlyingSurface();
+        const double epsgeo = bd_loop.getSpaceEpsilon();
+        Point par_eps = SurfaceTools::getParEpsilon(*sf, epsgeo);
+        const double epspar = std::min(par_eps[0], par_eps[1]);
+        const double epstang = 1.0e-06;
+        std::vector<shared_ptr<ParamCurve> > loop_cvs = bd_loop.getCurves();
+        for (size_t ki = 0; ki < loop_end_par_pts.size(); ++ki)
+        {
+            size_t next_ind = (ki + 1)%(loop_end_par_pts.size());
+            if ((loop_end_par_pts[ki].second.get() != nullptr) && (loop_end_par_pts[next_ind].first.get() != nullptr))
+            {
+                shared_ptr<Point> end_par_pt = loop_end_par_pts[ki].second;
+                vector<Point> end_sf_pt = sf->point((*end_par_pt)[0], (*end_par_pt)[1], 1);
+                shared_ptr<Point> start_par_pt = loop_end_par_pts[next_ind].first;
+                vector<Point> start_sf_pt = sf->point((*start_par_pt)[0], (*start_par_pt)[1], 1);
+                double pardist = end_par_pt->dist(*start_par_pt);
+                double space_dist = end_sf_pt[0].dist(start_sf_pt[0]);
+                if (pardist > epspar)
+                {
+                    if (space_dist < epsgeo)
+                    {   // This warning means one of the following:
+
+                        // If the surface point is a singularity we add a degenerate segment.
+                        const double par_dist_0 = fabs((*end_par_pt)[0] - (*start_par_pt)[0]);
+                        const double par_dist_1 = fabs((*end_par_pt)[1] - (*start_par_pt)[1]);
+                        if ((par_dist_0 < epspar) || (par_dist_1 < epspar))
+                        {
+                            // If the tangents for the index wich the deviating parameter value is less
+                            // than a small tolerance we have found a surface singularity and we need to
+                            // insert a degenerate segment.
+                            const int diff_ind = (par_dist_0 < epspar) ? 1 : 0;
+                            const double end_length = end_sf_pt[1 + diff_ind].length();
+                            const double start_length = start_sf_pt[1 + diff_ind].length();
+                            if ((end_length < epstang) && (start_length < epstang))
+                            {
+                                // 1) We miss a degenerate edge (i.e. the surface point is a singularity, the par
+                                //    points share parameter value in one of the directions).
+                                std::cout << "WARNING: Suspecting: Add a degenerate edge! pardist = " <<
+                                    pardist << " (epspar = " << epspar << "). end_length: " << end_length <<
+                                    ", start_length: " << start_length << ". UPDATE BD_SF WITH LOOP!" << std::endl;
+#if 1
+                                shared_ptr<SplineCurve> deg_line(new SplineCurve(end_sf_pt[0], 0.0, start_sf_pt[0], 1.0));
+#else
+                                // The Line object relies on a non-zero directional vector.
+                                shared_ptr<Line> deg_line(new Line(end_sf_pt[0], start_sf_pt[0], 0.0, 1.0));
+#endif
+                                const double par_pref = false;
+                                shared_ptr<CurveOnSurface> deg_cv_on_sf(new CurveOnSurface(sf, deg_line, par_pref));
+                                loop_end_par_pts.insert(loop_end_par_pts.begin() + ki + 1,
+                                                        std::make_pair(loop_end_par_pts[ki].second,
+                                                                       loop_end_par_pts[next_ind].first));
+                                loop_cvs.insert(loop_cvs.begin() + ki + 1, deg_cv_on_sf);
+                                continue;
+                            }
+                            else
+                            {
+                                // 2) We failed projection onto the seam of a closed surface (like sphere, cylinder, torus).
+                                std::cout << "WARNING: Suspecting: Failed projecting onto seam of closed surface." <<
+                                    std::endl;
+                            }
+                        }
+                        else
+                        {
+                            // 3) The projection routine is not accurate enough.
+                            std::cout << "WARNING: Suspecting: Projection is inaccurate." << " par_dist_0: " <<
+                                par_dist_0 << ", par_dist_1: " << par_dist_1 << ", epspar: " << epspar <<
+                                ", space_dist: " << space_dist << ", epsgeo: " << epsgeo << std::endl;
+                        }
+                    }
+                    else
+                    {
+                        // 4) The space curve is too far from the surface.
+                        std::cout << "WARNING: Suspecting: The loop is not connected! space_dist = " <<
+                            space_dist << ", epsgeo = " << epsgeo << ")" << std::endl;
+                    }
+                }
+            }
+        }
+
+#if 1
+        if (bd_loop.size() != loop_cvs.size())
+        {
+            bd_loop.setCurves(loop_cvs, false);
+        }
+#endif
+
 	int num_segments = bd_loop.size();
 	vector<int> loop_cv_ind(num_segments);
 	vector<bool> failed_once(num_segments, false);
-	double epsgeo = bd_loop.getSpaceEpsilon();
-	const bool loop_is_ccw = (loop_id == 0);
-	vector<pair<shared_ptr<Point>, shared_ptr<Point> > > loop_end_par_pts = getEndParamPoints(bd_loop, loop_is_ccw);
 	for (int kr = 0; kr < bd_loop.size(); ++kr)
         {
             loop_cv_ind[kr] = kr;
@@ -4267,7 +4387,7 @@ bool BoundedUtils::createMissingParCvs(vector<CurveLoop>& bd_loops)
 	    }
 #endif
 	}
-    }
+//    }
 
     return all_par_cvs_ok;
 }
