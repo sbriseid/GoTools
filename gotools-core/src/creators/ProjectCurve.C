@@ -408,6 +408,8 @@ vector<double> ProjectCurve::createSeed(double tpar) const
 	  }
 
 	// We only use the seed if surface is cyclic in that direction.
+        // We then assume we stay on the same side of the seem, extrapolating the
+        // start/end par point.
 	if ((clo_dist < epsgeo) &&
 	    ((closed_dir_u_ &&
 		 ((clo_u - umin_ < epsgeo) || (umax_ - clo_u < epsgeo))) ||
@@ -422,7 +424,8 @@ vector<double> ProjectCurve::createSeed(double tpar) const
 	    // pt, and then assume linearity. Perhaps check make sure it
 	    // ends up inside parameter domain.
 	    vector<Point> surf_pt(3);
-	    surf_->point(surf_pt, base_par_pt[0], base_par_pt[1], 1);
+	    //surf_->point(surf_pt, base_par_pt[0], base_par_pt[1], 1);
+	    surf_->point(surf_pt, clo_u, clo_v, 1);
 	    double coef1, coef2;
 	    int dim = surf_->dimension();
 	    CoonsPatchGen::blendcoef(&surf_pt[1][0], &surf_pt[2][0],

@@ -4116,7 +4116,11 @@ bool BoundedUtils::createMissingParCvs(Go::BoundedSurface& bd_sf)
     {
         shared_ptr<CurveLoop> loop = bd_sf.loop(ki);
 	const bool loop_is_ccw = (ki == 0);
-        all_par_cvs_ok = createMissingParCvs(*loop, loop_is_ccw);
+        bool loop_par_cvs_ok = createMissingParCvs(*loop, loop_is_ccw);
+        if (!loop_par_cvs_ok)
+        {
+            all_par_cvs_ok = false;
+        }
     }
 
 #if 0
