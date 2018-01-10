@@ -102,8 +102,8 @@ public:
     /// Set id of edge
     virtual void setEntryId(int id) = 0;
 
-    /// Split the edge at the given parameter t. This edge will then represent
-    /// the first part of the original edge, the second part is returned to the
+    /// Split the edge at the given parameter t. This edge then represent the
+    /// first part of the original edge, the second part is returned to the
     /// caller.
     virtual ftEdgeBase* split(double t) = 0;
 

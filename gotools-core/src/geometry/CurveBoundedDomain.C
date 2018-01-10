@@ -538,6 +538,12 @@ void CurveBoundedDomain::getInsideIntervals(int pardir, double parval1,
   Point parpt(parval1, parval2);
   double len1 = (parbox.umax()-parbox.umin())+(parbox.vmax()-parbox.vmin());
   double len2 = mid.dist(parpt);
+  if (len1 == 0.0)
+  {
+      MESSAGE("Degenerate domain!");
+      return;
+  }
+
   double mult_fac = 2.0*(len1+len2)/len1;  // The curve with which to intersect
   // should be much larger than the trimmed domain
 

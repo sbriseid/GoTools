@@ -228,7 +228,8 @@ void ProjectCurve::eval(double t, int n, Go::Point der[]) const
             // projection defining the 3d curve.
             MESSAGE("clo_dist = " << clo_dist << ", epsgeo1_ = " << epsgeo1_);
         }
-	if (closeToSurfaceBoundary(clo_u, clo_v)) {
+        // If a seed was used we do not replace the found value.
+	if ((!seed_ptr) && (closeToSurfaceBoundary(clo_u, clo_v))) {
 	    snapIfBoundaryIsCloser(space_pt[0], clo_u, clo_v, clo_dist);
 	}
 
@@ -407,6 +408,8 @@ vector<double> ProjectCurve::createSeed(double tpar) const
 	  }
 
 	// We only use the seed if surface is cyclic in that direction.
+        // We then assume we stay on the same side of the seem, extrapolating the
+        // start/end par point.
 	if ((clo_dist < epsgeo) &&
 	    ((closed_dir_u_ &&
 		 ((clo_u - umin_ < epsgeo) || (umax_ - clo_u < epsgeo))) ||
@@ -421,14 +424,15 @@ vector<double> ProjectCurve::createSeed(double tpar) const
 	    // pt, and then assume linearity. Perhaps check make sure it
 	    // ends up inside parameter domain.
 	    vector<Point> surf_pt(3);
-	    surf_->point(surf_pt, base_par_pt[0], base_par_pt[1], 1);
+	    //surf_->point(surf_pt, base_par_pt[0], base_par_pt[1], 1);
+	    surf_->point(surf_pt, clo_u, clo_v, 1);
 	    double coef1, coef2;
 	    int dim = surf_->dimension();
 	    CoonsPatchGen::blendcoef(&surf_pt[1][0], &surf_pt[2][0],
 				     &cv_pt[1][0], dim, 1, &coef1, &coef2);
 
 	    Point dir_der = Point(coef1, coef2);
-	
+            dir_der.normalize();
 	    Point ext_pt = base_par_pt + (tpar - base_t)*dir_der;
 	    seed.insert(seed.end(), ext_pt.begin(), ext_pt.end());
 	    return seed;

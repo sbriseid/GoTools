@@ -86,7 +86,7 @@ public:
     /// \param cv geometric curve
     /// \param v1 vertex in the start of the edge
     /// \param v2 vertex in the end of the edge
-    /// \param is_reversed whether the geometrc curve is reversed with respect to
+    /// \param is_reversed whether the geometric curve is reversed with respect to
     /// the start and end vertices. Needed to sort out closed curves.
     ftEdge(ftFaceBase* face, shared_ptr<ParamCurve> cv, 
 	   shared_ptr<Vertex> v1, shared_ptr<Vertex> v2, 
@@ -150,6 +150,7 @@ public:
     /// Split edge in a given parameter.
     /// The memory handling of the returned edge is the responsibility of the caller. If the edge has a
     /// twin the same applies to the split twin edge (this->twin()).
+    /// The return value constitutes the second part of the edge.
 #if ((_MSC_VER > 0) && (_MSC_VER < 1300))
     virtual ftEdgeBase* split(double t);
 #else
@@ -172,10 +173,13 @@ public:
     /// Set Id corresponding to this edge
     virtual void setEntryId(int id) { entry_id_ = id; }
 
-    /// Evaluate position given edge parameter
+    /// Evaluate position given edge parameter.
+    // The parametrization is the same as that of the geom_curve_, regardless of the orientation.
     virtual Point point(double t) const;
 
     /// Evaluate tangent of edge given edge parameter
+    // The parametrization is the same as that of the geom_curve_, regardless of the orientation.
+    // If reversed_dir_ is true the direction of the curve tangent is reversed.
     virtual Point tangent(double t) const;
 
     /// Evaluate normal of associated face given edge parameter
@@ -191,7 +195,7 @@ public:
 			      Point& clo_pt, double& clo_dist,
 			      double const *seed = 0) const;
 
-    /// Connect this edge to the given one
+    /// Connect this edge after (as the next edge to) the given one
     virtual void connectAfter(ftEdgeBase* edge);
 
     /// Closing of loop

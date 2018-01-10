@@ -2491,18 +2491,18 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
         surface_->closestPoint(cv_pt2[0], clo_u2, clo_v2, clo_pt2, clo_dist2, eps, NULL, seed);
         std::cout << "DEBUG: clo_u: " << clo_u << ", clo_u2: " << clo_u2 << ", clo_v: " << clo_v <<
             ", clo_v2: " << clo_v2 << std::endl;
-#if 1
+#if 0
         MESSAGE("Degenerate point, we need to enable special handling!");
 #else
         double upar = (deg_uder) ? clo_u2 : clo_u;
         double vpar = (deg_vder) ? clo_v2 : clo_v;
         Point sf_pt_deg = surface_->point(upar, vpar);
-        double sf_pt_deg_dist = sf_pt_deg.dist(clo_pt); // We compare with the projection, not with the
+        double sf_pt_deg_dist = sf_pt_deg.dist(cv_pt[0]); // We compare with the projection, not with the
                                                         // curve (which may be relatively far away).
         if (sf_pt_deg_dist < epsgeo) // We only accept the point if it is within epsgeo.
         {
-            std::cout << "Degenerate point, enabling special handling! clo_dist: " << clo_dist << ", clo_dist2: " <<
-                clo_dist2 << std::endl;
+            std::cout << "DEBUG: Degenerate point, enabling special handling! clo_dist: " << clo_dist <<
+                ", sf_pt_deg_dist: " << sf_pt_deg_dist << std::endl;
             if (deg_uder)
             {
                 clo_u = clo_u2;
@@ -2536,7 +2536,9 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
 	}
     }
 
-    const double knot_diff_tol = 1e-08;
+    const Point sf_epspar = SurfaceTools::getParEpsilon(*surface_, epsgeo);
+    const double epspar = std::min(sf_epspar[0], sf_epspar[1]);
+    const double knot_diff_tol = epspar;//1e-08;
     const RectDomain rect_dom = surface_->containingDomain();
     const double umin = rect_dom.umin();
     const double umax = rect_dom.umax();
@@ -2559,17 +2561,11 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
     }
     else // We are at the seam. We use the direction of the projected tangent to choose the side.
     {
-	// We consider an angle of more than tang_tol to be not tangential.
-	const double tang_tol = 1e-02;
+	// We consider an angle of more than ang_tol to be non-tangential.
+	const double ang_tol = 1e-02;
 
 	const bool handle_u_seam = (at_u_bd && closed_dir_u);
 	const bool handle_v_seam = (at_v_bd && closed_dir_v);
-
-	if (handle_u_seam && handle_v_seam)
-	{
-	    MESSAGE("In a corner of a (topological) torus, not yet handled.");
-	    return shared_ptr<Point>(NULL);
-	}
 
 	// If we are at the end of the curve, our test differs slightly.
 	const bool at_cv_end = (fabs(tpar - endparam()) < knot_diff_tol);
@@ -2580,7 +2576,7 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
 	// slightly larger and smaller.
 	if (!at_cv_start && !at_cv_end)
 	{
-	    MESSAGE("Case requires a seed.");
+	    std::cout << "WARNING: Case requires a seed." << std::endl;
 	    return shared_ptr<Point>(NULL);
 	}
 
@@ -2604,7 +2600,7 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
 	    ang_u -= 2*M_PI;
 	}
 	// To fix problems with uneven scaling of domain directions we check angle for space tangents.
-	if (ang_u_space < tang_tol)
+	if (ang_u_space < ang_tol)
 	{
 	    ang_u = 0.0;
 	}
@@ -2613,67 +2609,133 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
 	{
 	    ang_v -= 2*M_PI;
 	}
-	if (ang_v_space < tang_tol)
+	if (ang_v_space < ang_tol)
 	{
 	    ang_v = 0.0;
 	}
+        bool u_parallell = ((fabs(ang_u) < ang_tol) || (fabs(fabs(ang_u) - M_PI) < ang_tol));
+        bool v_parallell = ((fabs(ang_v) < ang_tol) || (fabs(fabs(ang_v) - M_PI) < ang_tol));
+
+        // By using the direction of the tangent in combination with the cw_loop/ccw_loop information we
+        // should be able to handle points at a double seam.
+        if (handle_u_seam && handle_v_seam)
+	{   
+            // We must compare the tangent with the surface tangent. Based on the direction and position on the curve (begin/end)
+            // we can conclude on which side to project.
+            if ((!cw_loop) && (!ccw_loop))
+            {
+                std::cout << "WARNING: The method branch expects the input to be part of a loop!" << std::endl;
+            }
+
+            if ((!u_parallell) && (!v_parallell))
+            {
+                // It is trivial to extend the method to support this case.
+                std::cout << "WARNING: Double seam, non-tangential, case not handled!" << 
+                    " ang_u: " << ang_u << ", ang_v: " << ang_v << std::endl;
+                return shared_ptr<Point>(NULL);
+            }
+            else if (u_parallell)
+            {   // We use the u-dir to pick the u param. We use the ccw/cw info to pick the v param.
+                if (fabs(ang_u) < ang_tol)
+                {
+                    clo_u = (at_cv_start) ? umin : umax;
+                    clo_v = (ccw_loop) ? vmin : vmax;
+                }
+                else if (fabs(fabs(ang_u) - M_PI) < ang_tol)
+                {
+                    clo_u = (at_cv_start) ? umax : umin;
+                    clo_v = (ccw_loop) ? vmax : vmin;
+                }
+            }
+            else // v_parallell
+            {   // We use the u-dir to pick the v param. We use the ccw/cw info to pick the u param.
+                if (fabs(ang_v) < ang_tol)
+                {
+                    clo_v = (at_cv_start) ? vmin : vmax;
+                    clo_u = (ccw_loop) ? umax : umin;
+                }
+                else if (fabs(fabs(ang_v) - M_PI) < ang_tol)
+                {
+                    clo_v = (at_cv_start)? vmax : vmin;
+                    clo_u = (ccw_loop) ? umin : umax;
+                }
+            }
+
+            return shared_ptr<Point>(new Point(clo_u, clo_v));
+        }
 
         // ElementarySurface* elem_sf = surface_->elementarySurface();
         // const double sign = (elem_sf == nullptr) ? 1.0 : (elem_sf->isSwapped() ? -1.0 : 1.0);
-	if (handle_u_seam)
+	else if (handle_u_seam)
 	{
-	    if ((fabs(ang_v) < tang_tol) || ((fabs(ang_v + M_PI) < tang_tol)) || ((fabs(ang_v - M_PI) < tang_tol)))
+	    if (v_parallell)//(fabs(ang_v) < ang_tol) || ((fabs(ang_v) - M_PI) < ang_tol))// || ((fabs(ang_v - M_PI) < ang_tol)))
 	    {   // We are following the seam, with no seed given, not handled currently.
 		// @@sbr201506 We could use a marching approach to handle some cases.
 //		MESSAGE("Following the seam! constdir_: " << constdir_ << ", constval_: " << constval_);
-		bool march_left_success = false;
-		Point march_left_pt = Point(clo_u, clo_v);
-		marchOutSeamPoint(tpar, false, true, false, epsgeo,
-				  march_left_pt, march_left_success);
-		bool march_right_success = false;
-		Point march_right_pt = Point(clo_u, clo_v);
-		marchOutSeamPoint(tpar, true, true, false, epsgeo,
-				  march_right_pt, march_right_success);
-		if (march_left_success && march_right_success)
-		{
-		    double dist = march_left_pt.dist(march_right_pt);
-		    if (dist < knot_diff_tol)
-		    {
-			// The result should be the same.
-			return shared_ptr<Point>(new Point(march_left_pt));
-		    }
-		    else
-		    {
-			MESSAGE("Marching ended in mismatch.");
-		    }
-		}
-		else if (march_left_success)
-		{
-		    return shared_ptr<Point>(new Point(march_left_pt));
-		}
-		else if (march_right_success)
-		{
-		    return shared_ptr<Point>(new Point(march_right_pt));
-		}
-		else
-		{
-		    // This should mean that the whole curve is following the seam. We use loop orientation
-		    // to choose side.
-		    if (ccw_loop)
-		    {
-			// If tangent is increasing we choose umax, otherwise umin.
-			clo_u = (par_tangent[1] > 0.0) ? umax : umin;
-			return shared_ptr<Point>(new Point(clo_u, clo_v));
-		    }
-		    else if (cw_loop)
-		    {
-			clo_u = (par_tangent[1] > 0.0) ? umin : umax;
-			return shared_ptr<Point>(new Point(clo_u, clo_v));
-		    }
+                if (cw_loop || ccw_loop)
+                {
+                    if (fabs(ang_v) < ang_tol)
+                    {
+//                    clo_v = (at_cv_start) ? vmin : vmax;
+                        clo_u = (ccw_loop) ? umax : umin;
+                    }
+                    else if (fabs(fabs(ang_v) - M_PI) < ang_tol)
+                    {
+//                    clo_v = (at_cv_start)? vmax : vmin;
+                        clo_u = (ccw_loop) ? umin : umax;
+                    }
+                }
+                else
+                {
+                    bool march_left_success = false;
+                    Point march_left_pt = Point(clo_u, clo_v);
+                    marchOutSeamPoint(tpar, false, true, false, epsgeo,
+                                      march_left_pt, march_left_success);
+                    bool march_right_success = false;
+                    Point march_right_pt = Point(clo_u, clo_v);
+                    marchOutSeamPoint(tpar, true, true, false, epsgeo,
+                                      march_right_pt, march_right_success);
+                    if (march_left_success && march_right_success)
+                    {
+                        double dist = march_left_pt.dist(march_right_pt);
+                        if (dist < knot_diff_tol)
+                        {
+                            // The result should be the same.
+                            return shared_ptr<Point>(new Point(march_left_pt));
+                        }
+                        else
+                        {
+                            MESSAGE("Marching ended in mismatch.");
+                        }
+                    }
+                    else if (march_left_success)
+                    {
+                        return shared_ptr<Point>(new Point(march_left_pt));
+                    }
+                    else if (march_right_success)
+                    {
+                        return shared_ptr<Point>(new Point(march_right_pt));
+                    }
+                    else
+                    {
+                        // This should mean that the whole curve is following the seam. We use loop orientation
+                        // to choose side.
+                        if (ccw_loop)
+                        {
+                            // If tangent is increasing we choose umax, otherwise umin.
+                            clo_u = (par_tangent[1] > 0.0) ? umax : umin;
+                            return shared_ptr<Point>(new Point(clo_u, clo_v));
+                        }
+                        else if (cw_loop)
+                        {
+                            clo_u = (par_tangent[1] > 0.0) ? umin : umax;
+                            return shared_ptr<Point>(new Point(clo_u, clo_v));
+                        }
 //		    follows_seem_dir = 2;
-		    MESSAGE("Marching failed. ccw_loop: " << ccw_loop << ", cw_loop: " << cw_loop);
-		    return shared_ptr<Point>(NULL);
-		}
+                        MESSAGE("Marching failed. ccw_loop: " << ccw_loop << ", cw_loop: " << cw_loop);
+                        return shared_ptr<Point>(NULL);
+                    }
+                }
 	    }
 	    else
 	    {
@@ -2705,57 +2767,73 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
 	// else // at_v_bd
 	else if (handle_v_seam) // Constant v parameter for the seam.
 	{
-	    if ((fabs(ang_u) < tang_tol) || ((fabs(ang_u + M_PI) < tang_tol)) || ((fabs(ang_u - M_PI) < tang_tol)))
+	    if (u_parallell)//(fabs(ang_u) < ang_tol) || ((fabs(ang_u) - M_PI) < ang_tol))// || ((fabs(ang_u - M_PI) < ang_tol)))
 	    { // We are along the seam.
 //		MESSAGE("Following the seam! constdir_: " << constdir_ << ", constval_: " << constval_);
-		bool march_left_success = false;
-		Point march_left_pt = Point(clo_u, clo_v);
-		marchOutSeamPoint(tpar, false, false, true, epsgeo,
-				  march_left_pt, march_left_success);
-		bool march_right_success = false;
-		Point march_right_pt = Point(clo_u, clo_v);
-		marchOutSeamPoint(tpar, true, false, true, epsgeo,
-				  march_right_pt, march_right_success);
-		if (march_left_success && march_right_success)
-		{
-		    double dist = march_left_pt.dist(march_right_pt);
-		    if (dist < knot_diff_tol)
-		    {
-			// The result should be the same.
-			return shared_ptr<Point>(new Point(march_left_pt));
-		    }
-		    else
-		    {
-			MESSAGE("Marching ended in mismatch.");
-		    }
-		}
-		else if (march_left_success)
-		{
-		    return shared_ptr<Point>(new Point(march_left_pt));
-		}
-		else if (march_right_success)
-		{
-		    return shared_ptr<Point>(new Point(march_right_pt));
-		}
-		else
-		{
+                if (cw_loop || ccw_loop)
+                {
+                    if (fabs(ang_u) < ang_tol)
+                    {
+//                    clo_u = (at_cv_start) ? umin : umax;
+                        clo_v = (ccw_loop) ? vmin : vmax;
+                    }
+                    else if (fabs(fabs(ang_u) - M_PI) < ang_tol)
+                    {
+//                    clo_u = (at_cv_start) ? umax : umin;
+                        clo_v = (ccw_loop) ? vmax : vmin;
+                    }
+                }
+                else
+                {
+                    bool march_left_success = false;
+                    Point march_left_pt = Point(clo_u, clo_v);
+                    marchOutSeamPoint(tpar, false, false, true, epsgeo,
+                                      march_left_pt, march_left_success);
+                    bool march_right_success = false;
+                    Point march_right_pt = Point(clo_u, clo_v);
+                    marchOutSeamPoint(tpar, true, false, true, epsgeo,
+                                      march_right_pt, march_right_success);
+                    if (march_left_success && march_right_success)
+                    {
+                        double dist = march_left_pt.dist(march_right_pt);
+                        if (dist < knot_diff_tol)
+                        {
+                            // The result should be the same.
+                            return shared_ptr<Point>(new Point(march_left_pt));
+                        }
+                        else
+                        {
+                            MESSAGE("Marching ended in mismatch.");
+                        }
+                    }
+                    else if (march_left_success)
+                    {
+                        return shared_ptr<Point>(new Point(march_left_pt));
+                    }
+                    else if (march_right_success)
+                    {
+                        return shared_ptr<Point>(new Point(march_right_pt));
+                    }
+                    else
+                    {
 //		    follows_seem_dir = 2;
-		    // This should mean that the whole curve is following the seam. We use loop orientation
-		    // to choose side.
-		    if (ccw_loop)
-		    {
-			// If tangent is increasing we choose umax, otherwise umin.
-			clo_v = (par_tangent[0] > 0.0) ? vmin : vmax;
-			return shared_ptr<Point>(new Point(clo_u, clo_v));
-		    }
-		    else if (cw_loop)
-		    {
-			clo_v = (par_tangent[0] > 0.0) ? vmax : vmin;
-			return shared_ptr<Point>(new Point(clo_u, clo_v));
-		    }
-		    MESSAGE("Marching failed. ccw_loop: " << ccw_loop << ", cw_loop: " << cw_loop);
-		    return shared_ptr<Point>(NULL);
-		}
+                        // This should mean that the whole curve is following the seam. We use loop orientation
+                        // to choose side.
+                        if (ccw_loop)
+                        {
+                            // If tangent is increasing we choose umax, otherwise umin.
+                            clo_v = (par_tangent[0] > 0.0) ? vmin : vmax;
+                            return shared_ptr<Point>(new Point(clo_u, clo_v));
+                        }
+                        else if (cw_loop)
+                        {
+                            clo_v = (par_tangent[0] > 0.0) ? vmax : vmin;
+                            return shared_ptr<Point>(new Point(clo_u, clo_v));
+                        }
+                        MESSAGE("Marching failed. ccw_loop: " << ccw_loop << ", cw_loop: " << cw_loop);
+                        return shared_ptr<Point>(NULL);
+                    }
+                }
 		// MESSAGE("Following the seam!");
 		// return shared_ptr<Point>(NULL);
 	    }
@@ -3028,8 +3106,8 @@ void CurveOnSurface::pickParamPoint(vector<Point>& par_candidates,
     // Assuming that our domain is the full domain. For our purposes I
     // suppose it is.
     RectDomain rect_dom = surface_->containingDomain();
-    // We consider an angle of more than tang_tol to be not tangential.
-    const double tang_tol = 1e-02;
+    // We consider an angle of more than ang_tol to be not tangential.
+    const double ang_tol = 1e-02;
     Point u_dir(1.0, 0.0);
     Point v_dir(0.0, 1.0);
     for (size_t ki = 0; ki < par_candidates.size(); ++ki)
@@ -3037,7 +3115,9 @@ void CurveOnSurface::pickParamPoint(vector<Point>& par_candidates,
 	double upar = par_candidates[ki][0];
 	double vpar = par_candidates[ki][1];
 
-	const double knot_diff_tol = 1e-08;
+        const Point sf_epspar = SurfaceTools::getParEpsilon(*surface_, epsgeo);
+        const double epspar = std::min(sf_epspar[0], sf_epspar[1]);
+	const double knot_diff_tol = epspar;//1e-08;
 	// If we are at the end of the curve, our test differs slightly.
 	bool at_cv_end = (fabs(tpar - endparam()) < knot_diff_tol);
 	bool at_cv_start = (fabs(tpar - startparam()) < knot_diff_tol);
@@ -3071,7 +3151,7 @@ void CurveOnSurface::pickParamPoint(vector<Point>& par_candidates,
 	    ang_u -= 2*M_PI;
 	}
 	// To fix problems with uneven scaling of domain directions we check angle for space tangents.
-	if (ang_u_space < tang_tol)
+	if (ang_u_space < ang_tol)
 	{
 	    ang_u = 0.0;
 	}
@@ -3080,7 +3160,7 @@ void CurveOnSurface::pickParamPoint(vector<Point>& par_candidates,
 	{
 	    ang_v -= 2*M_PI;
 	}
-	if (ang_v_space < tang_tol)
+	if (ang_v_space < ang_tol)
 	{
 	    ang_v = 0.0;
 	}
@@ -3093,7 +3173,7 @@ void CurveOnSurface::pickParamPoint(vector<Point>& par_candidates,
 	// else if (at_u_bd)
 	if (at_u_bd && closed_dir_u)
 	{
-	    if ((fabs(ang_v) < tang_tol) || ((fabs(ang_v + M_PI) < tang_tol)) || ((fabs(ang_v - M_PI) < tang_tol)))
+	    if ((fabs(ang_v) < ang_tol) || ((fabs(ang_v + M_PI) < ang_tol)) || ((fabs(ang_v - M_PI) < ang_tol)))
 	    {
 		; // Do nothing.
 	    }
@@ -3129,7 +3209,7 @@ void CurveOnSurface::pickParamPoint(vector<Point>& par_candidates,
 	// else // at_v_bd
 	if (at_v_bd && closed_dir_v)
 	{
-	    if ((fabs(ang_u) < tang_tol) || ((fabs(ang_u + M_PI) < tang_tol)) || ((fabs(ang_u - M_PI) < tang_tol)))
+	    if ((fabs(ang_u) < ang_tol) || ((fabs(ang_u + M_PI) < ang_tol)) || ((fabs(ang_u - M_PI) < ang_tol)))
 	    {
 		; // Do nothing.
 	    }
@@ -3192,7 +3272,9 @@ void CurveOnSurface::marchOutSeamPoint(double tpar, bool to_the_right, bool at_u
 				       double epsgeo, Point& par_pt, bool& success) const
 //===========================================================================
 {
-    const double knot_diff_tol = 1e-08;
+    const Point sf_epspar = SurfaceTools::getParEpsilon(*surface_, epsgeo);
+    const double epspar = std::min(sf_epspar[0], sf_epspar[1]);
+    const double knot_diff_tol = epspar;//1e-08;
     Point space_pt = ParamCurve::point(tpar);
     double tmin = startparam();
     double tmax = endparam();
@@ -3219,7 +3301,7 @@ void CurveOnSurface::marchOutSeamPoint(double tpar, bool to_the_right, bool at_u
     int mult = 1;
     double step_tpar = tpar + sign*tstep_frac*mult*range;
     Point seed_pt = par_pt;
-    while (step_tpar > tmin)
+    while ((step_tpar > tmin) && (step_tpar < tmax))
     {
 	double clo_u, clo_v, clo_dist;
 	Point clo_pt;
