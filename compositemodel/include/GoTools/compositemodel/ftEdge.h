@@ -431,7 +431,6 @@ private:
 
     int entry_id_;
 
-    /// If the edge is reversed then it traverses from v2_ to v1_, with domain [v2_par_, v1_par_].
     bool is_reversed_;
 
     /// This entity is intended for volume models or other non-manifold
