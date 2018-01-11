@@ -121,7 +121,7 @@ public:
 			      Go::Point& clo_pt, double& clo_dist,
 			      double const *seed = 0) const = 0;
 
-    /// Add the edge edge to the edge loop after this edge
+    /// Add this edge to the edge loop after "edge".
     virtual void connectAfter(ftEdgeBase* edge);
     /// Close edge loop by setting the appropriate pointers between this
     /// edge and last edge
