@@ -4435,8 +4435,8 @@ BoundedUtils::getEndParamPoints(const Go::CurveLoop& bd_loop, bool ccw_loop)
 	    double* seed = NULL;
 	    bool check_bd = true;
 //	    int follows_seem_ind_start = -1;
-	    bd_par_pts[ki].first = (prev_pcv.get() != NULL) ?
-                shared_ptr<Point>(new Point(prev_pcv->point(prev_pcv->endparam()))) :
+	    bd_par_pts[ki].first = //(prev_pcv.get() != NULL) ?
+                //shared_ptr<Point>(new Point(prev_pcv->point(prev_pcv->endparam()))) :
                 cv_on_sf->projectSpacePoint(cv_on_sf->startparam(), epsgeo,
                                             seed,
 //							       follows_seem_ind_start,
@@ -4447,8 +4447,8 @@ BoundedUtils::getEndParamPoints(const Go::CurveLoop& bd_loop, bool ccw_loop)
 	    // 	MESSAGE("We should mark the curve as at the seem!");
 	    // }
 //	    int follows_seem_ind_end = -1;
-	    bd_par_pts[ki].second = (next_pcv.get() != NULL) ?
-                shared_ptr<Point>(new Point(next_pcv->point(next_pcv->startparam()))) :
+	    bd_par_pts[ki].second = //(next_pcv.get() != NULL) ?
+                //shared_ptr<Point>(new Point(next_pcv->point(next_pcv->startparam()))) :
                 cv_on_sf->projectSpacePoint(cv_on_sf->endparam(), epsgeo,
                                             seed,
 //								follows_seem_ind_end,

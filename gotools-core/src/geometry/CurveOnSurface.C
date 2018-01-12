@@ -2449,6 +2449,8 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
         THROW("The caller can not choose both ccw and cw direction for the loop.");
     }
 
+    const double ang_tol = 1e-02;
+
     bool closed_dir_u, closed_dir_v;
     Go::SurfaceTools::checkSurfaceClosed(*surface_, closed_dir_u, closed_dir_v, epsgeo);
     bool is_closed = (closed_dir_u || closed_dir_v);
@@ -2491,9 +2493,78 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
         surface_->closestPoint(cv_pt2[0], clo_u2, clo_v2, clo_pt2, clo_dist2, eps, NULL, seed);
         std::cout << "DEBUG: clo_u: " << clo_u << ", clo_u2: " << clo_u2 << ", clo_v: " << clo_v <<
             ", clo_v2: " << clo_v2 << std::endl;
-#if 0
-        MESSAGE("Degenerate point, we need to enable special handling!");
-#else
+
+        // @@sbr201801 Another option is to use the angle with the end tangents at both ends of the deg
+        // edge. Or even better we may actually search for the parameter with the corresponding
+        // direction! If the end tangents are the same we must use a marching approach to find the
+        // correct parameter along the edge.
+        const RectDomain& rect_dom = surface_->containingDomain();
+        if (deg_uder)
+        {
+            Point par_pt_min(rect_dom.umin(), clo_v);
+            Point par_pt_max(rect_dom.umax(), clo_v);
+            // We then compute the directional derivatives.
+            vector<Point> pt_min = surface_->point(par_pt_min[0], par_pt_min[1], 1);
+            double ang_min = cv_pt[1].angle(pt_min[2]);
+            bool min_parallel = ((fabs(ang_min) < ang_tol) || (fabs(fabs(ang_min) - M_PI) < ang_tol));
+            vector<Point> pt_max = surface_->point(par_pt_max[0], par_pt_max[1], 1);
+            double ang_max = cv_pt[1].angle(pt_max[2]);
+            bool max_parallel = ((fabs(ang_max) < ang_tol) || (fabs(fabs(ang_max) - M_PI) < ang_tol));
+            if (min_parallel != max_parallel)
+            {
+                clo_u = (min_parallel) ? par_pt_min[0] : par_pt_max[0];
+                return shared_ptr<Point>(new Point(clo_u, clo_v));
+            }
+            else if (min_parallel && max_parallel)
+            {
+                // We use cw/ccw info if it exists.
+                if (ccw_loop || cw_loop)
+                {
+                    bool same_dir = (fabs(ang_max) < 0.5*M_PI);
+                    clo_u = ((same_dir && ccw_loop) || ((!same_dir) && cw_loop)) ? par_pt_max[0] : par_pt_min[0];
+                    return shared_ptr<Point>(new Point(clo_u, clo_v));
+                }
+            }
+            else if ((!min_parallel) && (!max_parallel))
+            {
+                std::cout << "WARNING: Tangent to/from degenerate point is not along the min/max value!" << std::endl;
+                // We should add a search in the tanget space of the surface. We are not guaranteed to follow an iso
+                // line, making the search more complex.
+            }
+        }
+        else
+        {
+            Point par_pt_min(clo_u, rect_dom.vmin());
+            Point par_pt_max(clo_u, rect_dom.vmax());
+            // We then compute the directional derivatives.
+            vector<Point> pt_min = surface_->point(par_pt_min[0], par_pt_min[1], 1);
+            double ang_min = cv_pt[1].angle(pt_min[1]);
+            bool min_parallel = ((fabs(ang_min) < ang_tol) || (fabs(fabs(ang_min) - M_PI) < ang_tol));
+            vector<Point> pt_max = surface_->point(par_pt_max[0], par_pt_max[1], 1);
+            double ang_max = cv_pt[1].angle(pt_max[1]);
+            bool max_parallel = ((fabs(ang_max) < ang_tol) || (fabs(fabs(ang_max) - M_PI) < ang_tol));
+            if (min_parallel != max_parallel)
+            {
+                clo_v = (min_parallel) ? par_pt_min[1] : par_pt_max[1];
+                return shared_ptr<Point>(new Point(clo_u, clo_v));
+            }
+            else if (min_parallel && max_parallel)
+            {
+                // We use cw/ccw info if it exists.
+                if (ccw_loop || cw_loop)
+                {
+                    bool same_dir = (fabs(ang_max) < 0.5*M_PI);
+                    clo_v = ((same_dir && ccw_loop) || ((!same_dir) && cw_loop)) ? par_pt_min[1] : par_pt_max[1];
+                    return shared_ptr<Point>(new Point(clo_u, clo_v));
+                }
+            }
+            else if ((!min_parallel) && (!max_parallel))
+            {
+                std::cout << "WARNING: Tangent to/from degenerate point is not along the min/max value!" << std::endl;
+                // We should add a search in the tanget space of the surface. We are not guaranteed to follow an iso
+                // line, making the search more complex.
+            }
+        }
         double upar = (deg_uder) ? clo_u2 : clo_u;
         double vpar = (deg_vder) ? clo_v2 : clo_v;
         Point sf_pt_deg = surface_->point(upar, vpar);
@@ -2507,12 +2578,12 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
             {
                 clo_u = clo_u2;
             }
-            if (deg_vder)
+            else
             {
                 clo_v = clo_v2;
             }
+            return shared_ptr<Point>(new Point(clo_u, clo_v));
         }
-#endif
     }
 
     bool sf_is_bounded = surface_->isBounded();
@@ -2562,8 +2633,6 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
     else // We are at the seam. We use the direction of the projected tangent to choose the side.
     {
 	// We consider an angle of more than ang_tol to be non-tangential.
-	const double ang_tol = 1e-02;
-
 	const bool handle_u_seam = (at_u_bd && closed_dir_u);
 	const bool handle_v_seam = (at_v_bd && closed_dir_v);
 
@@ -2613,8 +2682,8 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
 	{
 	    ang_v = 0.0;
 	}
-        bool u_parallell = ((fabs(ang_u) < ang_tol) || (fabs(fabs(ang_u) - M_PI) < ang_tol));
-        bool v_parallell = ((fabs(ang_v) < ang_tol) || (fabs(fabs(ang_v) - M_PI) < ang_tol));
+        bool u_parallel = ((fabs(ang_u) < ang_tol) || (fabs(fabs(ang_u) - M_PI) < ang_tol));
+        bool v_parallel = ((fabs(ang_v) < ang_tol) || (fabs(fabs(ang_v) - M_PI) < ang_tol));
 
         // By using the direction of the tangent in combination with the cw_loop/ccw_loop information we
         // should be able to handle points at a double seam.
@@ -2627,14 +2696,14 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
                 std::cout << "WARNING: The method branch expects the input to be part of a loop!" << std::endl;
             }
 
-            if ((!u_parallell) && (!v_parallell))
+            if ((!u_parallel) && (!v_parallel))
             {
                 // It is trivial to extend the method to support this case.
                 std::cout << "WARNING: Double seam, non-tangential, case not handled!" << 
                     " ang_u: " << ang_u << ", ang_v: " << ang_v << std::endl;
                 return shared_ptr<Point>(NULL);
             }
-            else if (u_parallell)
+            else if (u_parallel)
             {   // We use the u-dir to pick the u param. We use the ccw/cw info to pick the v param.
                 if (fabs(ang_u) < ang_tol)
                 {
@@ -2647,7 +2716,7 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
                     clo_v = (ccw_loop) ? vmax : vmin;
                 }
             }
-            else // v_parallell
+            else // v_parallel
             {   // We use the u-dir to pick the v param. We use the ccw/cw info to pick the u param.
                 if (fabs(ang_v) < ang_tol)
                 {
@@ -2668,7 +2737,7 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
         // const double sign = (elem_sf == nullptr) ? 1.0 : (elem_sf->isSwapped() ? -1.0 : 1.0);
 	else if (handle_u_seam)
 	{
-	    if (v_parallell)//(fabs(ang_v) < ang_tol) || ((fabs(ang_v) - M_PI) < ang_tol))// || ((fabs(ang_v - M_PI) < ang_tol)))
+	    if (v_parallel)//(fabs(ang_v) < ang_tol) || ((fabs(ang_v) - M_PI) < ang_tol))// || ((fabs(ang_v - M_PI) < ang_tol)))
 	    {   // We are following the seam, with no seed given, not handled currently.
 		// @@sbr201506 We could use a marching approach to handle some cases.
 //		MESSAGE("Following the seam! constdir_: " << constdir_ << ", constval_: " << constval_);
@@ -2767,7 +2836,7 @@ shared_ptr<Point> CurveOnSurface::projectSpacePoint(double tpar, double epsgeo,
 	// else // at_v_bd
 	else if (handle_v_seam) // Constant v parameter for the seam.
 	{
-	    if (u_parallell)//(fabs(ang_u) < ang_tol) || ((fabs(ang_u) - M_PI) < ang_tol))// || ((fabs(ang_u - M_PI) < ang_tol)))
+	    if (u_parallel)//(fabs(ang_u) < ang_tol) || ((fabs(ang_u) - M_PI) < ang_tol))// || ((fabs(ang_u - M_PI) < ang_tol)))
 	    { // We are along the seam.
 //		MESSAGE("Following the seam! constdir_: " << constdir_ << ", constval_: " << constval_);
                 if (cw_loop || ccw_loop)
