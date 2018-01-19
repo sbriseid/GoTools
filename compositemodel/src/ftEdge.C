@@ -389,7 +389,7 @@ void ftEdge::closestPoint(const Point& pt,
     const bool crosses_seam = crossesSeam(); // True if geom_curve_ is closed and the edge crosses the curve seam.
 
     // If t is close, but not equal, to existing knot, we make it equal.
-    double knot_diff_tol = 1e-05;
+    double knot_diff_tol = 1e-08;//5;
     shared_ptr<SplineCurve> spline_cv =
       dynamic_pointer_cast<SplineCurve, ParamCurve>(geom_curve_);
     if (spline_cv.get() != 0)
@@ -1350,7 +1350,7 @@ ftEdge* ftEdge::splitAtVertexNoSharedPtr(shared_ptr<Vertex> vx)
     }
 
     // If the split parameter is close, but not equal, to existing knot, we make it equal.
-    double knot_diff_tol = 1e-05;
+    double knot_diff_tol = 1e-08;//5;
     shared_ptr<SplineCurve> spline_cv =
         dynamic_pointer_cast<SplineCurve, ParamCurve>(geom_curve_);
     if (spline_cv.get() != 0)
