@@ -194,8 +194,8 @@ public:
 	bool is_good = is.good();
 	if (!is_good) {
 // The THROW macro results in linker error for some reason (step_reader module).
-	    // THROW("Invalid geometry file!");
-	    throw std::runtime_error("Invalid geometry file!");
+            THROW("Invalid geometry file!");
+	    //throw std::runtime_error("Invalid geometry file!");
 	}
 	int nump;
 	is >> nump;
@@ -206,8 +206,8 @@ public:
 	is_good = is.good();
 	if (!is_good) {
 // The THROW macro results in linker error for some reason (step_reader module).
-	    // THROW("Invalid geometry file!");
-	    throw std::runtime_error("Invalid geometry file!");
+	    THROW("Invalid geometry file!");
+	    //throw std::runtime_error("Invalid geometry file!");
 	}
 	points_.resize(nump);
 	for (int i = 0; i < nump; ++i) {
@@ -219,8 +219,8 @@ public:
 	is_good = is.good();
 	if (!is_good) {
 // The THROW macro results in linker error for some reason (step_reader module).
-	    // THROW("Invalid geometry file!");
-	    throw std::runtime_error("Invalid geometry file!");
+	    THROW("Invalid geometry file!");
+	    //throw std::runtime_error("Invalid geometry file!");
 	}
     }
 

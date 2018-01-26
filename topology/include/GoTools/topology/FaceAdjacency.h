@@ -316,6 +316,10 @@ public:
 		  e1 = e1->next();
 		  if (e1 == orig)
 		    break;
+                  if (e1 == nullptr)
+                  {
+                      THROW("Topology failure!");
+                  }
 		}
 	    }
 	}
