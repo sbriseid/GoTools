@@ -37,3 +37,29 @@
  * written agreement between you and SINTEF ICT. 
  */
 
+
+#include "GoTools/geometry/OffsetSurface.h"
+
+
+namespace Go
+{
+
+
+// Constructor
+//===========================================================================
+OffsetSurface::OffsetSurface(shared_ptr<ParamSurface> param_sf, double offset_dist)
+    : param_sf_(param_sf), offset_dist_(offset_dist)
+//===========================================================================
+{
+}
+
+
+// Destructor
+//===========================================================================
+OffsetSurface::~OffsetSurface()
+//===========================================================================
+{
+}
+
+
+}
