@@ -41,6 +41,9 @@
 #include "GoTools/geometry/OffsetSurface.h"
 
 
+using std::vector;
+
+
 namespace Go
 {
 
@@ -48,7 +51,7 @@ namespace Go
 // Constructor
 //===========================================================================
 OffsetSurface::OffsetSurface(shared_ptr<ParamSurface> param_sf, double offset_dist)
-    : param_sf_(param_sf), offset_dist_(offset_dist)
+    : surface_(param_sf), offset_dist_(offset_dist)
 //===========================================================================
 {
 }
@@ -62,4 +65,377 @@ OffsetSurface::~OffsetSurface()
 }
 
 
+//===========================================================================
+void OffsetSurface::read(std::istream& is)
+//===========================================================================
+{
+    MESSAGE("read() not implemented");
 }
+
+//===========================================================================
+void OffsetSurface::write(std::ostream& os) const
+//===========================================================================
+{
+    MESSAGE("write() not implemented");
+}
+
+
+//===========================================================================
+BoundingBox OffsetSurface::boundingBox() const
+//===========================================================================
+{
+    BoundingBox bd_box;
+    MESSAGE("boundingbox() not implemented");
+
+    return bd_box;
+}
+
+
+//===========================================================================
+int OffsetSurface::dimension() const
+//===========================================================================
+{
+    return surface_->dimension();
+}
+
+
+//===========================================================================
+ClassType OffsetSurface::instanceType() const
+//===========================================================================
+{
+    return classType();
+}
+
+
+//===========================================================================
+SplineSurface* OffsetSurface::asSplineSurface()
+//===========================================================================
+{
+    MESSAGE("asSplineSurface() not implemented.");
+
+    return nullptr;  // Default behaviour
+}
+
+
+//===========================================================================
+SplineSurface* OffsetSurface::getSplineSurface() 
+//===========================================================================
+{
+    MESSAGE("getSplineSurface() not implemented.");
+
+    return nullptr;  // Default behaviour
+}
+
+
+//===========================================================================
+const Domain& OffsetSurface::parameterDomain() const
+//===========================================================================
+{
+    return surface_->parameterDomain();
+}
+
+
+//===========================================================================
+RectDomain OffsetSurface::containingDomain() const
+//===========================================================================
+{
+    return surface_->containingDomain();
+}
+
+
+//===========================================================================
+bool OffsetSurface::isBounded() const
+//===========================================================================
+{
+    return surface_->isBounded();
+}
+
+
+//===========================================================================
+bool OffsetSurface::inDomain(double u, double v, double eps) const
+//===========================================================================
+{
+    return surface_->inDomain(u, v, eps);
+}
+
+
+//===========================================================================
+int OffsetSurface::inDomain2(double u, double v, double eps) const
+//===========================================================================
+{
+    return surface_->inDomain2(u, v, eps);
+}
+
+
+//===========================================================================
+bool OffsetSurface::onBoundary(double u, double v, double eps) const
+//===========================================================================
+{
+    return surface_->onBoundary(u, v, eps);
+}
+
+
+//===========================================================================
+Point OffsetSurface::closestInDomain(double u, double v) const
+//===========================================================================
+{
+    return surface_->closestInDomain(u, v);
+
+}
+
+
+//===========================================================================
+void OffsetSurface::setParameterDomain(double u1, double u2, double v1, double v2)
+//===========================================================================
+{
+    surface_->setParameterDomain(u1, u2, v1, v2);
+}
+
+
+//===========================================================================
+CurveLoop OffsetSurface::outerBoundaryLoop(double degenerate_epsilon) const
+//===========================================================================
+{
+    CurveLoop loop;
+    MESSAGE("outerBoundaryLoop() not implemented.");
+
+    return loop;
+}
+
+
+//===========================================================================
+std::vector<CurveLoop> OffsetSurface::allBoundaryLoops(double degenerate_epsilon) const
+//===========================================================================
+{
+    vector<CurveLoop> loops;
+    MESSAGE("allBoundaryLoops() not implemented");
+
+    return loops;
+}
+
+
+//===========================================================================    
+DirectionCone OffsetSurface::normalCone() const
+//===========================================================================    
+{
+    DirectionCone dir_cone;
+    MESSAGE("normalCone() not implemented");
+
+    return dir_cone;
+}
+    
+
+//===========================================================================
+DirectionCone OffsetSurface::tangentCone(bool pardir_is_u) const
+//===========================================================================    
+{
+    DirectionCone dir_cone;
+    MESSAGE("tangentCone() not implemented");
+
+    return dir_cone;
+}
+
+   
+//===========================================================================
+void OffsetSurface::point(Point& pt, double upar, double vpar) const
+//===========================================================================
+{
+    Point sf_pt = surface_->ParamSurface::point(upar, vpar);
+    Point normal;
+    surface_->normal(normal, upar, vpar);
+    pt = sf_pt + normal*offset_dist_;
+}
+
+
+//===========================================================================
+void OffsetSurface::point(std::vector<Point>& pts, 
+                          double upar, double vpar,
+                          int derivs,
+                          bool u_from_right,
+                          bool v_from_right,
+                          double resolution) const
+//===========================================================================
+{
+    MESSAGE("point() not implemented");
+}
+
+
+//===========================================================================
+void OffsetSurface::normal(Point& n, double upar, double vpar) const
+//===========================================================================
+{
+    MESSAGE("normal() not implemented");
+}
+
+
+//===========================================================================
+void OffsetSurface::evalGrid(int num_u, int num_v, 
+                             double umin, double umax, 
+                             double vmin, double vmax,
+                             std::vector<double>& points,
+                             double nodata_val) const
+//===========================================================================
+{
+    MESSAGE("evalGrid() not implemented");
+}
+
+
+//===========================================================================
+Point OffsetSurface::getInternalPoint(double& u, double& v) const
+//===========================================================================
+{
+    Point sf_pt = getInternalPoint(u, v);
+    Point offset_pt;
+    point(offset_pt, u, v);
+
+    return offset_pt;
+}
+
+
+//===========================================================================
+std::vector<shared_ptr<ParamCurve> >
+OffsetSurface::constParamCurves(double parameter, bool pardir_is_u) const
+//===========================================================================
+{
+    vector<shared_ptr<ParamCurve> > iso_cvs;
+    MESSAGE("constParamCurves() not implemented");
+
+    return iso_cvs;
+}
+
+
+//===========================================================================
+std::vector<shared_ptr<ParamSurface> >
+OffsetSurface::subSurfaces(double from_upar, double from_vpar,
+                           double to_upar, double to_vpar,
+                           double fuzzy) const
+//===========================================================================
+{
+    vector<shared_ptr<ParamSurface> > sub_sfs;
+    MESSAGE("constParamCurves() not implemented");
+
+    return sub_sfs;
+}
+
+
+//===========================================================================
+double OffsetSurface::nextSegmentVal(int dir, double par, bool forward, double tol) const
+//===========================================================================
+{
+    return surface_->nextSegmentVal(dir, par, forward, tol);
+}
+
+
+//===========================================================================
+void OffsetSurface::closestBoundaryPoint(const Point& pt,
+                                         double&        clo_u,
+                                         double&        clo_v, 
+                                         Point&       clo_pt,
+                                         double&        clo_dist,
+                                         double epsilon,
+                                         const RectDomain* rd,
+                                         double *seed) const
+//===========================================================================
+{
+    MESSAGE("closestBoundaryPoint() not implemented");
+}
+
+
+//===========================================================================
+void OffsetSurface::getBoundaryInfo(Point& pt1, Point& pt2,
+                                    double epsilon, SplineCurve*& cv,
+                                    SplineCurve*& crosscv, double knot_tol) const
+//===========================================================================
+{
+    MESSAGE("getBoundaryInfo() not implemented");
+}
+
+
+//===========================================================================
+void OffsetSurface::turnOrientation()
+//===========================================================================
+{
+    surface_->swapParameterDirection();
+}
+
+
+//===========================================================================
+void OffsetSurface::reverseParameterDirection(bool direction_is_u)
+//===========================================================================
+{
+    surface_->reverseParameterDirection(direction_is_u);
+}
+
+
+//===========================================================================
+void OffsetSurface::swapParameterDirection()
+//===========================================================================
+{
+    surface_->swapParameterDirection();
+}
+
+
+//===========================================================================
+double OffsetSurface::area(double tol) const
+//===========================================================================
+{
+    double area = -1.0;
+    MESSAGE("area() not implemented");
+
+    return area;
+}
+
+
+//===========================================================================
+bool OffsetSurface::isDegenerate(bool& b, bool& r,
+                                 bool& t, bool& l, double tolerance) const
+//===========================================================================
+{
+    bool deg = false;
+    MESSAGE("isDegenerate() not implemented");
+
+    return deg;
+}
+
+
+//===========================================================================
+void OffsetSurface::getDegenerateCorners(std::vector<Point>& deg_corners, double tol) const
+//===========================================================================
+{
+    MESSAGE("getDegenerateCorners() not implemented");
+}
+
+
+//===========================================================================
+void OffsetSurface::getCornerPoints(std::vector<std::pair<Point,Point> >& corners) const
+//===========================================================================
+{
+    MESSAGE("getCornerPoints() not implemented");
+}
+
+
+//===========================================================================
+bool OffsetSurface::isPlanar(Point& normal, double tol)
+//===========================================================================
+{
+    return surface_->isPlanar(normal, tol);
+}
+
+
+//===========================================================================
+int OffsetSurface::ElementOnBoundary(int elem_ix, double eps)
+//===========================================================================
+{
+    return surface_->ElementOnBoundary(elem_ix, eps);
+}
+
+
+//===========================================================================
+int OffsetSurface::ElementBoundaryStatus(int elem_ix, double eps)
+//===========================================================================
+{
+    return surface_->ElementBoundaryStatus(elem_ix, eps);
+}
+
+
+} // namespace Go

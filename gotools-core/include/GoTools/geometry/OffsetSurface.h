@@ -49,7 +49,6 @@ namespace Go
 
 
 class SplineSurface;
-class ElementaryCurve;
 
 
 class OffsetSurface : public ParamSurface
@@ -61,19 +60,34 @@ public:
     /// Virtual destructor, enables safe inheritance.
     virtual ~OffsetSurface();
 
-    virtual ParamSurface* clone() const = 0;
+    // inherited from Streamable
+    virtual void read (std::istream& is);
 
-    /// Return a copy of the spline surface represented by this surface, if any
-    virtual SplineSurface* asSplineSurface() 
-    {
-      return 0;  // Default behaviour
-    }
+    // inherited from Streamable
+    virtual void write (std::ostream& os) const;
+
+    // inherited from GeomObject
+    virtual BoundingBox boundingBox() const;
+
+    // inherited from GeomObject
+    virtual int dimension() const;
+
+    // inherited from GeomObject
+    virtual ClassType instanceType() const;
+
+    // inherited from GeomObject
+    static ClassType classType()
+    { return Class_OffsetSurface; }
+
+    virtual OffsetSurface* clone() const
+    { return new OffsetSurface(*this); }
+
+    /// Return a copy of the spline surface represented by this surface, if any. The returned pointer is
+    /// the responsibility of the caller.
+    virtual SplineSurface* asSplineSurface();
 
     /// Return the spline surface associated to this surface, if any
-    virtual SplineSurface* getSplineSurface() 
-    {
-      return 0;  // Default behaviour
-    }
+    virtual SplineSurface* getSplineSurface();
 
     /// Return associated elementary surface, if any
     virtual ElementarySurface* elementarySurface()
@@ -86,14 +100,14 @@ public:
     /// \ref Domain (such as GoCurveBoundedDomain, found in the
     /// \c sisl_dependent module).
     /// \return a Domain object describing the parametric domain of the surface
-    virtual const Domain& parameterDomain() const = 0;
+    virtual const Domain& parameterDomain() const;
 
     /// Get a rectangular parameter domain that is guaranteed to contain the
     /// surface's \ref parameterDomain().  It may be the same.  There is no
     /// guarantee that this is the smallest domain containing the actual domain.
     /// \return a RectDomain that is guaranteed to include the surface's total
     ///         parameter domain.
-    virtual RectDomain containingDomain() const = 0;
+    virtual RectDomain containingDomain() const;
 
     /// Query if parametrization is bounded. All four parameter bounds
     /// must be finite for this to be true.
@@ -101,20 +115,20 @@ public:
     virtual bool isBounded() const;
 
     /// Check if a parameter pair lies inside the domain of this surface
-    virtual bool inDomain(double u, double v, double eps=1.0e-4) const = 0;
+    virtual bool inDomain(double u, double v, double eps=1.0e-4) const;
 
     /// Check if a parameter pair lies inside the domain of this surface
     /// return value = 0: outside
     ///              = 1: internal
     ///              = 2: at the boundary
-    virtual int inDomain2(double u, double v, double eps=1.0e-4) const = 0;
+    virtual int inDomain2(double u, double v, double eps=1.0e-4) const;
 
     /// Check if a parameter pair lies at the boundary of this surface
-    virtual bool onBoundary(double u, double v, double eps=1.0e-4) const = 0;
+    virtual bool onBoundary(double u, double v, double eps=1.0e-4) const;
 
     /// Fetch the parameter value in the parameter domain of the surface
     /// closest to the parameter pair (u,v)
-    virtual Point closestInDomain(double u, double v) const = 0;
+    virtual Point closestInDomain(double u, double v) const;
 
     /// set the parameter domain to a given rectangle
     /// \param u1 new min. value of first parameter span
@@ -131,7 +145,7 @@ public:
     /// A negative degenerate_epsilon indicates that all curves, also the
     /// degenerate ones are wanted
     virtual CurveLoop outerBoundaryLoop(double degenerate_epsilon
-					  = DEFAULT_SPACE_EPSILON) const = 0;
+                                        = DEFAULT_SPACE_EPSILON) const;
 
     /// Returns the anticlockwise outer boundary loop of the surface, together with 
     /// clockwise loops of any interior boundaries, such that the surface always is
@@ -142,19 +156,12 @@ public:
     ///         outer boundary of the surface (clockwise), whereas the others describe
     ///         boundaries of interior holes (clockwise).
     virtual std::vector<CurveLoop> allBoundaryLoops(double degenerate_epsilon
-						      = DEFAULT_SPACE_EPSILON) const = 0;
-
-    /// Mirror a surface around a specified plane
-    virtual ParamSurface* mirrorSurface(const Point& pos, 
-					const Point& norm) const
-    {
-      return 0;  // For the time being
-    }
+                                                    = DEFAULT_SPACE_EPSILON) const;
 
     /// Creates a DirectionCone covering all normals to this surface.
     /// \return a DirectionCone (not necessarily the smallest) containing all normals 
     ///         to this surface.
-    virtual DirectionCone normalCone() const = 0;
+    virtual DirectionCone normalCone() const;
     
     /// Creates a DirectionCone covering all tangents to 
     /// this surface along a given parameter direction.
@@ -163,22 +170,13 @@ public:
     ///        the second parameter direction will be used.
     /// \return a DirectionCone (not necessarily the smallest) containing all tangents
     ///         to this surface along the specified parameter direction.
-    virtual DirectionCone tangentCone(bool pardir_is_u) const = 0;
-
-    /// Creates a composite box enclosing the surface. The composite box
-    /// consists of an inner and an edge box. The inner box is
-    /// supposed to be made from the interior of the surface, while the
-    /// edge box is made from the boundary curves. The default
-    /// implementation simply makes both boxes identical to the
-    /// regular bounding box.
-    /// \return the CompositeBox of the surface, as specified above
-    virtual CompositeBox compositeBox() const;
+    virtual DirectionCone tangentCone(bool pardir_is_u) const;
    
     /// Evaluates the surface's position for a given parameter pair.
     /// \param pt the result of the evaluation is written here 
     /// \param upar the first parameter
     /// \param vpar the second parameter
-    virtual void point(Point& pt, double upar, double vpar) const = 0;
+    virtual void point(Point& pt, double upar, double vpar) const;
 
     /// Evaluates the surface's position and a certain number of derivatives
     /// for a given parameter pair.
@@ -208,41 +206,13 @@ public:
 		       int derivs,
 		       bool u_from_right = true,
 		       bool v_from_right = true,
-		       double resolution = 1.0e-12) const = 0;
-
-    /// Evaluate the surface's position at a certain parameter pair
-    /// \param upar the first parameter
-    /// \param vpar the second parameter
-    /// \return the surface's position for this parameter pair.
-    /// NB: This function is implemented in terms of the ParamSurface's virtual
-    /// 'point(...)' function, but is itself not virtual.  If you make a concrete 
-    /// subclass and wish to make this function visible to the user, you must
-    /// put a 'using ParamSurface::point' statement in the class definition.
-    Point point(double upar, double vpar) const;
-
-    /// Evaluate the surface's position and a certain number of derivatives at
-    /// a given parameter.
-    /// \param upar the first parameter 
-    /// \param vpar the second parameter
-    /// \param derivs number of requested derivatives
-    /// \return the vector containing the evaluated values.  Its size will be
-    ///         equal to (derivs+1) * (derivs+2) / 2.  Its first entry is the surface's 
-    ///         position at the given parameter pair.  Then, if 'derivs' > 0, the two next
-    ////        entries will be the surface tangents along the first and second parameter 
-    ///         direction.  The next three entries are the second- and cross derivatives, 
-    ///         in the order (du2, dudv, dv2), and similar for even higher derivatives.
-    /// NB: This function is implemented in terms of the ParamSurface's virtual
-    /// 'point(...)' functions, but is itself not virtual.  If you make a concrete 
-    /// subclass and wish to make this function visible to the user, you must
-    /// put a 'using ParamCurve::point' in the class definition.
-    std::vector<Point> point(double upar, double vpar,
-			       int derivs) const;
+		       double resolution = 1.0e-12) const;
 
     /// Evaluates the surface normal for a given parameter pair
     /// \param n the computed normal will be written to this variable
     /// \param upar the first parameter
     /// \param vpar the second parameter
-    virtual void normal(Point& n, double upar, double vpar) const = 0;
+    virtual void normal(Point& n, double upar, double vpar) const;
 
     /// Evaluate points in a grid.
     /// The nodata value is applicable for bounded surfaces
@@ -269,7 +239,7 @@ public:
     /// \return a vector containing shared pointers to the obtained, newly constructed
     ///          constant-parameter curves.
     virtual std::vector<shared_ptr<ParamCurve> >
-    constParamCurves(double parameter, bool pardir_is_u) const = 0;
+    constParamCurves(double parameter, bool pardir_is_u) const;
 
     /// Get the surface(s) obtained by cropping the parameter domain of this surface
     /// between given values for the first and second parameter.  In general, for 
@@ -287,7 +257,7 @@ public:
     virtual std::vector<shared_ptr<ParamSurface> >
     subSurfaces(double from_upar, double from_vpar,
 		double to_upar, double to_vpar,
-		double fuzzy = DEFAULT_PARAMETER_EPSILON) const = 0;
+		double fuzzy = DEFAULT_PARAMETER_EPSILON) const;
 
     /// Determine the parameter value of the start of the 'next
     /// segment' from a parameter value, along a given parameter
@@ -307,46 +277,7 @@ public:
     /// \return the value of the start value of the next segment (or
     /// the end of the previous segment, if we are moving
     /// backwards...)
-    virtual double nextSegmentVal(int dir, double par, bool forward, double tol) const = 0;
-
-    /// Iterates to the closest point to pt on the surface. 
-    /// \param pt the point to find the closest point to
-    /// \param clo_u u parameter of the closest point
-    /// \param clo_v v parameter of the closest point
-    /// \param clo_pt the geometric position of the closest point
-    /// \param clo_dist the distance between pt and clo_pt
-    /// \param epsilon parameter tolerance (will in any case not be higher than
-    ///                sqrt(machine_precision) x magnitude of solution
-    /// \param domain_of_interest pointer to parameter domain in which to search for 
-    ///                           closest point. If a NULL pointer is used, the entire
-    ///                           surface is searched.
-    /// \param seed pointer to parameter values where iteration starts.
-    virtual void closestPoint(const Point& pt,
-			      double&        clo_u,
-			      double&        clo_v, 
-			      Point&       clo_pt,
-			      double&        clo_dist,
-			      double         epsilon,
-			      const RectDomain* domain_of_interest = NULL,
-			      double   *seed = 0) const;
-
-    void closestPoint(const Point& pt,
-		      double&        clo_u,
-		      double&        clo_v, 
-		      Point&       clo_pt,
-		      double&        clo_dist,
-		      double         epsilon,
-		      int      maxiter,
-		      const RectDomain* domain_of_interest = NULL,
-		      double   *seed = 0) const;
-
-    void singularity(double& sing_u,
-		     double& sing_v, 
-		     Point& sing_pt,
-		     double& sing_dist,
-		     double epsilon,
-		     const RectDomain* rd = NULL,
-		     double *seed = 0) const;
+    virtual double nextSegmentVal(int dir, double par, bool forward, double tol) const;
 
     /// Iterates to the closest point to pt on the boundary of the surface.
     /// \see closestPoint()
@@ -357,7 +288,7 @@ public:
 				      double&        clo_dist,
 				      double epsilon,
 				      const RectDomain* rd = NULL,
-				      double *seed = 0) const = 0;
+				      double *seed = 0) const;
 
     /// Get the boundary curve segment between two points on the boundary, as 
     /// well as the cross-tangent curve.  If the given points are not positioned 
@@ -382,25 +313,25 @@ public:
     ///                 'on' the knot.
     virtual void getBoundaryInfo(Point& pt1, Point& pt2,
 				 double epsilon, SplineCurve*& cv,
-				 SplineCurve*& crosscv, double knot_tol = 1e-05) const = 0;
+				 SplineCurve*& crosscv, double knot_tol = 1e-05) const;
 
     /// Turns the direction of the normal of the surface.
-    virtual void turnOrientation() = 0;
+    virtual void turnOrientation();
 
     /// Reverses the direction of the basis in input direction.
     /// \param direction_is_u if 'true', the first parameter direction will be reversed,
     ///                       otherwise, the second parameter direction will be reversed
-    virtual void reverseParameterDirection(bool direction_is_u) = 0;
+    virtual void reverseParameterDirection(bool direction_is_u);
 
     /// Swaps the two parameter directions
-    virtual void swapParameterDirection() = 0;
+    virtual void swapParameterDirection();
 
     /// Compute the total area of this surface up to some tolerance
     /// \param tol the relative tolerance when approximating the area, i.e.
     ///            stop iteration when error becomes smaller than
     ///            tol/(surface area)
     /// \return the area calculated
-    virtual double area(double tol) const = 0;
+    virtual double area(double tol) const;
 
     /// The order of the edge indicators (bottom, right, top, left)
     /// matches the edge_number of edgeCurve().
@@ -420,63 +351,15 @@ public:
 			      bool& t, bool& l, double tolerance) const;
 
     /// Check for parallel and anti-parallel partial derivatives in surface corners
-    virtual void getDegenerateCorners(std::vector<Point>& deg_corners, double tol) const = 0;
+    virtual void getDegenerateCorners(std::vector<Point>& deg_corners, double tol) const;
 
     /// Return surface corners, geometric and parametric points
     /// in that sequence
     virtual void 
-      getCornerPoints(std::vector<std::pair<Point,Point> >& corners) const = 0;
-
-    /// Set type of closest point iterator
-    /// type == Iterator_parametric - use conjugate gradient iteration
-    /// type == Iterator_geometric - sisl type geometric closest point iteration
-    virtual void setIterator(IteratorType type)
-	{
-	    iterator_ = type;
-	}
-
-    /// Check if the current surface is trimmed along constant parameter curves
-    virtual bool isIsoTrimmed(double tol) const
-    {
-      return true;  // Default answer
-    }
-
-    /// Check if the current surface is trimmed its boundary curves
-    virtual bool isBoundaryTrimmed(double tol) const
-    {
-      return true;  // Default answer
-    }
-
-    /// Check if the surface is of type spline
-    virtual bool isSpline() const
-    {
-      return false;  // Default behaviour, overridden in the spline case
-    }
-
-    /// Check if the surface is axis rotational. Only true if a connection
-    /// to an axis rotational elementary surface exist
-    /// The axis and rotational angle is only specified if the surface
-    /// is actually rotational
-    virtual bool isAxisRotational(Point& centre, Point& axis, Point& vec,
-				  double& angle)
-    {
-      return false;  // Default behaviour, overriden for spline surfaces,
-      // bounded surfaces and some elementary surfaces
-    }
+      getCornerPoints(std::vector<std::pair<Point,Point> >& corners) const;
 
     /// Check if the surface is planar. 
     virtual bool isPlanar(Point& normal, double tol);
-
-    /// Check if the surface is linear in one or both parameter directions
-    virtual bool isLinear(Point& dir1, Point& dir2, double tol);
-
-    /// Estimate the size of the surface in the two parameter directions
-    virtual void estimateSfSize(double& u_size, double& v_size, int u_nmb = 5,
-				int v_nmb = 5) const;
-
-    virtual void estimateSfSize(double& u_size, double& min_u, double& max_u, 
-				double& v_size, double& min_v, double& max_v,
-				int u_nmb = 5, int v_nmb = 5) const;
 
    /// Check if a polynomial element (for spline surfaces) intersects the
     /// (trimming) boundaries of this surface
@@ -489,10 +372,7 @@ public:
     /// Note that a touch with the boundaries of the underlying surfaces
     /// is not consdered a boundary intersection while touching a trimming
     /// curve is seen as an intersection
-    virtual int ElementOnBoundary(int elem_ix, double eps)
-    {
-      return -1;  // Is overridden for bounded surface and spline surface
-    }
+    virtual int ElementOnBoundary(int elem_ix, double eps);
 
    /// Check if a polynomial element (for spline surfaces) intersects the
     /// (trimming) boundaries of this ftSurface, is inside or outside
@@ -506,20 +386,11 @@ public:
     /// Note that a touch with the boundaries of the underlying surface
     /// is not consdered a boundary intersection while touching a trimming
     /// curve is seen as an intersection
-    virtual int ElementBoundaryStatus(int elem_ix, double eps)
-    {
-      return -1; // Is overridden for bounded surface and spline surface
-    }
-
-    /// Particular for trimming surfaces to a trimmed volume
-    virtual bool isBoundarySurface() const
-    {
-      return false;
-    }
+    virtual int ElementBoundaryStatus(int elem_ix, double eps);
 
  protected:
 
-    shared_ptr<ParamSurface> param_sf_;
+    shared_ptr<ParamSurface> surface_;
     double offset_dist_;
     
 };
