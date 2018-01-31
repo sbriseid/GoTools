@@ -50,12 +50,15 @@ namespace Go
 
 class SplineSurface;
 
+    // Functions that must be implemented (to convert from step):
+    // ToDo: point + closestBoundaryPoint + isDegenerate + outerBoundaryLoop
+    // Done: boundingBox + write + normal
 
 class OffsetSurface : public ParamSurface
 {
 public:
 
-    OffsetSurface(shared_ptr<ParamSurface> param_sf, double offset_dist);
+    OffsetSurface(shared_ptr<ParamSurface> param_sf, double offset_dist, bool self_int = false);
 
     /// Virtual destructor, enables safe inheritance.
     virtual ~OffsetSurface();
@@ -392,6 +395,7 @@ public:
 
     shared_ptr<ParamSurface> surface_;
     double offset_dist_;
+    bool self_int_;
     
 };
 

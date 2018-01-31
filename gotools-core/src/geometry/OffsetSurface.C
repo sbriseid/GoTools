@@ -39,9 +39,11 @@
 
 
 #include "GoTools/geometry/OffsetSurface.h"
+#include "GoTools/geometry/Factory.h"
 
 
 using std::vector;
+using std::endl;
 
 
 namespace Go
@@ -50,8 +52,8 @@ namespace Go
 
 // Constructor
 //===========================================================================
-OffsetSurface::OffsetSurface(shared_ptr<ParamSurface> param_sf, double offset_dist)
-    : surface_(param_sf), offset_dist_(offset_dist)
+OffsetSurface::OffsetSurface(shared_ptr<ParamSurface> param_sf, double offset_dist, bool self_int)
+    : surface_(param_sf), offset_dist_(offset_dist), self_int_(self_int)
 //===========================================================================
 {
 }
@@ -69,14 +71,56 @@ OffsetSurface::~OffsetSurface()
 void OffsetSurface::read(std::istream& is)
 //===========================================================================
 {
-    MESSAGE("read() not implemented");
+    is >> offset_dist_;
+    int self_int_val;
+    is >> self_int_val;
+    if ((self_int_val != 0) && (self_int_val != 1))
+    {
+        MESSAGE("Unexpected value!");
+    }
+    self_int_ = (self_int_val == 1) ? true : false;
+
+    int instance_type;
+    is >> instance_type;
+    ClassType type = ClassType(instance_type); // Needs this conversion
+
+    shared_ptr<GeomObject> goobject(Factory::createObject(type));
+    shared_ptr<ParamSurface> tmp_srf 
+	= dynamic_pointer_cast<ParamSurface, GeomObject>(goobject);
+    ALWAYS_ERROR_IF(tmp_srf.get() == 0,
+		    "Can not read this instance type");
+
+    try
+    {
+	tmp_srf->read(is);
+	surface_ = tmp_srf;
+    }
+    catch (...)
+    { // We want the read routine to continue reading data, not a good strategy to throw before all object data is parsed.
+	MESSAGE("Failed reading the surface.");
+    }
+
 }
 
 //===========================================================================
 void OffsetSurface::write(std::ostream& os) const
 //===========================================================================
 {
-    MESSAGE("write() not implemented");
+    std::streamsize prev = os.precision(15);
+
+    os << offset_dist_ << endl;
+
+    if (!self_int_)
+	os << "0";
+    else
+	os << "1";
+    os << endl;
+
+    os << surface_->instanceType() << std::endl;
+    surface_->write(os);
+    os << endl;
+
+    os.precision(prev);   // Reset precision to it's previous value
 }
 
 
@@ -84,8 +128,15 @@ void OffsetSurface::write(std::ostream& os) const
 BoundingBox OffsetSurface::boundingBox() const
 //===========================================================================
 {
-    BoundingBox bd_box;
-    MESSAGE("boundingbox() not implemented");
+    // We create an over-estimate by using the base surface boundingbox and enlarging it with
+    // fabs(offset_dist) in all both directions along all axis.
+    BoundingBox sf_box = surface_->boundingBox();
+    Point offset_pt(surface_->dimension());
+    offset_pt.setValue(fabs(offset_dist_));
+
+    Point box_low = sf_box.low() - offset_pt;
+    Point box_high = sf_box.high() + offset_pt;
+    BoundingBox bd_box(box_low, box_high);
 
     return bd_box;
 }
@@ -257,6 +308,13 @@ void OffsetSurface::point(std::vector<Point>& pts,
 //===========================================================================
 {
     MESSAGE("point() not implemented");
+
+    DEBUG_ERROR_IF(derivs < 0, "Negative number of derivatives makes no sense.");
+    int totpts = (derivs + 1)*(derivs + 2)/2;
+    DEBUG_ERROR_IF((int)pts.size() < totpts, "The vector of points must have sufficient size.");
+
+    // Calling blend_s1421.
+
 }
 
 
@@ -264,7 +322,11 @@ void OffsetSurface::point(std::vector<Point>& pts,
 void OffsetSurface::normal(Point& n, double upar, double vpar) const
 //===========================================================================
 {
-    MESSAGE("normal() not implemented");
+    vector<Point> pts(4);
+    point(pts, upar, vpar, 1);
+
+    n = pts[1]%pts[2];
+    n.normalize();
 }
 
 
