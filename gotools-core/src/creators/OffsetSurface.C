@@ -252,6 +252,7 @@ CurveLoop OffsetSurface::outerBoundaryLoop(double degenerate_epsilon) const
     CurveLoop loop;
     MESSAGE("outerBoundaryLoop() not implemented.");
 
+#if 0
     // Test for degeneracy.
     bool deg[4];
     if (degenerate_epsilon < 0.0)
@@ -270,6 +271,7 @@ CurveLoop OffsetSurface::outerBoundaryLoop(double degenerate_epsilon) const
 
     return CurveLoop(vec, (degenerate_epsilon < 0.0) ? DEFAULT_SPACE_EPSILON :
 		     degenerate_epsilon);
+#endif
 
     return loop;
 }
