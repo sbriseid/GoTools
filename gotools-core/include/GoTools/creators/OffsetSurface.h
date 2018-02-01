@@ -51,8 +51,8 @@ namespace Go
 class SplineSurface;
 
     // Functions that must be implemented (to convert from step):
-    // ToDo: point + closestBoundaryPoint + isDegenerate + outerBoundaryLoop
-    // Done: boundingBox + write + normal
+    // ToDo: closestBoundaryPoint + outerBoundaryLoop
+    // Done: boundingBox + write + normal + point
 
 class OffsetSurface : public ParamSurface
 {
@@ -336,23 +336,6 @@ public:
     /// \return the area calculated
     virtual double area(double tol) const;
 
-    /// The order of the edge indicators (bottom, right, top, left)
-    /// matches the edge_number of edgeCurve().
-
-    /// Query whether any of the four boundary curves are degenerate (zero length) within 
-    /// a certain tolerance.  In the below, we refer to 'u' as the first parameter and 'v'
-    /// as the second.
-    /// \param b 'true' upon return of function if the boundary (v = v_min) is degenerate
-    /// \param r 'true' upon return of function if the boundary (v = v_max) is degenerate
-    /// \param t 'true' upon return of function if the boundary (u = u_min) is degenerate
-    /// \param l 'true' upon return of function if the boundary (u = u_max) is degenerate
-    /// \param tolerance boundaries are considered degenerate if their length is shorter
-    ///        than this value, given by the user
-    /// \return 'true' if at least one boundary curve was found to be degenerate, 'false'
-    ///         otherwise.
-    virtual bool isDegenerate(bool& b, bool& r,
-			      bool& t, bool& l, double tolerance) const;
-
     /// Check for parallel and anti-parallel partial derivatives in surface corners
     virtual void getDegenerateCorners(std::vector<Point>& deg_corners, double tol) const;
 
@@ -396,6 +379,8 @@ public:
     shared_ptr<ParamSurface> surface_;
     double offset_dist_;
     bool self_int_;
+
+    CurveLoop outer_bd_loop_; // Created when needed.
     
 };
 

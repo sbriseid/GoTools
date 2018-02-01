@@ -38,8 +38,10 @@
  */
 
 
-#include "GoTools/geometry/OffsetSurface.h"
+#include "GoTools/creators/OffsetSurface.h"
 #include "GoTools/geometry/Factory.h"
+#include "GoTools/geometry/ClassType.h"
+#include "GoTools/creators/CreatorsOffsetUtils.h"
 
 
 using std::vector;
@@ -250,6 +252,25 @@ CurveLoop OffsetSurface::outerBoundaryLoop(double degenerate_epsilon) const
     CurveLoop loop;
     MESSAGE("outerBoundaryLoop() not implemented.");
 
+    // Test for degeneracy.
+    bool deg[4];
+    if (degenerate_epsilon < 0.0)
+      deg[0] = deg[1] = deg[2] = deg[3] = false; // All curves are wanted
+    else
+      isDegenerate(deg[0], deg[1], deg[2], deg[3], degenerate_epsilon);
+    std::vector< shared_ptr< ParamCurve > >  vec;
+    for (int edgenum = 0; edgenum < 4; ++edgenum) {
+	if (!deg[edgenum]) {
+	    shared_ptr<ParamCurve> edgecurve (edgeCurve(edgenum));
+	    if (edgenum == 2 || edgenum == 3)
+		edgecurve->reverseParameterDirection();
+	    vec.push_back(edgecurve);
+	}
+    }
+
+    return CurveLoop(vec, (degenerate_epsilon < 0.0) ? DEFAULT_SPACE_EPSILON :
+		     degenerate_epsilon);
+
     return loop;
 }
 
@@ -307,14 +328,33 @@ void OffsetSurface::point(std::vector<Point>& pts,
                           double resolution) const
 //===========================================================================
 {
-    MESSAGE("point() not implemented");
-
     DEBUG_ERROR_IF(derivs < 0, "Negative number of derivatives makes no sense.");
     int totpts = (derivs + 1)*(derivs + 2)/2;
     DEBUG_ERROR_IF((int)pts.size() < totpts, "The vector of points must have sufficient size.");
 
     // Calling blend_s1421.
+    vector<Point> offset_pt(((derivs+1)*(derivs+2)/2) + 1); // Derivs & normal in the exact surface.
+    vector<Point> base_pt(((derivs+1)*(derivs+2)/2) + 1); // Derivs & normal.
 
+    if (surface_->instanceType() == Class_SplineSurface)
+    {
+        shared_ptr<SplineSurface> spline_sf = dynamic_pointer_cast<SplineSurface>(surface_);
+        Point epar(upar, vpar);
+        int ind_u=0;             /* Pointer into knot vector                       */
+        int ind_v=0;             /* Pointer into knot vector                       */
+        int kstat = 0;
+        OffsetUtils::blend_s1421(spline_sf.get(), offset_dist_, derivs, epar, ind_u, ind_v,
+                                 offset_pt, base_pt, &kstat);
+        if (kstat != 0)
+        {
+            MESSAGE("WARNING: The returned status value was not 0 as expected!");
+        }
+        pts = offset_pt;
+    }
+    else
+    {
+        THROW("Only supported for SplineSurface's!");
+    }
 }
 
 
@@ -445,18 +485,6 @@ double OffsetSurface::area(double tol) const
     MESSAGE("area() not implemented");
 
     return area;
-}
-
-
-//===========================================================================
-bool OffsetSurface::isDegenerate(bool& b, bool& r,
-                                 bool& t, bool& l, double tolerance) const
-//===========================================================================
-{
-    bool deg = false;
-    MESSAGE("isDegenerate() not implemented");
-
-    return deg;
 }
 
 
