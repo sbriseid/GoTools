@@ -441,7 +441,78 @@ void OffsetSurface::closestBoundaryPoint(const Point& pt,
                                          double *seed) const
 //===========================================================================
 {
-    MESSAGE("closestBoundaryPoint() not implemented");
+    RectDomain domain = containingDomain();
+    if (!rd)
+	rd = &domain;
+
+    CurveLoop curve_loop = outerBoundaryLoop(epsilon);
+    double loop_clo_dist = MAXDOUBLE;
+    for (auto cv : curve_loop)
+    {
+        double cv_clo_t, cv_clo_dist;
+        Point cv_clo_pt;
+        cv->closestPoint(pt, cv_clo_t, cv_clo_pt, cv_clo_dist);
+        if (cv_clo_dist < loop_clo_dist)
+        {
+            clo_pt = cv_clo_pt;
+            clo_dist = cv_clo_dist;
+        }
+    }
+
+    // We must then find the (u, v) pair in the surface corresponding to clo_pt.
+    // We need to get parameter values for clo_pt (suppose we could use seed if set in above routine...).
+    double sf_u, sf_v, sf_clo_dist;
+    Point sf_clo_pt;
+    surface_->closestPoint(clo_pt, sf_u, sf_v, sf_clo_pt, sf_clo_dist,
+			   epsilon, rd, seed);
+    // Now, the parameter point (tmp_u, tmp_v) should be in the parameter
+    // domain of the surface. If so, we return happily.
+    // Otherwise, we find the closest point in the domain.
+
+    // VSK, 0902. First check if the point found on the boundary and the point in the surface
+    // is the same. In that case, we are done
+    if (clo_pt.dist(sf_clo_pt) <= epsilon)
+    {
+	clo_u = sf_u;
+	clo_v = sf_v;
+	clo_pt = sf_clo_pt;
+	clo_dist = clo_pt.dist(pt); 
+    }
+    else
+    {
+	//	clo_dist = tmp_cld;
+//	const CurveBoundedDomain& dom = parameterDomain();
+	const Domain& dom = parameterDomain();
+	bool is_in_domain = false;
+	double domain_tol = std::max(epsilon, 1.0e-7);
+	try
+        {
+            // Test is rather unstable when point is on/near boundary.
+            is_in_domain = dom.isInDomain(Vector2D(sf_u, sf_v), domain_tol);
+	} catch (...)
+        {
+            // 	MESSAGE("Failed deciding whether point was in domain.");
+            is_in_domain = true;
+	}
+
+	if (is_in_domain)
+        {
+            clo_u = sf_u;
+            clo_v = sf_v;
+            clo_pt = sf_clo_pt;
+            clo_dist = clo_pt.dist(pt); //	clo_dist = tmp_cld;
+	}
+        else
+        {
+            Vector2D par_pt;
+            // @afr: Again, I use (spatial) epsilon for domain comparisons...
+            dom.closestInDomain(Vector2D(sf_u, sf_v), par_pt, epsilon);
+            point(clo_pt, par_pt[0], par_pt[1]);
+            clo_u = par_pt[0];
+            clo_v = par_pt[1];
+            clo_dist = clo_pt.dist(pt);	
+	}
+    }
 }
 
 
