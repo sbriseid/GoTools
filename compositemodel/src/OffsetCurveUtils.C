@@ -41,18 +41,26 @@
 #include "GoTools/compositemodel/OffsetCurveUtils.h"
 #include "GoTools/implicitization/ImplicitizeCurveAlgo.h"
 #include "GoTools/geometry/SISLconversion.h"
+#include "GoTools/geometry/CurveBoundedDomain.h"
+#include "GoTools/geometry/LoopUtils.h"
 #include "GoTools/utils/errormacros.h"
 #include "GoTools/creators/CurveCreators.h"
+#include "GoTools/geometry/GoIntersections.h"
+#include "sislP.h"
 
+#if 0
 #include "SelfIntersectCurveAlgo.h"
+#endif
 
 #include <vector>
 #include <utility>
-
+#include <algorithm>
 
 using std::vector;
 using std::pair;
-
+using std::make_pair;
+using std::max;
+using std::min;
 
 namespace Go
 {
@@ -122,7 +130,7 @@ OffsetCurveUtils::createSmoothOffsetCurves(const SplineCurve& param_curve,
 	std::ofstream curveout("data/bnd_loop.g2");
 	writeSpaceParamCurve(param_curve, curveout);
 	std::ofstream debug("data/debug.g2");
-	for (int i = 0; i < offset_curves.size(); ++i)
+	for (size_t i = 0; i < offset_curves.size(); ++i)
 	    writeSpaceParamCurve(*offset_curves[i], debug);
     }
 #endif // NDEBUG
@@ -138,7 +146,7 @@ OffsetCurveUtils::createSmoothOffsetCurves(const SplineCurve& param_curve,
     // "playground" of new curve.
     const double smoothing_ratio = 0.15;//hero_parameters.getSmoothingRatio();
     min_tol *= smoothing_ratio;
-    for (int i=0; i<offset_curves.size(); ++i) {
+    for (size_t i=0; i<offset_curves.size(); ++i) {
 	shared_ptr<SplineCurve> smooth_offset_curve;
 	bool smoothing_OK = false;
 	if (!smoothing_OK) {
@@ -216,7 +224,7 @@ OffsetCurveUtils::createSimpleOffsetLoops(const SplineCurve& param_loop,
     int iter = 0;
     bool tolerance_achieved = false;
     bool loop = true;
-    int i, j;
+    size_t i, j;
 
     shared_ptr<SplineCurve> offset_loop;
     if (sampled_based_offsetting)
@@ -302,10 +310,13 @@ OffsetCurveUtils::createSimpleOffsetLoops(const SplineCurve& param_loop,
 		    }
 // 		    double tol = min(min_tol, appr_length/10.0); // To great tolerance leads to trouble.
 		    double max_dist;
+                    vector<shared_ptr<ParamCurve> > param_curves(simple_offset_loops[i].begin() + j,
+                                                                  simple_offset_loops[i].begin() + j + 1);
+
 		    shared_ptr<SplineCurve> appr_cv
-			(CurveCreators::approxCurves(simple_offset_loops[i].begin() + j,
-						       simple_offset_loops[i].begin() + j + 1,
-						       start_pt, end_pt, min_tol, max_dist, max_iter));
+			(CurveCreators::approxCurves(&param_curves[0],
+						      &param_curves[param_curves.size()],
+                                                     start_pt, end_pt, min_tol, max_dist, max_iter));
 		    if (max_dist > min_tol) {
 			MESSAGE("Failed approximating within tolerance.");
 		    }
@@ -404,12 +415,17 @@ OffsetCurveUtils::createSmoothedOutOffsetCurve(const SplineCurve& offset_curve,
 
     vector<double> int_par;
 //     vector<int> orders;
+
+#if 0
     ImplicitizeCurveAlgo self_int_obj;
     self_int_obj.useSplineCurve(*approx);
     self_int_obj.perform();
     self_int_obj.getResultData(int_par); //, orders);
 //     find_self_intersections(*approx, int_par);
-    
+#else
+    MESSAGE("Removed call to ImplicitizeCurveAlgo!");
+#endif    
+
     if (int_par.size()!=0) {
 // 	// must either remove self intersections, or not use the approximated curve
 // 	MESSAGE("Curve smoothing: smoothed curve had self intersections, "
@@ -645,7 +661,7 @@ OffsetCurveUtils::createSISLApproximatedCurve(const SplineCurve& curve,
     DEBUG_ERROR_IF(epsge < 0.0,
 		"Geometric tolerance must be larger than zero.");
 
-    const shared_ptr<SISLCurve> sisl_curve(GoCurve2SISL(in_crv));
+    const shared_ptr<SISLCurve> sisl_curve(Curve2SISL(in_crv));
     
     vector<double> eps;
     eps.push_back(epsge);
@@ -677,12 +693,18 @@ OffsetCurveUtils::getSimpleLoops2(const SplineCurve& loop, double loop_tol)
     // We find all self-intersections.
     vector<double> loop_params;
 //     vector<int> orders;
+
+#if 0
     SelfIntersectCurveAlgo self_int_obj;
     self_int_obj.useSplineCurve(loop);
     self_int_obj.perform();
     self_int_obj.getResultData(loop_params); //, orders);
+#else
+MESSAGE("Missing the call to SelfIntersectCurveAlgo!");
+#endif
+
     // We convert to a vector of pairs.
-    int i, j;
+    size_t i, j;
     vector<pair<double, double> > int_pairs;
     for (i = 0; i < loop_params.size() / 2; ++i)
 	if (loop_params[2*i] != loop_params[2*i+1]) // We do not care about cusps.
@@ -710,7 +732,7 @@ OffsetCurveUtils::getSimpleLoops2(const SplineCurve& loop, double loop_tol)
     for (i = 0; i < loop_params.size() - 1; ++i) {
 	if (loop_params[i] == loop_params[i+1]) {
 	    // Suspect self_intersection routine gets unstable w/dense knot spacing.
-	    GO_WARNING("Intersection params are equal, this should never happen.");
+	    MESSAGE("Intersection params are equal, this should never happen.");
 	    continue;
 	} else {
 	    vector<shared_ptr<SplineCurve> > dummy_vec;
@@ -721,7 +743,7 @@ OffsetCurveUtils::getSimpleLoops2(const SplineCurve& loop, double loop_tol)
 	}
     }
 
-    int ki, kj;
+    size_t ki, kj;
 #ifndef NDEBUG
     {
 	std::ofstream debug("data/debug.g2");
@@ -804,7 +826,7 @@ OffsetCurveUtils::getSimpleLoops2(const SplineCurve& loop, double loop_tol)
 	    available[max_index] = 0;
 	    chosen_segments.push_back(max_index);
 	} else {
-	    GO_WARNING("Should not happen!");
+	    MESSAGE("Should not happen!");
 	    available[next_element] = 0;
 	    chosen_segments.push_back(next_element);
 	    next_element = -1;
@@ -836,12 +858,12 @@ OffsetCurveUtils::getSimpleLoops2(const SplineCurve& loop, double loop_tol)
 	    } else {
 		chosen_segments.erase(chosen_segments.end() - 1);
 		if (chosen_segments.size() == 0)
-		    GO_ERROR("Should not happen, improve method!", UnknownError());
+		    THROW("Should not happen, improve method!");
 // 		++nmb_dead_ends;
 // 		if (nmb_dead_ends == offset_segments.size()) {
 // 		    // This may happen when a parameter is marked as a double
 // 		    // intersection point. Seems strange that match would be exact.
-// 		    GO_WARNING("All available edges lead to a dead end! Should never "
+// 		    MESSAGE("All available edges lead to a dead end! Should never "
 // 			       "happen. Suspecting double intersection points.");
 // 		    finished = true;
 // 		} else {
@@ -859,7 +881,8 @@ OffsetCurveUtils::getSimpleLoops2(const SplineCurve& loop, double loop_tol)
 	    loop_crvs.insert(loop_crvs.end(),
 			     offset_segments[chosen_segments[i]].begin(),
 			     offset_segments[chosen_segments[i]].end());
-	if (!LoopUtils::loopIsCCW(loop_crvs, loop_tol) && leftmost_cv == true) {
+        const double int_tol = 1.0e-08;
+	if (!LoopUtils::loopIsCCW(loop_crvs, loop_tol, int_tol) && leftmost_cv == true) {
 	    leftmost_cv = false; // We select cvs once more, now picking the rightmost piece.
 	} else {
 	    loops.push_back(loop_crvs);
@@ -886,10 +909,11 @@ OffsetCurveUtils::removeInvalidLoops(vector<vector<shared_ptr<Go::SplineCurve> >
 				    double epsge)
 //===========================================================================
 {
-    int i, j, k, l;
+    size_t i, j, k, l;
     // Remove all CW loops.
+    const double int_tol = 1.0e-08;
     for (i = 0; i < simple_offset_loops.size(); ++i) {
-	bool ccw = LoopUtils::loopIsCCW(simple_offset_loops[i], epsge);
+	bool ccw = LoopUtils::loopIsCCW(simple_offset_loops[i], epsge, int_tol);
 	if (!ccw) {
 	    simple_offset_loops.erase(simple_offset_loops.begin() + i,
 			       simple_offset_loops.begin() + i + 1);
@@ -902,9 +926,11 @@ OffsetCurveUtils::removeInvalidLoops(vector<vector<shared_ptr<Go::SplineCurve> >
 	for (j = 0; j < simple_offset_loops[i].size(); ++j) {
 	    vector<pair<double, double> > intersections;
 	    vector<int> pre_top;
-	    intersect2Dcurves(simple_offset_loops[i][j].get(),
+            std::vector<std::pair<std::pair<double,double>, 
+                                  std::pair<double,double> > > int_crvs;
+            intersect2Dcurves(simple_offset_loops[i][j].get(),
 			      bnd_loop.clone(),
-			      epsge, intersections, pre_top);
+			      epsge, intersections, pre_top, int_crvs);
 	    if (intersections.size() != 0)
 		break;
 	}
@@ -921,10 +947,11 @@ OffsetCurveUtils::removeInvalidLoops(vector<vector<shared_ptr<Go::SplineCurve> >
 	shared_ptr<ParamCurve> crv(bnd_loop.clone());
 	vector<shared_ptr<ParamCurve> > crv_vec;
 	crv_vec.push_back(crv);
-	const HeroTolerances& hero_tolerances = HeroTolerances::Instance();
-	double loop_tol = hero_tolerances.getIGESFileTolerance();
+        double loop_tol = epsge; //hero_tol.getIGESFileTolerance();
+	// const HeroTolerances& hero_tolerances = HeroTolerances::Instance();
+	// double loop_tol = hero_tolerances.getIGESFileTolerance();
 	shared_ptr<CurveLoop> loop(new CurveLoop(crv_vec, loop_tol));
-	GoCurveBoundedDomain domain(loop);
+	CurveBoundedDomain domain(loop);
 	for (i = 0; i < simple_offset_loops.size(); ++i) {
 	    // We pick a random point.
 	    Point pnt = simple_offset_loops[i][0]->
@@ -941,7 +968,7 @@ OffsetCurveUtils::removeInvalidLoops(vector<vector<shared_ptr<Go::SplineCurve> >
     // (convex combinztion) of sampled bnd points, fail distance test.
     // @@sbr Another method would be to use end parameter values of all segments.
     // Use parameter values of the surrounding loop.
-    int nmb_loop_samples = 20;
+    size_t nmb_loop_samples = 20;
     vector<double> loop_t_values;
     for (i = 0; i < nmb_loop_samples; ++i) {
 	double tmin = bnd_loop.startparam();
@@ -955,10 +982,10 @@ OffsetCurveUtils::removeInvalidLoops(vector<vector<shared_ptr<Go::SplineCurve> >
 	int nmb_samples = 5; // nmb_samples for each segment of loop.
 	Point conv_comb_pt(2);
 	conv_comb_pt[0] = conv_comb_pt[1] = 0.0;
-	int nmb_segments = simple_offset_loops[i].size();
+	size_t nmb_segments = simple_offset_loops[i].size();
 	for (j = 0; j < nmb_segments; ++j) {
 	    // We sample 5 points on each segment of loop.	    
-	    int nmb_samples = 10;
+	    size_t nmb_samples = 10;
 	    double tmin = simple_offset_loops[i][j]->startparam();
 	    double tmax = simple_offset_loops[i][j]->endparam();
 	    double step = (tmax - tmin) / nmb_samples;
@@ -974,7 +1001,7 @@ OffsetCurveUtils::removeInvalidLoops(vector<vector<shared_ptr<Go::SplineCurve> >
 	vector<shared_ptr<ParamCurve> > cvs(simple_offset_loops[i].begin(),
 					      simple_offset_loops[i].end());
 	shared_ptr<CurveLoop> loop(new CurveLoop(cvs, epsge));
-	GoCurveBoundedDomain domain(loop);
+	CurveBoundedDomain domain(loop);
 	Vector2D vec(conv_comb_pt[0], conv_comb_pt[1]);
 	if (!domain.isInDomain(vec, epsge)) {
 	    SplineCurve ploop = *(simple_offset_loops[i][0]->clone());
@@ -993,7 +1020,7 @@ OffsetCurveUtils::removeInvalidLoops(vector<vector<shared_ptr<Go::SplineCurve> >
 		tpar = 0.5*(knot_iter[0] + knot_iter[1]);
 	    }
 	    double diag_length = 1e05; // @@sbr Not exactly, but usually large enough...
-	    conv_comb_pt = HeroUtils::findInnerPoint(ploop, tpar, diag_length);
+	    conv_comb_pt = findInnerPoint(ploop, tpar, diag_length);
 	}
 
 	// For conv_comb_pt we run a closest point tests against bnd_loop.
@@ -1006,7 +1033,7 @@ OffsetCurveUtils::removeInvalidLoops(vector<vector<shared_ptr<Go::SplineCurve> >
 	    Point dist_val = dist_function.ParamCurve::point(clo_t);
 // 	    Point tol_val = tol_function.ParamCurve::point(clo_t);
 	    if (clo_dist < dist_val[0]) {
-// 		GO_WARNING("Clipping offset loop too close to boundary loop.");
+// 		MESSAGE("Clipping offset loop too close to boundary loop.");
 		simple_offset_loops.erase(simple_offset_loops.begin() + i,
 					  simple_offset_loops.begin() + i + 1);
 		--i;
@@ -1039,6 +1066,208 @@ OffsetCurveUtils::removeInvalidLoops(vector<vector<shared_ptr<Go::SplineCurve> >
 		}
 	}
     }
+}
+
+
+//===========================================================================
+vector<int> OffsetCurveUtils::nextSegments(const vector<vector<shared_ptr<SplineCurve> > >& segments,
+					  vector<int> chosen_segments, double loop_tol)
+//===========================================================================
+{
+    Point curr_end_pt = segments[chosen_segments.back()].back()->ParamCurve::point
+	(segments[chosen_segments.back()].back()->endparam());
+    vector<int> next_segments; // At most two candidates.
+    for (size_t ki = 0; ki < segments.size(); ++ki) {
+// 	if (available[ki]) {
+	    Point start_pt =
+		segments[ki][0]->ParamCurve::point(segments[ki][0]->startparam());
+// 	    if (((end_pt - start_pt).length() < loop_tol) ||
+// 		((end_pt - curr_end_pt[0]).length() < loop_tol))
+// 		available[i] = 0;
+	    if (start_pt.dist(curr_end_pt) < loop_tol) {
+		// We then make sure that segment does not end in end of a chosen segment (in the inner).
+		size_t kj;
+		for (kj = 0; kj < chosen_segments.size() - 1; ++kj) {
+		    Point end_pt =
+			segments[ki].back()->ParamCurve::point(segments[ki].back()->endparam());
+		    Point local_end_pt = segments[chosen_segments[kj]].back()->
+			ParamCurve::point(segments[chosen_segments[kj]].back()->endparam());
+		    if (end_pt.dist(local_end_pt) < loop_tol)
+			break;
+		}
+		if (kj == chosen_segments.size() - 1)
+		    next_segments.push_back(ki);
+// 		available[i] = 0;
+	    }
+	}
+
+    return next_segments;
+}
+
+
+
+//===========================================================================
+int OffsetCurveUtils::getNextSegment(const vector<vector<shared_ptr<SplineCurve> > >& segments,
+				    vector<int> chosen_segments, vector<int> available,
+				    double loop_tol, bool leftmost_cv)
+//===========================================================================
+{
+    vector<int> candidates = nextSegments(segments, chosen_segments, loop_tol);
+    // Remove unavailable
+    for (size_t ki = candidates.size() - 1; ki > -1; --ki) {
+	if (!available[candidates[ki]])
+	    candidates.erase(candidates.begin() + ki);
+    }
+
+    if (candidates.size() > 2)
+	THROW("More than two curves start in curve's end point. "
+              "This should never happen!");
+    else if (candidates.size() == 0)
+	return -1;
+    else if (candidates.size() == 1)
+	return candidates[0];
+    else { // 2 elements.
+	vector<Point> curr_end_pt = segments[chosen_segments.back()].back()->
+	    ParamCurve::point(segments[chosen_segments.back()].back()->endparam(), 1);
+	// To choose, we must compute angle (in (-180, 180)) between end tangents.
+	// We choose the curve with the highest angle, if leftmost_cv == true.
+	vector<Point> first_start_pt = segments[candidates[0]][0]->
+	    ParamCurve::point(segments[candidates[0]][0]->startparam(), 1);
+	vector<Point> second_start_pt = segments[candidates[1]][0]->
+	    ParamCurve::point(segments[candidates[1]][0]->startparam(), 1);
+	Point curr_end_tg = curr_end_pt[1];
+	curr_end_tg.normalize();
+	Point first_start_tg = first_start_pt[1];
+	first_start_tg.normalize();
+	Point second_start_tg = second_start_pt[1];
+	second_start_tg.normalize();
+	double cos1 = curr_end_tg * first_start_tg;
+	double sin1 =
+	    curr_end_tg[0]*first_start_tg[1] - curr_end_tg[1]*first_start_tg[0];
+	double cos2 = curr_end_tg * second_start_tg;
+	double sin2 =
+	    curr_end_tg[0]*second_start_tg[1] - curr_end_tg[1]*second_start_tg[0];
+	if (sin1 * sin2 > 0) {
+	    if (sin1 > 0) // i.e. both above curve_segment defined by curr_end_tg.
+		if (cos1 < cos2)
+		    return (leftmost_cv ? candidates[0] : candidates[1]);
+		else
+		    return (leftmost_cv ? candidates[1] : candidates[0]);
+	    else // both under line.
+		if (cos1 < cos2)
+		    return (leftmost_cv ? candidates[1] : candidates[0]);
+		else
+		    return (leftmost_cv ? candidates[0] : candidates[1]);
+	} else // They lie on opposite sides of line.
+	    if (sin1 > 0)
+		return (leftmost_cv ? candidates[0] : candidates[1]);
+	    else
+		return (leftmost_cv ? candidates[1] : candidates[0]);
+    }
+}
+
+
+//===========================================================================
+double OffsetCurveUtils::estimatedLoopLength(const CurveLoop& loop)
+//===========================================================================
+{
+    double length = 0.0;
+    for (size_t i = 0; i < loop.size(); ++i)
+	length += loop[i]->estimatedCurveLength(1000);
+
+    return length;
+}
+
+
+//===========================================================================
+Point OffsetCurveUtils::findInnerPoint(SplineCurve& p_loop, double tpar,
+                                       double domain_diagonal_length)
+//===========================================================================
+{
+    double tang_tol = 1e-04;
+    vector<Point> pts_left(2), pts_right(2);
+    p_loop.point(pts_left, tpar, 1, false);
+    p_loop.point(pts_right, tpar, 1, true);
+    DEBUG_ERROR_IF(pts_left[1].dist(pts_right[1]) > tang_tol,
+                   "Assuming curve is c1 in input tpar.");
+
+    // We construct a linear pline curve going through pts_left[0], in direction
+    // normal to pts_left[1] (choosing left direction as loop is ccw).
+    Point dir(-pts_left[1][1], pts_left[1][0]);
+    Point to_pt = pts_left[0] + (domain_diagonal_length + 1.0)*dir;
+    SplineCurve linear_cv(pts_left[0], to_pt);
+    double epsge = 1e-05;
+    vector<pair<double, double> > intersections;
+    vector<int> pretop;
+    std::vector<std::pair<std::pair<double,double>, 
+                          std::pair<double,double> > > int_crvs;
+    intersect2Dcurves(&linear_cv, &p_loop, epsge, intersections, pretop, int_crvs);
+
+    double tmin = linear_cv.startparam();
+    sort(intersections.begin(), intersections.end());
+    double bd_tpar;
+    if (intersections.size() == 1)
+	bd_tpar = intersections[0].first;
+    else if (intersections.size() > 1)
+	if (intersections[0].first == tmin)
+	    bd_tpar = intersections[1].first;
+	else
+	    bd_tpar = intersections[0].first;
+    else
+	THROW("Failed finding inner pt of loop.");
+
+    double inner_tpar = 0.5*(tmin + bd_tpar);
+    Point inner_pt = linear_cv.ParamCurve::point(inner_tpar);
+    return inner_pt;
+}
+
+
+//===========================================================================
+bool OffsetCurveUtils::loopsIntersect(const CurveLoop& loop1, const CurveLoop& loop2,
+				     bool test_end_pts)
+//===========================================================================
+{
+    int i, j;
+    for (i = 0; i < loop1.size(); ++i) {
+	shared_ptr<SplineCurve> cv1 =
+	    dynamic_pointer_cast<SplineCurve>(loop1[i]);
+	DEBUG_ERROR_IF(cv1.get() == 0,
+		    "Unexpected curve type.");
+	for (j = 0; j < loop2.size(); ++j) {
+	    shared_ptr<SplineCurve> cv2 =
+		dynamic_pointer_cast<SplineCurve>(loop2[j]);
+	    DEBUG_ERROR_IF(cv2.get() == 0,
+			"Unexpected curve type.");
+
+#if 0
+	    IntersectCurveAlgo int_obj;
+	    int_obj.useFirstSplineCurve(*cv1);
+	    int_obj.useSecondSplineCurve(*cv2);
+	    int_obj.perform();
+	    vector<double> params;
+// 	    vector<int> orders;
+	    int_obj.getResultData(params); //, orders);
+// 	    vector<pair<double, double> > params;
+// 	    find_intersections(*cv1, *cv2, params);
+	    if (params.size() != 0)
+		break;
+#else
+            MESSAGE("Missing IntersectCurveAlgo!");
+#endif
+
+	}
+	if (j < loop2.size())
+	    break;
+    }
+
+    if (test_end_pts) {
+	double tol = min(loop1.getSpaceEpsilon(), loop2.getSpaceEpsilon());
+	Point start_pt1 = loop1[0]->point(loop1[0]->startparam());
+	Point start_pt2 = loop2[0]->point(loop2[0]->startparam());
+	if (start_pt1.dist(start_pt2) < tol)
+	    i = 0; // Intersection in first segment.
+    }
+    return (i < loop1.size() ? true : false);
 }
 
 

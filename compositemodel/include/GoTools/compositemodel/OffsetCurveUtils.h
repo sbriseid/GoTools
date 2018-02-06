@@ -42,6 +42,7 @@
 
 
 #include "GoTools/geometry/SplineCurve.h"
+#include "GoTools/geometry/CurveLoop.h"
 
 
 namespace Go
@@ -138,6 +139,29 @@ namespace OffsetCurveUtils
 			    const SplineCurve& dist_function,
 			    const SplineCurve& tol_function,
 			    double epsge);
+
+    // Slightly altered, only returned curve is marked as unavailable.
+    int getNextSegment(const std::vector<std::vector<shared_ptr<SplineCurve> > >& segments,
+		       std::vector<int> chosen_segments, std::vector<int> available,
+		       double loop_tol, bool leftmost_cv);
+
+    // Assuming no available curve is a loop.
+    std::vector<int> nextSegments(const std::vector<std::vector<shared_ptr<SplineCurve> > >& segments,
+                                  std::vector<int> chosen_segments, double loop_tol);
+
+    double estimatedLoopLength(const CurveLoop& loop);
+
+
+    // Given ccw loop, return point in interior domain.
+    // tpar marks from where we construct linear curve which we intersect with pcv.
+    // Assuming curve is c1 in tpar.
+    Point findInnerPoint(SplineCurve& pcv, double tpar,
+                         double domain_diagonal_length);
+
+
+    // We assume that input loops consist of SplineCurves.
+    bool loopsIntersect(const CurveLoop& loop1, const CurveLoop& loop2,
+			bool test_end_pts = true);
 
 } // namespace OffsetCurveUtils
 
