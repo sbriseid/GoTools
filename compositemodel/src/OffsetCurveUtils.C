@@ -39,13 +39,13 @@
 
 
 #include "GoTools/compositemodel/OffsetCurveUtils.h"
-#include "GoTools/implicitization/ImplicitizeCurveAlgo.h"
 #include "GoTools/geometry/SISLconversion.h"
 #include "GoTools/geometry/CurveBoundedDomain.h"
 #include "GoTools/geometry/LoopUtils.h"
 #include "GoTools/utils/errormacros.h"
 #include "GoTools/creators/CurveCreators.h"
 #include "GoTools/geometry/GoIntersections.h"
+#include "GoTools/geometry/SplineDebugUtils.h"
 #include "sislP.h"
 
 #if 0
@@ -55,12 +55,17 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
+#include <fstream>
 
 using std::vector;
 using std::pair;
 using std::make_pair;
 using std::max;
 using std::min;
+using std::cout;
+using std::endl;
+using Go::SplineDebugUtils::writeSpaceParamCurve;
+
 
 namespace Go
 {
@@ -100,7 +105,8 @@ OffsetCurveUtils::createSmoothOffsetCurves(const SplineCurve& param_curve,
 	double epsgeo = 1e-05;
 	vector<shared_ptr<SplineCurve> > cvs(1);
 	cvs[0] = shared_ptr<SplineCurve>(pcurve.clone());
-	bool ccw = LoopUtils::loopIsCCW(cvs, epsgeo);
+        const double int_tol = 1.0e-08;
+	bool ccw = LoopUtils::loopIsCCW(cvs, epsgeo, int_tol);
 	if (!ccw)
 	    MESSAGE("Input loop is not ccw!");
     }
@@ -214,7 +220,8 @@ OffsetCurveUtils::createSimpleOffsetLoops(const SplineCurve& param_loop,
     {
 	vector<shared_ptr<SplineCurve> > cvs(1);
 	cvs[0] = pcurve;
-	bool ccw = LoopUtils::loopIsCCW(cvs, epsgeo);
+        const double int_tol = 1.0e-08;
+	bool ccw = LoopUtils::loopIsCCW(cvs, epsgeo, int_tol);
 	if (!ccw)
 	    MESSAGE("Input loop is not ccw!");
     }
