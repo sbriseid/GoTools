@@ -51,8 +51,8 @@ namespace Go
 class SplineSurface;
 
     // Functions that must be implemented (to convert from step):
-    // ToDo: closestBoundaryPoint + outerBoundaryLoop
-    // Done: boundingBox + write + normal + point
+    // ToDo: outerBoundaryLoop
+    // Done: boundingBox + write + normal + point + closestBoundaryPoint
 
 class OffsetSurface : public ParamSurface
 {
