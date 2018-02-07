@@ -381,6 +381,9 @@ public:
     bool self_int_;
 
     CurveLoop outer_bd_loop_; // Created when needed.
+    CurveLoop outer_bd_loop_offset_; // Created when needed.
+
+    shared_ptr<SplineSurface> offset_surface_;
     
 };
 
