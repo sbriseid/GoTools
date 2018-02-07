@@ -80,10 +80,29 @@ OffsetCurveNormalDir::~OffsetCurveNormalDir()
 Point OffsetCurveNormalDir::eval(double t) const
 //===========================================================================
 {
-    Point par_pt = parameter_crv_->ParamCurve::point(t);
-    Point space_pt = surf_->ParamSurface::point(par_pt[0], par_pt[1]);
+    Point par_pt;
+    if (parameter_crv_.get() != nullptr)
+    {
+        par_pt = parameter_crv_->ParamCurve::point(t);
+    }
+    else
+    {
+        // We project onto the surface.
+        Point clo_pt;
+        double clo_u, clo_v, clo_dist;
+        Point space_pt = space_crv_->point(t);
+        const double epsilon = 1.0e-08;
+        surf_->closestPoint(space_pt, clo_u, clo_v, clo_pt, clo_dist, epsilon);
+        par_pt[0] = clo_u;
+        par_pt[1] = clo_v;
+    }
 
-    return space_pt;
+    Point space_pt = surf_->ParamSurface::point(par_pt[0], par_pt[1]);
+    Point sf_normal;
+    surf_->ParamSurface::point(sf_normal, par_pt[0], par_pt[1]);
+    Point offset_pt = space_pt + offset_dist_*sf_normal;
+
+    return offset_pt;
 }
 
 
@@ -91,18 +110,43 @@ Point OffsetCurveNormalDir::eval(double t) const
 void OffsetCurveNormalDir::eval(double t, int n, Point der[]) const
 //===========================================================================
 {
-  MESSAGE_IF(n > 1, "Only one derivative will be computed");
+    MESSAGE_IF(n > 1, "Only one derivative will be computed");
 
-  if (n == 0)
-      der[0] = eval(t);
-  else {
-      vector<Point> par_pt(2);
-      parameter_crv_->point(par_pt, t, 1); // We compute position and derivative of parameter curve.
-      vector<Point> space_pt = surf_->ParamSurface::point(par_pt[0][0], par_pt[0][1], 1);
-      der[0] = space_pt[0];
-      der[1] = par_pt[1][0]*space_pt[1] + par_pt[1][1]*space_pt[2];
-//       der[1].normalize();
-  }
+    if (n == 0)
+    {
+        der[0] = eval(t);
+    }
+    else
+    {
+        if (n > 0)
+        {
+            THROW("Derivatives not yet supported!");
+        }
+
+        Point par_pt;
+        if (parameter_crv_.get() != nullptr)
+        {
+            par_pt = parameter_crv_->ParamCurve::point(t);
+        }
+        else
+        {
+            // We project onto the surface.
+            Point clo_pt;
+            double clo_u, clo_v, clo_dist;
+            Point space_pt = space_crv_->point(t);
+            const double epsilon = 1.0e-08;
+            surf_->closestPoint(space_pt, clo_u, clo_v, clo_pt, clo_dist, epsilon);
+            par_pt[0] = clo_u;
+            par_pt[1] = clo_v;
+        }
+
+        Point space_pt = surf_->ParamSurface::point(par_pt[0], par_pt[1]);
+        Point sf_normal;
+        surf_->ParamSurface::point(sf_normal, par_pt[0], par_pt[1]);
+        Point offset_pt = space_pt + offset_dist_*sf_normal;
+
+        der[0] = offset_pt;
+    }
 }
 
 
