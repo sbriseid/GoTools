@@ -42,6 +42,7 @@
 #include "GoTools/geometry/Factory.h"
 #include "GoTools/geometry/ClassType.h"
 #include "GoTools/creators/CreatorsOffsetUtils.h"
+#include "GoTools/creators/CurveCreators.h"
 
 
 using std::vector;
@@ -54,10 +55,12 @@ namespace Go
 
 // Constructor
 //===========================================================================
-OffsetSurface::OffsetSurface(shared_ptr<ParamSurface> param_sf, double offset_dist, bool self_int)
-    : surface_(param_sf), offset_dist_(offset_dist), self_int_(self_int)
+OffsetSurface::OffsetSurface(shared_ptr<ParamSurface> param_sf,
+                             double offset_dist, double epsgeo, bool self_int)
+    : surface_(param_sf), offset_dist_(offset_dist), epsgeo_(epsgeo), self_int_(self_int)
 //===========================================================================
 {
+    createOffsetOuterBdLoop();
 }
 
 
@@ -249,31 +252,7 @@ void OffsetSurface::setParameterDomain(double u1, double u2, double v1, double v
 CurveLoop OffsetSurface::outerBoundaryLoop(double degenerate_epsilon) const
 //===========================================================================
 {
-    CurveLoop loop;
-    MESSAGE("outerBoundaryLoop() not implemented.");
-
-#if 0
-    // Test for degeneracy.
-    bool deg[4];
-    if (degenerate_epsilon < 0.0)
-      deg[0] = deg[1] = deg[2] = deg[3] = false; // All curves are wanted
-    else
-      isDegenerate(deg[0], deg[1], deg[2], deg[3], degenerate_epsilon);
-    std::vector< shared_ptr< ParamCurve > >  vec;
-    for (int edgenum = 0; edgenum < 4; ++edgenum) {
-	if (!deg[edgenum]) {
-	    shared_ptr<ParamCurve> edgecurve (edgeCurve(edgenum));
-	    if (edgenum == 2 || edgenum == 3)
-		edgecurve->reverseParameterDirection();
-	    vec.push_back(edgecurve);
-	}
-    }
-
-    return CurveLoop(vec, (degenerate_epsilon < 0.0) ? DEFAULT_SPACE_EPSILON :
-		     degenerate_epsilon);
-#endif
-
-    return loop;
+    return offset_outer_bd_loop_;
 }
 
 
@@ -598,6 +577,31 @@ int OffsetSurface::ElementBoundaryStatus(int elem_ix, double eps)
 //===========================================================================
 {
     return surface_->ElementBoundaryStatus(elem_ix, eps);
+}
+
+
+//===========================================================================
+void OffsetSurface::createOffsetOuterBdLoop()
+//===========================================================================
+{
+    if (offset_outer_bd_loop_.size() == 0)
+    {
+        const double deg_eps = epsgeo_;
+        vector<shared_ptr<ParamCurve> > offset_loop_cvs;
+        CurveLoop sf_outer_bd_loop = surface_->outerBoundaryLoop(deg_eps);
+        for (auto cv_iter = sf_outer_bd_loop.begin(); cv_iter != sf_outer_bd_loop.end(); ++cv_iter)
+        {
+            shared_ptr<ParamCurve> par_cv;
+            shared_ptr<SplineCurve> offset_cv =
+                CurveCreators::offsetCurveNormalDir(par_cv,
+                                                    *cv_iter, surface_,
+                                                    epsgeo_, offset_dist_);
+            offset_loop_cvs.push_back(offset_cv);
+        }
+
+        const bool allow_fix = false;
+        offset_outer_bd_loop_ = CurveLoop(offset_loop_cvs, epsgeo_, allow_fix);        
+    }
 }
 
 

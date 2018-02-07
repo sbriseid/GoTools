@@ -58,7 +58,8 @@ class OffsetSurface : public ParamSurface
 {
 public:
 
-    OffsetSurface(shared_ptr<ParamSurface> param_sf, double offset_dist, bool self_int = false);
+    OffsetSurface(shared_ptr<ParamSurface> param_sf,
+                  double offset_dist, double epsgeo, bool self_int = false);
 
     /// Virtual destructor, enables safe inheritance.
     virtual ~OffsetSurface();
@@ -378,12 +379,14 @@ public:
 
     shared_ptr<ParamSurface> surface_;
     double offset_dist_;
+    double epsgeo_;
     bool self_int_;
 
-    CurveLoop outer_bd_loop_; // Created when needed.
-    CurveLoop outer_bd_loop_offset_; // Created when needed.
+    CurveLoop offset_outer_bd_loop_; // Created when needed.
 
     shared_ptr<SplineSurface> offset_surface_;
+
+    void createOffsetOuterBdLoop();
     
 };
 
