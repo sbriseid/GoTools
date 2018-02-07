@@ -99,7 +99,7 @@ Point OffsetCurveNormalDir::eval(double t) const
 
     Point space_pt = surf_->ParamSurface::point(par_pt[0], par_pt[1]);
     Point sf_normal;
-    surf_->ParamSurface::point(sf_normal, par_pt[0], par_pt[1]);
+    surf_->normal(sf_normal, par_pt[0], par_pt[1]);
     Point offset_pt = space_pt + offset_dist_*sf_normal;
 
     return offset_pt;
@@ -142,7 +142,7 @@ void OffsetCurveNormalDir::eval(double t, int n, Point der[]) const
 
         Point space_pt = surf_->ParamSurface::point(par_pt[0], par_pt[1]);
         Point sf_normal;
-        surf_->ParamSurface::point(sf_normal, par_pt[0], par_pt[1]);
+        surf_->normal(sf_normal, par_pt[0], par_pt[1]);
         Point offset_pt = space_pt + offset_dist_*sf_normal;
 
         der[0] = offset_pt;
