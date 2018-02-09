@@ -267,6 +267,25 @@ void ProjectCurve::eval(double t, int n, Go::Point der[]) const
     CoonsPatchGen::blendcoef(&surf_pts[1][0], &surf_pts[2][0],
 			     &space_pt[1][0], dim, 1, &coef1, &coef2);
 
+    // If the surface is degenerate at the point we set the coef along the deg edge to 0.0.
+    // It should be better to fetch it by stepping slightly away from the deg point.
+    bool deg, b, r, top, l;
+    const double deg_tol = 1.0e-06;
+    deg = surf_->isDegenerate(b, r, top, l, deg_tol);
+    if (deg)
+    {
+        const double knot_tol = 1.0e-08;
+        const RectDomain& rect_dom = surf_->containingDomain();
+        if (b && (fabs(der[0][1] - rect_dom.vmin()) < knot_tol))
+            coef1 = 0.0;
+        if (top && (fabs(der[0][1] - rect_dom.vmax()) < knot_tol))
+            coef1 = 0.0;
+        if (l && (fabs(der[0][0] - rect_dom.umin()) < knot_tol))
+            coef2 = 0.0;
+        if (r && (fabs(der[0][0] - rect_dom.umax()) < knot_tol))
+            coef2 = 0.0;
+    }
+
     der[1] = Point(coef1, coef2);
 //       der[1].normalize();
 }
@@ -430,6 +449,24 @@ vector<double> ProjectCurve::createSeed(double tpar) const
 	    int dim = surf_->dimension();
 	    CoonsPatchGen::blendcoef(&surf_pt[1][0], &surf_pt[2][0],
 				     &cv_pt[1][0], dim, 1, &coef1, &coef2);
+
+            // If the surface is degenerate at the point we set the coef along the deg edge to 0.0.
+            // It should be better to fetch it by stepping slightly away from the deg point.
+            bool deg, b, r, t, l;
+            deg = surf_->isDegenerate(b, r, t, l, epsgeo);
+            if (deg)
+            {
+                const double knot_tol = 1.0e-08;
+                const RectDomain& rect_dom = surf_->containingDomain();
+                if (b && (fabs(clo_v - rect_dom.vmin()) < knot_tol))
+                    coef1 = 0.0;
+                if (t && (fabs(clo_v - rect_dom.vmax()) < knot_tol))
+                    coef1 = 0.0;
+                if (l && (fabs(clo_u - rect_dom.umin()) < knot_tol))
+                    coef2 = 0.0;
+                if (r && (fabs(clo_u - rect_dom.umax()) < knot_tol))
+                    coef2 = 0.0;
+            }
 
 	    Point dir_der = Point(coef1, coef2);
             dir_der.normalize();
