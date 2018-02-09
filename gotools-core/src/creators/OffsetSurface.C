@@ -584,6 +584,8 @@ int OffsetSurface::ElementBoundaryStatus(int elem_ix, double eps)
 void OffsetSurface::createOffsetOuterBdLoop()
 //===========================================================================
 {
+    MESSAGE("createOffsetOuterBdLoop() under construction!");
+
     if (offset_outer_bd_loop_.size() == 0)
     {
         const double deg_eps = epsgeo_;
