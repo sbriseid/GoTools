@@ -61,7 +61,7 @@ public:
 
   /// Constructor, taking a 2D parameter curve and a surface.
   /// \param parameter_crv the 2D parameter (if given) is used to evaluate the surface.
-  /// \param space_crv the 2D parameter curve that will be 'lifted'
+  /// \param space_crv the 3D parameter curve that will be 'lifted'
   /// \param surf the surface from which to offset.
   /// \param epsgeo geometrical tolerance used when running the 'approximationOK'
   ///               function.
@@ -103,7 +103,7 @@ public:
 			       double tol1, double tol2) const;
 
 private:
-    const shared_ptr<Go::ParamCurve> parameter_crv_;
+    const shared_ptr<Go::ParamCurve> parameter_crv_; // The projection of space_crv_.
     const shared_ptr<Go::ParamCurve> space_crv_;
     const shared_ptr<Go::ParamSurface> surf_;
     const double epsgeo_;

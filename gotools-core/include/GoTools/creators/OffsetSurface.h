@@ -58,6 +58,11 @@ class OffsetSurface : public ParamSurface
 {
 public:
 
+    OffsetSurface()
+      : ParamSurface()
+    {
+    }
+
     OffsetSurface(shared_ptr<ParamSurface> param_sf,
                   double offset_dist, double epsgeo, bool self_int = false);
 
@@ -374,6 +379,9 @@ public:
     /// is not consdered a boundary intersection while touching a trimming
     /// curve is seen as an intersection
     virtual int ElementBoundaryStatus(int elem_ix, double eps);
+
+    shared_ptr<ParamSurface> baseSurface()
+    { return surface_; }
 
  protected:
 

@@ -62,10 +62,15 @@ OffsetCurveNormalDir::OffsetCurveNormalDir(shared_ptr<Go::ParamCurve>& parameter
 //===========================================================================
 {
     // Test input
-    ALWAYS_ERROR_IF(parameter_crv_.get() == 0 || surf_.get() == 0,
-		"Missing input data.");
-    ALWAYS_ERROR_IF(parameter_crv_->dimension() != 2 || surf_->dimension() != 3,
-		"Dimension mismatch.");
+    ALWAYS_ERROR_IF(((parameter_crv_.get() == nullptr) && (space_crv_.get() == nullptr)) ||
+                    surf_.get() == nullptr,
+                    "Missing input data.");
+    ALWAYS_ERROR_IF(parameter_crv_.get() != nullptr && parameter_crv_->dimension() != 2,
+                    "Dimension mismatch.");
+    ALWAYS_ERROR_IF(space_crv_.get() != nullptr && space_crv_->dimension() != 3,
+                    "Dimension mismatch.");
+    ALWAYS_ERROR_IF(surf_->dimension() != 3,
+                    "Dimension mismatch.");
 }
 
 
@@ -80,7 +85,7 @@ OffsetCurveNormalDir::~OffsetCurveNormalDir()
 Point OffsetCurveNormalDir::eval(double t) const
 //===========================================================================
 {
-    Point par_pt;
+    Point par_pt(2);
     if (parameter_crv_.get() != nullptr)
     {
         par_pt = parameter_crv_->ParamCurve::point(t);
@@ -118,26 +123,35 @@ void OffsetCurveNormalDir::eval(double t, int n, Point der[]) const
     }
     else
     {
-        if (n > 0)
-        {
-            THROW("Derivatives not yet supported!");
-        }
-
-        Point par_pt;
+        Point par_pt(2);
         if (parameter_crv_.get() != nullptr)
         {
             par_pt = parameter_crv_->ParamCurve::point(t);
+            if (n > 0)
+            {
+                THROW("Derivatives not yet supported!");
+            }
         }
         else
         {
             // We project onto the surface.
             Point clo_pt;
             double clo_u, clo_v, clo_dist;
-            Point space_pt = space_crv_->point(t);
+            vector<Point> space_pt = space_crv_->point(t, 1);
             const double epsilon = 1.0e-08;
-            surf_->closestPoint(space_pt, clo_u, clo_v, clo_pt, clo_dist, epsilon);
+            surf_->closestPoint(space_pt[0], clo_u, clo_v, clo_pt, clo_dist, epsilon);
             par_pt[0] = clo_u;
             par_pt[1] = clo_v;
+            if (n > 0)
+            {
+                der[1] = space_pt[1];
+                // @@sbr201802 We use the tangent of the input curve, which is only correct for planes ...
+                // For our current usage it should suffice as the boundary loop will be given as external curves.
+                if (surf_->instanceType() != Class_Plane)
+                {
+                    MESSAGE("Derivatives not yet supported (will only be ok for planes)!");
+                }
+            }
         }
 
         Point space_pt = surf_->ParamSurface::point(par_pt[0], par_pt[1]);
@@ -154,7 +168,14 @@ void OffsetCurveNormalDir::eval(double t, int n, Point der[]) const
 double OffsetCurveNormalDir::start() const
 //===========================================================================
 {
-  return parameter_crv_->startparam();
+    if (parameter_crv_.get() != nullptr)
+    {
+        return parameter_crv_->startparam();
+    }
+    else
+    {
+        return space_crv_->startparam();
+    }
 }
 
 
@@ -162,7 +183,14 @@ double OffsetCurveNormalDir::start() const
 double OffsetCurveNormalDir::end() const
 //===========================================================================
 {
-  return parameter_crv_->endparam();
+    if (parameter_crv_.get() != nullptr)
+    {
+        return parameter_crv_->endparam();
+    }
+    else
+    {
+        return space_crv_->endparam();
+    }
 }
 
 

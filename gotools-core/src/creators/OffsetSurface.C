@@ -518,6 +518,7 @@ void OffsetSurface::reverseParameterDirection(bool direction_is_u)
 //===========================================================================
 {
     surface_->reverseParameterDirection(direction_is_u);
+    offset_dist_ *= -1.0;
 }
 
 
@@ -526,6 +527,7 @@ void OffsetSurface::swapParameterDirection()
 //===========================================================================
 {
     surface_->swapParameterDirection();
+    offset_dist_ *= -1.0;
 }
 
 
@@ -598,6 +600,10 @@ void OffsetSurface::createOffsetOuterBdLoop()
                 CurveCreators::offsetCurveNormalDir(par_cv,
                                                     *cv_iter, surface_,
                                                     epsgeo_, offset_dist_);
+            if (offset_cv.get() == nullptr)
+            {
+                std::cout << "WARNING: Offset curve was not created!" << std::endl;
+            }
             offset_loop_cvs.push_back(offset_cv);
         }
 
