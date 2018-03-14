@@ -538,8 +538,7 @@ bool CurveLoop::fixInvalidLoop(double& max_gap)
 #if 1
     if (max_gap > space_epsilon_)
     {
-        std::cout << "WARNING: Loop max_gap = " << max_gap << ", space_epsilon_ = " << space_epsilon_ << "!" <<
-            std::endl;
+        MESSAGE("WARNING: Loop max_gap = " << max_gap << ", space_epsilon_ = " << space_epsilon_ << "!");
     }
 
     return true;
