@@ -183,7 +183,6 @@ BOOST_FIXTURE_TEST_CASE(ensureParCrvExistence, ensureParCrvExistenceConfig)
     
         const double epsgeo = 1.0e-04;
         const bool cv_proj = cv_on_sf.ensureParCrvExistence(epsgeo);
-        std::cout << "cv_proj: " << cv_proj << std::endl;
 
         BOOST_CHECK_EQUAL(cv_proj, success[cntr]);
 
