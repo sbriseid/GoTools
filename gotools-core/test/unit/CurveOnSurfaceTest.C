@@ -108,3 +108,101 @@ BOOST_AUTO_TEST_CASE(sameOrientation)
 
 }
 
+
+
+struct ensureParCrvExistenceConfig {
+public:
+    ensureParCrvExistenceConfig()
+    {
+
+        const std::string datadir = "data/"; // Relative to build/gotools-core
+
+        infiles.push_back(datadir + "cone_and_iso_circle.g2");
+        success.push_back(true);
+
+#if 1
+        infiles.push_back(datadir + "cylinder_seam_cv.g2");
+        success.push_back(false); // This case should fail as the curve lies on the seam.
+#endif
+
+        GoTools::init();
+    }
+
+public:
+    ObjectHeader header;
+    vector<string> infiles;
+    vector<bool> success;
+};
+
+
+BOOST_FIXTURE_TEST_CASE(ensureParCrvExistence, ensureParCrvExistenceConfig)
+{
+    // We read a cone and a circular iso-curve lying on the cone.
+    //const std::string infile = "data/cone_and_iso_circle.g2"; // Relative to build/gotools-core
+
+    int cntr = -1;
+    for (auto infile : infiles)
+    {
+        ++cntr;
+        ifstream in(infile.c_str());
+        BOOST_CHECK_MESSAGE(in.good(), "Input file not found or file corrupt");
+        header.read(in);
+        shared_ptr<ParamSurface> sf;
+        if (header.classType() == Class_Cone)
+        {
+            sf = shared_ptr<Cone>(new Cone());
+        }
+        else if (header.classType() == Class_Cylinder)
+        {
+            sf = shared_ptr<Cylinder>(new Cylinder());
+        }
+        else
+        {
+            THROW("Unexpected surface type!");
+        }
+        sf->read(in);
+
+        header.read(in);
+        shared_ptr<ParamCurve> space_cv;
+        if (header.classType() == Class_Circle)
+        {
+            space_cv = shared_ptr<Circle>(new Circle);
+        }
+        else if (header.classType() == Class_Line)
+        {
+            space_cv = shared_ptr<Line>(new Line);
+        }
+        else
+        {
+            THROW("Unexpected surface type!");
+        }
+        space_cv->read(in);
+
+        const bool par_pref = false;
+        CurveOnSurface cv_on_sf(sf, space_cv, par_pref);
+    
+        const double epsgeo = 1.0e-04;
+        const bool cv_proj = cv_on_sf.ensureParCrvExistence(epsgeo);
+        std::cout << "cv_proj: " << cv_proj << std::endl;
+
+        BOOST_CHECK_EQUAL(cv_proj, success[cntr]);
+
+        // We also verify the end points of the projected curve lies in the domain of the surface. This test
+        // was added to trigger a bug in the ensureParCrvExistence() function.
+        shared_ptr<ParamCurve> pcv = cv_on_sf.parameterCurve();
+        if (pcv)
+        {
+            Point start_pt = pcv->point(pcv->startparam());
+            Point end_pt = pcv->point(pcv->endparam());
+            double min_u = std::min(start_pt[0], end_pt[0]);
+            double max_u = std::max(start_pt[0], end_pt[0]);
+            double min_v = std::min(start_pt[1], end_pt[1]);
+            double max_v = std::max(start_pt[1], end_pt[1]);
+            const RectDomain& dom = sf->containingDomain();
+            BOOST_CHECK(min_u >= dom.umin());
+            BOOST_CHECK(max_u <= dom.umax());
+            BOOST_CHECK(min_v >= dom.vmin());
+            BOOST_CHECK(max_v <= dom.vmax());
+        }
+    }
+}
