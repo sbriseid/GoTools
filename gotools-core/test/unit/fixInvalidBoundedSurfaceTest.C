@@ -66,10 +66,11 @@ public:
 
         const string datadir_public = "data/"; // Relative to build/gotools-core
 
-#if 0
+#if 1
         // This test case consists of a sphere with a trim curve crossing a pole. This scenario can be
         // handled, but not by BoundedUtils::fixInvalidBoundedSurface().
-        infiles.push_back(datadir_public + "test_bounded_sf_3.g2");
+        infiles.push_back(datadir_public + "bd_cone_no_pcvs.g2");
+//        infiles.push_back(datadir_public + "test_bounded_sf_3.g2");
 
 #endif
 
