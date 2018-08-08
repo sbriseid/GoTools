@@ -87,8 +87,8 @@ BOOST_FIXTURE_TEST_CASE(BoundedSurfaceTest, Config)
 {
     vector<shared_ptr<BoundedSurface> > bounded_surfaces;
 
-    int nfiles = infiles.size();
-    for (int i = 0; i < nfiles; ++i) {
+    size_t nfiles = infiles.size();
+    for (size_t i = 0; i < nfiles; ++i) {
         std::cout << "i: " << i << ", filename: " << infiles[i] << std::endl;
         //string filename = "test_bounded_sf_2.g2";
         //string infile = datadir + filename;
