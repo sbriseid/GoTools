@@ -101,6 +101,7 @@ int CurveBoundedDomain::isInDomain2(const Array<double, 2>& pnt,
     }
 }
 
+
 //===========================================================================
 bool CurveBoundedDomain::isInDomain(const Array<double, 2>& pnt,
 				      double tolerance) const
@@ -172,6 +173,7 @@ bool CurveBoundedDomain::isInDomain(const Array<double, 2>& pnt,
   // Not inside
   return false;
 }
+
 
 //===========================================================================
 bool CurveBoundedDomain::isOnCorner(const Array<double, 2>& point,
@@ -738,6 +740,30 @@ int CurveBoundedDomain::positionPointInDomain(int pardir, double parval1,
   return -1; // The point lies outside the domain
 }
 
+
+#if 0
+
+
+//===========================================================================
+void CurveBoundedDomain::
+findPcurveInsideSegments(const SplineCurve& curve,
+			 double tolerance,
+			 vector<double>& params_start_end_interval,
+			 bool with_bd) const
+//===========================================================================
+{
+    params_start_end_interval.clear();
+    vector<intersection_point> intpt;
+    findPcurveInsideSegments(curve, tolerance, intpt, with_bd);
+    for (int i = 0; i < int(intpt.size()); ++i) {
+	params_start_end_interval.push_back(intpt[i].par1);
+    }
+}
+
+
+#else
+
+
 //===========================================================================
 void CurveBoundedDomain::
 findPcurveInsideSegments(const SplineCurve& curve,
@@ -926,6 +952,10 @@ findPcurveInsideSegments(const SplineCurve& curve,
       }
  }
 
+
+#endif
+
+
 //===========================================================================
 void CurveBoundedDomain::
 findPcurveInsideSegments(const SplineCurve& curve,
@@ -951,6 +981,7 @@ findPcurveInsideSegments(const SplineCurve& curve,
       boundary_curves.push_back(intpt[i].curve_idx);
     }
 }
+
 
 //===========================================================================
 void CurveBoundedDomain::
@@ -1229,6 +1260,8 @@ findPcurveInsideSegments(const SplineCurve& curve,
 					  dummy_pretop));
       }
 }
+
+
 
 //===========================================================================
 bool CurveBoundedDomain::doIntersect(const SplineCurve& curve, 
