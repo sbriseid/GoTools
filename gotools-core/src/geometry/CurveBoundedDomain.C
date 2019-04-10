@@ -741,7 +741,7 @@ int CurveBoundedDomain::positionPointInDomain(int pardir, double parval1,
 }
 
 
-#if 0
+#if 1
 
 
 //===========================================================================
