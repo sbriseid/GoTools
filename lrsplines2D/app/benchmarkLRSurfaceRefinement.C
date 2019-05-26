@@ -42,6 +42,7 @@
 #include "GoTools/lrsplines2D/Direction2D.h"
 #include "GoTools/lrsplines2D/LRBenchmarkUtils.h"
 #include "GoTools/lrsplines2D/LRSplinePlotUtils.h"
+#include "GoTools/lrsplines2D/LRSplineUtils.h"
 //#include "GoTools/lrsplines2D/Element.h" // sbr/trd version (based on trondheim version).
 #include "GoTools/geometry/ObjectHeader.h"
 #include "GoTools/geometry/SplineSurface.h"
@@ -97,6 +98,7 @@ int main(int argc, char *argv[])
   shared_ptr<Go::SplineSurface> spline_sf;
 //  shared_ptr<Go::SplineSurface> lr_spline_sf_go;
   shared_ptr<LRSplineSurface> lr_spline_sf, lr_spline_sf_single_refs;
+  double knot_tol = 1e-10;
 
   int order_u, order_v, num_coefs_u, num_coefs_v, dim, num_bases=-1;
   if (strstr(filein_char, ".g2"))
@@ -107,13 +109,30 @@ int main(int argc, char *argv[])
       // header.read(filein);
       filein >> header;
       // We check that a lr spline was read.
-      if (header.classType() != Class_SplineSurface)
-      {
-	  puts("The input g2-file was not of type Class_SplineSurface");
-	  return -1;
-      }
-      // We read using the GO:LRSplineSurface routine.
-      filein >> *spline_sf;
+      if (header.classType() == Class_SplineSurface)
+	{
+	  std::cout << "Input was a SplineSurface, creating a LRSplineSurface." << std::endl;
+	  spline_sf = shared_ptr<SplineSurface>(new SplineSurface());
+	  filein >> *spline_sf;
+	  dim = spline_sf->dimension();
+	  // We create the lr-version.
+	  lr_spline_sf = shared_ptr<LRSplineSurface>(new LRSplineSurface(spline_sf.get(), knot_tol));
+	}
+      else if (header.classType() == Class_LRSplineSurface)
+	{
+	  std::cout << "Input was a LRSplineSurface." << std::endl;
+	  lr_spline_sf = shared_ptr<LRSplineSurface>(new LRSplineSurface());
+	  filein >> *lr_spline_sf;
+	  dim = lr_spline_sf->dimension();
+          std::cout << "dim: " << dim << std::endl;
+
+	  spline_sf = shared_ptr<SplineSurface>(LRSplineUtils::fullTensorProductSurface(*lr_spline_sf));
+	}
+      else
+	{
+	  std::cout << "Input was not a SplineSurface or a LRSplineSurface, exiting!" << std::endl;
+          return -1;
+	}
       assert(!spline_sf->rational());
 
       order_u = spline_sf->order_u();
@@ -274,8 +293,11 @@ int main(int argc, char *argv[])
   bool refine_multi = true;
   if (refine_multi)
   {
+      double max_dist_pre = maxDist(spline_sf.get(), *lr_spline_sf, num_samples_u, num_samples_v);
+      std::cout << "Max dist between input lr_spline_sf: " << max_dist_pre << std::endl;
+
       double time_lrspline_lr_ref = benchmarkSfRefinement(*lr_spline_sf, all_refs);
-      std::cout << "Time lr refinement: " << time_lrspline_lr_ref << std::endl;
+      std::cout << "Time lr refinement multi refs: " << time_lrspline_lr_ref << std::endl;
       // We write to screen the number of basis functions for both
       // versions.
       int num_elem = lr_spline_sf->numElements();

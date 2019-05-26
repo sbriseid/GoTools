@@ -567,6 +567,7 @@ bool LRSplineSurface::isFullTensorProduct() const
 //==============================================================================
 {
   refine(ref.d, ref.kval, ref.start, ref.end, ref.multiplicity, absolute);
+//  curr_element_ = NULL;
 }
 
 //==============================================================================
@@ -903,6 +904,9 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
       }
     }
   }
+
+//  curr_element_ = NULL;
+
 #ifdef DEBUG
   //std::cout << "Num elements post: " << numElements() << std::endl;
 #endif
@@ -913,17 +917,20 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
 			     bool absolute)
 //==============================================================================
 {
-#if 0//ndef NDEBUG
-  {
-    vector<LRBSpline2D*> bas_funcs;
-    for (auto iter = bsplines_.begin(); iter != bsplines_.end(); ++iter)
-      {
-	bas_funcs.push_back((*iter).second.get());
-      }
-    //puts("Remove when done debugging!");
-    int stop_break = 1;
-  }
-#endif
+
+#if 0
+
+    // @@sbr201905 The current version of multi-refine messes up the pointers, resulting in the
+    // occasional core dump. Reverting to the safe but slow iterative approach.
+    MESSAGE("Deactived multi-refine, iterating through all the refinements.");
+    for (size_t ki = 0; ki < refs.size(); ++ki)
+    {
+        refine(refs[ki], true); // Second argument is 'true', which means that the mult is set	     
+        // to refs[ki].mult = deg+1.
+    }
+
+#else
+
   for (size_t i = 0; i != refs.size(); ++i) {
     const Refinement2D& r = refs[i];
        LRSplineUtils::refine_mesh(r.d, 
@@ -989,6 +996,10 @@ for (auto it = affected.begin(); it != affected.end(); ++it)
       }
     puts("Remove when done debugging!");
   }
+#endif
+
+//  curr_element_ = NULL;
+
 #endif
 
 }

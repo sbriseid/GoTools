@@ -107,3 +107,62 @@ BOOST_FIXTURE_TEST_CASE(subSurface, Config)
 	BOOST_CHECK_LT(dist, tol);
     }
 }
+
+
+BOOST_FIXTURE_TEST_CASE(refine, Config)
+{
+    // Assuming all infiles are LRSplineSurface. Otherwise the fixture must be changed.
+    for (auto iter = infiles.begin(); iter != infiles.end(); ++iter)
+    {
+	ifstream in1(iter->c_str());
+        BOOST_CHECK_MESSAGE(in1.good(), "Input file not found or file corrupt");
+
+	shared_ptr<LRSplineSurface> lr_sf(new LRSplineSurface());
+	header.read(in1);
+	lr_sf->read(in1);
+
+        // We verify that the different versions of refine work and that they do not alter the evaluation of the lr_spline_sf.
+
+        const double tmin = 0.0;
+        const double tmax = 1.0;
+        const int mult = 1;
+        LRSplineSurface::Refinement2D ref;
+        // dir = YFIXED; // YDIRFIXED, refining in the y-dir (v).
+        ref.kval = 0.5;//ref_par;
+        ref.start = tmin;
+        ref.end = tmax;
+        ref.d = YFIXED;
+        ref.multiplicity = mult;
+
+        vector<LRSplineSurface::Refinement2D> refs_u, refs_v, all_refs;
+        all_refs.push_back(ref); // Refinements in the u-dir.
+
+        ref.d = XFIXED;
+        all_refs.push_back(ref); // Refinements in the u-dir.
+
+        // We make copies of the lr_sf.
+        shared_ptr<LRSplineSurface> lr_sf_single_ref(lr_sf->clone());
+        for (auto ref : all_refs)
+        {
+            lr_sf_single_ref->refine(ref, true);
+        }
+
+        shared_ptr<LRSplineSurface> lr_sf_multi_ref(lr_sf->clone());
+        lr_sf_multi_ref->refine(all_refs, true);
+
+        double upar = 0.15;
+        double vpar = 0.15;
+	const Point orig_pt = lr_sf->ParamSurface::point(upar, vpar);
+	const Point pt_single = lr_sf_single_ref->ParamSurface::point(upar, vpar);
+	const Point pt_multi = lr_sf_multi_ref->ParamSurface::point(upar, vpar);
+
+        double dist_single = orig_pt.dist(pt_single);
+        double dist_multi = orig_pt.dist(pt_multi);
+
+        std::cout << "dist_single: " << dist_single << ", dist_multi: " << dist_multi << std::endl;
+
+	const double tol = 1e-14;
+	BOOST_CHECK_LT(dist_single, tol);
+	BOOST_CHECK_LT(dist_multi, tol);
+    }
+}
