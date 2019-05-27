@@ -567,7 +567,7 @@ bool LRSplineSurface::isFullTensorProduct() const
 //==============================================================================
 {
   refine(ref.d, ref.kval, ref.start, ref.end, ref.multiplicity, absolute);
-//  curr_element_ = NULL;
+  curr_element_ = NULL;
 }
 
 //==============================================================================
@@ -905,7 +905,7 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
     }
   }
 
-//  curr_element_ = NULL;
+  curr_element_ = NULL;
 
 #ifdef DEBUG
   //std::cout << "Num elements post: " << numElements() << std::endl;

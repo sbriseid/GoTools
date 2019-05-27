@@ -304,8 +304,12 @@ int main(int argc, char *argv[])
       int num_basis_funcs = lr_spline_sf->numBasisFunctions();
       std::cout << "num_elem: " << num_elem << ", num_basis_funcs: " << num_basis_funcs << std::endl;
 
+#if 1
       double max_dist = maxDist(spline_sf.get(), *lr_spline_sf, num_samples_u, num_samples_v);
       std::cout << "Max dist between input and (multi) refined surface: " << max_dist << std::endl;
+#else
+      puts("Removed max_dist calculation!");
+#endif
 
       std::ofstream fileout("tmp/ref_lr_multi.g2");
       lr_spline_sf->writeStandardHeader(fileout);
@@ -329,21 +333,26 @@ int main(int argc, char *argv[])
 	  ", num_basis_funcs_single_refs: " << num_basis_funcs_single << std::endl;
 
 #if 0//ndef NDEBUG
-  vector<LRBSpline2D*> bas_funcs;
-  for (auto iter = lr_spline_sf_single_refs->basisFunctionsBegin(); iter != lr_spline_sf_single_refs->basisFunctionsEnd(); ++iter)
-    {
-      bas_funcs.push_back((*iter).second.get());
-    }
-  vector<Element2D*> elems;
-  for (auto iter = lr_spline_sf_single_refs->elementsBegin(); iter != lr_spline_sf_single_refs->elementsEnd(); ++iter)
-  {
-      elems.push_back(((*iter).second.get()));
-  }
-  puts("Remove when done debugging!");
+      vector<LRBSpline2D*> bas_funcs;
+      for (auto iter = lr_spline_sf_single_refs->basisFunctionsBegin(); iter != lr_spline_sf_single_refs->basisFunctionsEnd(); ++iter)
+      {
+          bas_funcs.push_back((*iter).second.get());
+      }
+      vector<Element2D*> elems;
+      for (auto iter = lr_spline_sf_single_refs->elementsBegin(); iter != lr_spline_sf_single_refs->elementsEnd(); ++iter)
+      {
+          elems.push_back(((*iter).second.get()));
+      }
+      puts("Remove when done debugging!");
 #endif
 
+
+#if 1
       double max_dist_post_ref_multi_ref = maxDist(spline_sf.get(), *lr_spline_sf_single_refs, num_samples_u, num_samples_v);
       std::cout << "Max dist input and (single) ref surface: " << max_dist_post_ref_multi_ref << std::endl;
+#else
+      puts("Removed max_dist calculation!");
+#endif
 
       std::ofstream fileout2("tmp/ref_lr_single.g2");
       lr_spline_sf_single_refs->writeStandardHeader(fileout2);
