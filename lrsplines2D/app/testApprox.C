@@ -184,6 +184,8 @@ int main(int argc, char *argv[])
       approx.setMinimumElementSize(min_el_u, min_el_v);
     }
       
+  // Feature output
+  approx.setFeatureOut(224);
 
   double maxdist, avdist, avdist_total; // will be set below
   int nmb_out_eps;        // will be set below

@@ -46,9 +46,11 @@
 #include "GoTools/creators/SmoothSurf.h"
 #include "GoTools/geometry/PointCloud.h"
 #include "GoTools/lrsplines2D/LRSplinePlotUtils.h"
+#include "GoTools/lrsplines2D/LRFeatureUtils.h"
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <string>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -543,6 +545,12 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
       std::cout << "Average distance exceeding tolerance (dist-tol): " << avout_ << std::endl;
     }
 
+  if (write_feature_)
+    {
+      std::ofstream f_out("cellinfo0.txt");
+      LRFeatureUtils::writeCellInfo(*srf_, aepsge_, ncell_, f_out);
+    }
+
   ghost_elems.clear();
   points_.clear();  // Not used anymore TESTING
   for (int ki=0; ki<max_iter; ++ki)
@@ -805,7 +813,18 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  std::cout << "Number of coefficients: " << srf_->numBasisFunctions() << std::endl;
 	  std::cout << "Number of registered outliers: " << nmb_outliers_ << std::endl;
 	}
-    }
+
+      if (write_feature_)
+	{
+	  std::string body = "cellinfo";
+	  std::string extension = ".txt";
+	  std::string ver = std::to_string(ki+1);
+	  std::string outfile = body + ver + extension;
+	  std::ofstream f_out2(outfile.c_str());
+	  LRFeatureUtils::writeCellInfo(*srf_, aepsge_, ncell_, f_out2);
+	}
+
+   }
 
   // Set accuracy information
   maxdist = maxdist_;
@@ -3211,6 +3230,9 @@ void LRSurfApprox::initDefaultParams()
 
   fix_boundary_ = false; //true;
   make_ghost_points_ = false;
+
+  write_feature_ = false;
+  ncell_ = 1;
 }
 
 //==============================================================================

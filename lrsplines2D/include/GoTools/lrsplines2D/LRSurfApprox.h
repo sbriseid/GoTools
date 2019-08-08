@@ -405,6 +405,18 @@ class LRSurfApprox
       average_outside = avout_;
     }
 
+    /// Feature output
+    void setFeatureOut(int ncell)
+    {
+      write_feature_ = true;
+      ncell_ = ncell;
+    }
+
+    void unsetFeatureOut()
+    {
+      write_feature_ = false;
+    }
+
  private:
     shared_ptr<LRSplineSurface> srf_;
     shared_ptr<Eval1D3DSurf> evalsrf_;
@@ -469,6 +481,10 @@ class LRSurfApprox
     double var_fac_pos_;
     double var_fac_neg_;
     double mintol_;
+
+    // Features output
+    bool write_feature_;
+    int ncell_;
 
     void initDefaultParams();
 
