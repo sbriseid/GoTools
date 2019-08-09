@@ -1150,7 +1150,7 @@ void LRSurfSmoothLS::evalAllBGridDer(const vector<LRBSpline2D*>& bsplines,
 	{
 	  for (kj=0; kj<nmb1; ++kj)
 	    {
-	      result[(ki*nperb+kr)*nmb1+kj] = 
+	      result[ki*nperb+kr*nmb1+kj] = 
 		gamma*val1[ki*nbb1+kj*(nmb_der+1)+1]*
 		val2[ki*nbb2+kr*(nmb_der+1)];  // du
 
@@ -1160,11 +1160,11 @@ void LRSurfSmoothLS::evalAllBGridDer(const vector<LRBSpline2D*>& bsplines,
 
 	      if (nmb_der > 1)
 		{
-		  result[(ki*nperb+2*nmb2+kr)*nmb1+kj] = 
+		  result[ki*nperb+(2*nmb2+kr)*nmb1+kj] = 
 		    gamma*val1[ki*nbb1+kj*(nmb_der+1)+2]*
 		    val2[ki*nbb2+kr*(nmb_der+1)];  // duu
 		  
-		  result[(ki*nperb+3*nmb2+kr)*nmb1+kj] = 
+		  result[ki*nperb+(3*nmb2+kr)*nmb1+kj] = 
 		    gamma*val1[ki*nbb1+kj*(nmb_der+1)+1]*
 		    val2[ki*nbb2+kr*(nmb_der+1)+1];  // duv
 		  
@@ -1174,15 +1174,15 @@ void LRSurfSmoothLS::evalAllBGridDer(const vector<LRBSpline2D*>& bsplines,
 
 		  if (nmb_der > 2)
 		    {
-		      result[(ki*nperb+5*nmb2+kr)*nmb1+kj] = 
+		      result[ki*nperb+(5*nmb2+kr)*nmb1+kj] = 
 			gamma*val1[ki*nbb1+kj*(nmb_der+1)+3]*
 			val2[ki*nbb2+kr*(nmb_der+1)];  // duuu
 		      
-		      result[(ki*nperb+6*nmb2+kr)*nmb1+kj] = 
+		      result[ki*nperb+(6*nmb2+kr)*nmb1+kj] = 
 			gamma*val1[ki*nbb1+kj*(nmb_der+1)+2]*
 			val2[ki*nbb2+kr*(nmb_der+1)+1];  // duuv
 		      
-		      result[(ki*nperb+7*nmb2+kr)*nmb1+kj] = 
+		      result[ki*nperb+(7*nmb2+kr)*nmb1+kj] = 
 			gamma*val1[ki*nbb1+kj*(nmb_der+1)+1]*
 			val2[ki*nbb2+kr*(nmb_der+1)+2];  // duvv
 		      

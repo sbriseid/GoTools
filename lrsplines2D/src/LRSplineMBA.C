@@ -175,10 +175,10 @@ void LRSplineMBA::MBADistAndUpdate(LRSplineSurface *srf,
 		ptval[ka] += val[kj]*tmp[ka];
 
 	      if (ki >= nmb_pts)
-		val{kj] *= significant_factor;
+		val[kj] *= significant_factor;
 	    }
 	  Bval.insert(Bval.end(), val.begin(), val.end());
-	  double dist;
+	  double dist, dist_2;
 	  if (dim == 1)
 	    {
 	      dist = curr[2] - ptval[0];
@@ -606,7 +606,7 @@ void LRSplineMBA::MBADistAndUpdate_omp(LRSplineSurface *srf,
 //==============================================================================
 void LRSplineMBA::MBAUpdate(LRSplineSurface *srf, 
 			    double significant_factor,
-			    int sgn)
+			    int sgn, bool only_significant)
 //==============================================================================
 {
   double tol = 1.0e-12;  // Numeric tolerance
@@ -664,7 +664,7 @@ void LRSplineMBA::MBAUpdate(LRSplineSurface *srf,
       	continue;   // Element satisfies accuracy requirements
 
       // Fetch points from the source surface
-      int nmb_pts = el1->second->nmbDataPoints();
+      int nmb_pts = (only_significant) ? 0 : el1->second->nmbDataPoints();
       vector<double>& points = el1->second->getDataPoints();
       vector<double>& sign_points = el1->second->getSignificantPoints();
       //int nmb_ghost = 0; //el1->second->nmbGhostPoints();
@@ -691,8 +691,8 @@ void LRSplineMBA::MBAUpdate(LRSplineSurface *srf,
       // std::cout << "del: " << del << std::endl;
       int threadId = 0;
 
-      for (ki=0, curr=&points[0]; ki<nmb_all;  
-	     ++ki, (ki == nmb_pts) ? curr=&sign_points[0] : curr+=del)
+      for (ki=0, curr=(nmb_pts == 0) ? &sign_points[0] : &points[0]; 
+	   ki<nmb_all;  ++ki, (ki == nmb_pts) ? curr=&sign_points[0] : curr+=del)
       {
 	if (sgn != 0 && dim == 1)
 	  {
@@ -753,68 +753,68 @@ void LRSplineMBA::MBAUpdate(LRSplineSurface *srf,
 	  // printf("Done with for loop.\n");
       }
 
-      // Compute contribution from ghost points
-      if (ghost_points.size() > 0)
-      {
-	  for (ki=0, curr=&ghost_points[0]; ki<nmb_ghost; ++ki, curr+=del)
-	  {
-	    if (sgn != 0 && dim == 1)
-	      {
-		// Check if the contribution from this point should be omitted
-		if (sgn*curr[del2-1] < 0.0)
-		  continue;
-	      }
+//       // Compute contribution from ghost points
+//       if (ghost_points.size() > 0)
+//       {
+// 	  for (ki=0, curr=&ghost_points[0]; ki<nmb_ghost; ++ki, curr+=del)
+// 	  {
+// 	    if (sgn != 0 && dim == 1)
+// 	      {
+// 		// Check if the contribution from this point should be omitted
+// 		if (sgn*curr[del2-1] < 0.0)
+// 		  continue;
+// 	      }
 
-	      // Computing weights for this data point
-	    bool u_at_end = (curr[0] >= umax/*-tol*/) ? true : false;
-	    bool v_at_end = (curr[1] >= vmax/*-tol*/) ? true : false;
-	      //u_at_end = v_at_end = false;  // TEST
-	    double total_squared_inv = 0;
-	    vector<double> val;
-	    LRSplineUtils::evalAllBSplines(bsplines, curr[0], curr[1], 
-	    				   u_at_end, v_at_end, val);
-	    for (kj=0; kj<bsplines.size(); ++kj) 
-	      {
-		// double val = bsplines[kj]->evalBasisFunction(curr[0], curr[1], 0, 0,
-		// 					       u_at_end, v_at_end);
-		const double wgt = val[kj]*bsplines[kj]->gamma();
-		tmp_weights[kj] = wgt;
-		total_squared_inv += wgt*wgt;
-	      }
-	    total_squared_inv = (total_squared_inv < tol) ? 0.0 : 1.0/total_squared_inv;
+// 	      // Computing weights for this data point
+// 	    bool u_at_end = (curr[0] >= umax/*-tol*/) ? true : false;
+// 	    bool v_at_end = (curr[1] >= vmax/*-tol*/) ? true : false;
+// 	      //u_at_end = v_at_end = false;  // TEST
+// 	    double total_squared_inv = 0;
+// 	    vector<double> val;
+// 	    LRSplineUtils::evalAllBSplines(bsplines, curr[0], curr[1], 
+// 	    				   u_at_end, v_at_end, val);
+// 	    for (kj=0; kj<bsplines.size(); ++kj) 
+// 	      {
+// 		// double val = bsplines[kj]->evalBasisFunction(curr[0], curr[1], 0, 0,
+// 		// 					       u_at_end, v_at_end);
+// 		const double wgt = val[kj]*bsplines[kj]->gamma();
+// 		tmp_weights[kj] = wgt;
+// 		total_squared_inv += wgt*wgt;
+// 	      }
+// 	    total_squared_inv = (total_squared_inv < tol) ? 0.0 : 1.0/total_squared_inv;
 	    
-	    // Compute contribution
-	      for (kj=0; kj<bsplines.size(); ++kj)
-	      {
-		  const double wc = tmp_weights[kj]; 
-		  for (int ka=0; ka<dim; ++ka)
-		  {
-		      const double phi_c = wc * curr[del2-dim+ka] * total_squared_inv;
-		      tmp[ka] = wc * wc * phi_c;
-		  }
-#ifdef DEBUG
-		  if (dim == 1)
-		    {
-		      double dist = curr[2];
-		      if (sgn < 0 && dist < 0.0)
-			{
-			  maxval = std::min(maxval, dist);
-			  avval += dist;
-			  nmbval++;
-			}
-		      else if (sgn > 0 && dist >= 0.0)
-			{
-			  maxval = std::max(maxval, dist);
-			  avval += dist;
-			  nmbval++;
-			}
-		    }
-#endif
-		  add_contribution(dim, nom_denom, bsplines[kj], &tmp[0], 
-				   wc * wc);
-	      }
-	  }
-      }
+// 	    // Compute contribution
+// 	      for (kj=0; kj<bsplines.size(); ++kj)
+// 	      {
+// 		  const double wc = tmp_weights[kj]; 
+// 		  for (int ka=0; ka<dim; ++ka)
+// 		  {
+// 		      const double phi_c = wc * curr[del2-dim+ka] * total_squared_inv;
+// 		      tmp[ka] = wc * wc * phi_c;
+// 		  }
+// #ifdef DEBUG
+// 		  if (dim == 1)
+// 		    {
+// 		      double dist = curr[2];
+// 		      if (sgn < 0 && dist < 0.0)
+// 			{
+// 			  maxval = std::min(maxval, dist);
+// 			  avval += dist;
+// 			  nmbval++;
+// 			}
+// 		      else if (sgn > 0 && dist >= 0.0)
+// 			{
+// 			  maxval = std::max(maxval, dist);
+// 			  avval += dist;
+// 			  nmbval++;
+// 			}
+// 		    }
+// #endif
+// 		  add_contribution(dim, nom_denom, bsplines[kj], &tmp[0], 
+// 				   wc * wc);
+// 	      }
+// 	  }
+    //   }
     }
 
 #ifdef DEBUG
