@@ -187,6 +187,31 @@ class LRSurfApprox
   /// Destructor
   ~LRSurfApprox();
 
+  /// Add significant points to whom special attention must be paid
+  void addSignificantPoints(std::vector<double>& sign_points, 
+			    double sign_epsge)
+  {
+    sign_points_.insert(sign_points_.end(), sign_points.begin(),
+			sign_points.end());
+    nmb_sign_ = (int)sign_points_.size()/(2+srf_->dimension());
+    sign_aepsge_ = sign_epsge;
+  }
+
+  /// Set factor for approximation of significant points (default == 5)
+  void setSignificantFactor(double significant_fac)
+  {
+    significant_fac_ = significant_fac;
+  }
+
+  /// Get results of significant point approximation
+  void getSignificantPointInfo(double& maxdist_sign, double& avdist_sign,
+			       int& outside_sign)
+  {
+    maxdist_sign  = maxdist_sign_;
+    avdist_sign = avdist_sign_;
+    outside_sign = outsideeps_sign_;
+  }
+
     /// Sets the smoothing weight to something other than the default (1e-9).
     /// The value should lie in the unit interval, typically close to 0.
     /// \param smooth the new smoothing weight.
@@ -409,8 +434,11 @@ class LRSurfApprox
     shared_ptr<LRSplineSurface> srf_;
     shared_ptr<Eval1D3DSurf> evalsrf_;
     int nmb_pts_;
+    int nmb_sign_;
     int nmb_outliers_;
     std::vector<double>& points_;  // Reference to input points and parameter values
+    std::vector<double> sign_points_;
+
     std::vector<int> coef_known_;
     shared_ptr<LRSplineSurface> prev_;  // Previous surface, no point information
     // in elements
@@ -426,14 +454,19 @@ class LRSurfApprox
     int edge_derivs_[4];
     double maxdist_;
     double maxdist_prev_;
+    double maxdist_sign_;
     double avdist_;
     double avdist_all_;
     double avdist_all_prev_;
+    double avdist_sign_;
     int outsideeps_;
+    int outsideeps_sign_;
     double maxout_;
     double avout_;
     double aepsge_;
+    double sign_aepsge_;
     double smoothweight_;
+    double significant_fac_;
     int maxLScoef_;
     bool smoothbd_;
     bool repar_;
@@ -492,6 +525,8 @@ class LRSurfApprox
 				    RectDomain& rd, const Element2D* elem,
 				    std::vector<double>& prev_points_dist);
 
+    void runMBAUpdate(bool computed_accuracy);
+
     int defineOutlierPts(Element2D* element, 
 			 std::vector<double>& prev_dist, double lim,
 			 double rad);
@@ -518,7 +553,8 @@ class LRSurfApprox
 					 double *knots_u, double *knots_v,
 					 double smoothweight,
 					 double& maxdist, double& avdist,
-					 int& nmb_outside);
+					 int& nmb_outside,
+					 double *points2=0, int nmb_pts2=0);
 
     /// Parameter domain surrounding the parameter values of all data points
     void computeParDomain(int dim, double& umin, double& umax, double& vmin, double& vmax);
