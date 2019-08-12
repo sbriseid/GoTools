@@ -650,7 +650,7 @@ void LRSplineMBA::MBAUpdate(LRSplineSurface *srf,
 	continue;  // No points to use in surface update
 
       // Fetch associated B-splines belonging to the difference surface
-      const vector<LRBSpline2D*>& bsplines = el2->second->getSupport();
+      const vector<LRBSpline2D*>& bsplines = el1->second->getSupport();
 
       const int bsplines_size = bsplines.size();
 
@@ -939,7 +939,7 @@ void LRSplineMBA::MBAUpdate_omp(LRSplineSurface *srf,
 	  el2 = el2_vec[kl];
 
 	  // Fetch associated B-splines belonging to the difference surface
-	  const vector<LRBSpline2D*>& bsplines = el2->second->getSupport();
+	  const vector<LRBSpline2D*>& bsplines = el1->second->getSupport();
 
 	  bsplines_size = bsplines.size();
 
@@ -1104,7 +1104,7 @@ void LRSplineMBA::MBAUpdate_omp(LRSplineSurface *srf,
  for (kl = 0; kl < num_elem; ++kl)
   {
       el2 = el2_vec[kl];
-      const vector<LRBSpline2D*>& bsplines = el2->second->getSupport();
+      const vector<LRBSpline2D*>& bsplines = el1->second->getSupport();
       int num_basis_funcs = bsplines.size();
       for (int ki = 0; ki < num_basis_funcs; ++ki)
       {

@@ -1055,15 +1055,17 @@ void LRSurfApprox::computeAccuracy(vector<Element2D*>& ghost_elems)
 	      max_err_prev = std::max(max_err_prev, dist3);
 	      acc_err_prev += dist3;
 	      tol = (ki < nmb_pts) ? aepsge_ : sign_aepsge_;
-	      if (has_var_tol_ && ki<nmb_pts)
+	      if (has_var_tol_ && (ki<nmb_pts || has_var_tol_sign_))
 		{
-		  tol = (height < 0.0) ? aepsge_ - var_fac_neg_*height :
-		    aepsge_ + var_fac_pos_*height;
-		  tol = std::max(tol, mintol_);
+		  tol = (height < 0.0) ? tol - var_fac_neg_*height :
+		    tol + var_fac_pos_*height;
+		  tol = std::max(tol, (ki<nmb_pts) ? mintol_ :
+				 mintol_*(sign_aepsge_/aepsge_));
 		  maxout_ = std::max(maxout_, dist2-tol);
 		}
 	      else
-		maxout_ = maxdist_ - aepsge_;
+		maxout_ = std::max(maxdist_-aepsge_, 
+				   maxdist_sign_-sign_aepsge_);
 	      //if (dist2 > aepsge_)
 	      if (ki >= nmb_pts)
 		{
@@ -1234,11 +1236,12 @@ void LRSurfApprox::computeAccuracy(vector<Element2D*>& ghost_elems)
 		      max_err = std::max(max_err, dist2);
 		      acc_err += dist2;
 		      tol = (ki < nmb_pts) ? aepsge_ : sign_aepsge_;
-		      if (has_var_tol_ && ki<nmb_pts)
+		      if (has_var_tol_ && (ki<nmb_pts || has_var_tol_sign_))
 			{
-			  tol = (height < 0.0) ? aepsge_ - var_fac_neg_*height :
-			    aepsge_ + var_fac_pos_*height;
-			  tol = std::max(tol, mintol_);
+			  tol = (height < 0.0) ? tol - var_fac_neg_*height :
+			    tol + var_fac_pos_*height;
+			  tol = std::max(tol, (ki<nmb_pts) ? mintol_ :
+					 mintol_*(sign_aepsge_/aepsge_));
 			}
 		      if (dist2 > tol)
 			{
@@ -1573,11 +1576,12 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 		  max_err_prev = std::max(max_err_prev, dist3);
 		  acc_err_prev += dist3;
 		  tol = (ki < nmb_pts) ? aepsge_ : sign_aepsge_;
-		  if (has_var_tol_ && ki<nmb_pts)
+		  if (has_var_tol_ && (ki<nmb_pts || has_var_tol_sign_))
 		    {
-		      tol = (height < 0.0) ? aepsge_ - var_fac_neg_*height :
-			aepsge_ + var_fac_pos_*height;
-		      tol = std::max(tol, mintol_);
+		      tol = (height < 0.0) ? tol - var_fac_neg_*height :
+			tol + var_fac_pos_*height;
+		      tol = std::max(tol, (ki<nmb_pts) ? mintol_ :
+				     mintol_*(sign_aepsge_/aepsge_));
 		      maxout_ = std::max(maxout_, dist2-tol);
 		    }
 		  else
@@ -1717,12 +1721,12 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 			  max_err = std::max(max_err, dist2);
 			  acc_err += dist2;
 			  tol = (ki < nmb_pts) ? aepsge_ : sign_aepsge_;
-			  if (has_var_tol_ && ki<nmb_pts)
+			  if (has_var_tol_ && (ki<nmb_pts || has_var_tol_sign_))
 			    {
-			      tol = (height < 0.0) ? 
-				aepsge_ - var_fac_neg_*height :
-				aepsge_ + var_fac_pos_*height;
-			      tol = std::max(tol, mintol_);
+			      tol = (height < 0.0) ? tol - var_fac_neg_*height :
+				tol + var_fac_pos_*height;
+			      tol = std::max(tol, (ki<nmb_pts) ? mintol_ :
+					     mintol_*(sign_aepsge_/aepsge_));
 			    }
 			  if (dist2 > tol)
 			    {
@@ -3368,7 +3372,7 @@ void LRSurfApprox::initDefaultParams()
   avout_ = 0.0;
   smoothweight_ = 1.0e-3;
   significant_fac_ = 5.0;
-  maxLScoef_ = 46340;
+  maxLScoef_ = 25000; // 46340; Memory management to costly for large surfaces
   smoothbd_ = false;
   fix_corner_ = false;
   to3D_ = -1;

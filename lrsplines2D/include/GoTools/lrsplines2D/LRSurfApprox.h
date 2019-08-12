@@ -377,11 +377,12 @@ class LRSurfApprox
 			  std::vector<double>& regular, int& nmb_regular);
 
     /// Set information about variable tolerance (default not triggered)
-    void setVarTol(double fac_pos, double fac_neg)
+    void setVarTol(double fac_pos, double fac_neg, bool var_tol_sign = false)
     {
       has_var_tol_ = true;
       var_fac_pos_ = fac_pos;
       var_fac_neg_ = fac_neg;
+      has_var_tol_sign_ = var_tol_sign;
     }
 
     void setMinTol(double mintol)
@@ -392,6 +393,7 @@ class LRSurfApprox
     void unsetVarTol()
     {
       has_var_tol_ = false;
+      has_var_tol_sign_ = false;
       var_fac_pos_ = var_fac_neg_ = 1.0;
     }
     
@@ -502,6 +504,7 @@ class LRSurfApprox
     double var_fac_pos_;
     double var_fac_neg_;
     double mintol_;
+    bool has_var_tol_sign_;
 
     void initDefaultParams();
 

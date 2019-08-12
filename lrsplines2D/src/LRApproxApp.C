@@ -1663,6 +1663,7 @@ double getMaxDistSignificantPoints(LRBSpline2D* bspline, int& nmb_overlap)
 void  
 LRApproxApp::updateSurfWithSignificantPts(shared_ptr<LRSplineSurface>& surf,
 					  double tol, double tol_sign,
+					  double fac_pos, double fac_neg,
 					  double& maxdist, double& avdist,
 					  double& avdist_out, int& nmb_out,
 					  double& maxsign, double& avsign,
@@ -1675,33 +1676,55 @@ LRApproxApp::updateSurfWithSignificantPts(shared_ptr<LRSplineSurface>& surf,
       return;
     }
 
-  int dim = 1;
   int nmb_changed = 0;
-  vector<LRBSpline2D*> to_change;
-  vector<Point> coef_change;
+  double min_tol = 0.01;
+  double min_tol_sign = min_tol*tol_sign/tol;
+  const int dim = surf->dimension();
+  // vector<LRBSpline2D*> to_change;
+  // vector<Point> coef_change;
   LRSplineSurface::BSplineMap::const_iterator it1;
   for (it1=surf->basisFunctionsBegin();
        it1 != surf->basisFunctionsEnd(); ++it1)
     {
-      int nmb_bsplines = 1;
-      double dist = getMaxDistSignificantPoints(it1->second.get(), 
-						nmb_bsplines);
-      if (fabs(dist) > tol_sign)
+      // int nmb_bsplines = 1;
+      // double dist = getMaxDistSignificantPoints(it1->second.get(), 
+      // 						nmb_bsplines);
+      const vector<Element2D*>& elements = it1->second->supportedElements();
+      size_t ki;
+      for (ki=0; ki<elements.size(); ++ki)
 	{
-	  // Modify coefficient
-	  Point coef = it1->second->Coef();
-	  double diff = fabs(dist) - tol_sign/(double)nmb_bsplines;
-	  if (dist < 0)
-	    diff *= -1;
-
-	  Point coef2 = coef;
-	  coef2[0] += diff;
-	  to_change.push_back(it1->second.get());
-	  coef_change.push_back(coef2);
-	  it1->second->setFixCoef(0);
-	  ++nmb_changed;
+	  int del = elements[ki]->getNmbValPrPoint();
+	  if (del == 0)
+	    del = dim+3;  // Parameter pair, point and distance
+	  vector<double>& points = elements[ki]->getSignificantPoints();
+	  size_t kj;
+	  for (kj=0; kj<points.size(); kj+=del)
+	    {
+	      double dist = points[kj+dim+2];
+	      double height = points[kj+dim+1];
+	      double tol2 = (height < 0.0) ? tol_sign - fac_neg*height :
+			    tol_sign + fac_pos*height;
+	      if (fabs(dist) > tol2)
+		{
+		  // // Modify coefficient
+		  // Point coef = it1->second->Coef();
+		  // double diff = fabs(dist) - tol_sign/(double)nmb_bsplines;
+		  // if (dist < 0)
+		  //   diff *= -1;
+		  
+		  // Point coef2 = coef;
+		  // coef2[0] += diff;
+		  // to_change.push_back(it1->second.get());
+		  // coef_change.push_back(coef2);
+		  it1->second->setFixCoef(0);
+		  ++nmb_changed;
+		  break;
+		}
+	    }
+	  if (kj < points.size())
+	    break;
 	}
-      else
+      if (ki == elements.size())
 	it1->second->setFixCoef(1);
     }
 
@@ -1779,16 +1802,21 @@ LRApproxApp::updateSurfWithSignificantPts(shared_ptr<LRSplineSurface>& surf,
 		      sfval += bval;
 		    }
 	      
-		  dist = curr[2] - sfval;
-		  curr[3] = dist;
+		  dist = curr[dim+1] - sfval;
+		  curr[dim+2] = dist;
 		  if (outlier)
 		    nmb_pts_all--;
 		  else
 		    {
 		      double dist2 = fabs(dist);
+		      double height = curr[dim+1];
 		      max_dist = std::max(max_dist, dist2);
 		      acc_err += dist2;
 		      tol2 = (ki < nmb_pts) ? tol : tol_sign;
+		      tol2 = (height < 0.0) ? tol2 - fac_neg*height :
+			tol2 + fac_pos*height;
+		      tol = std::max(tol2, (ki<nmb_pts) ? min_tol : 
+				     min_tol_sign);
 		      if (ki >= nmb_pts)
 			{
 			  av_dist_sign += dist2;
@@ -1798,7 +1826,7 @@ LRApproxApp::updateSurfWithSignificantPts(shared_ptr<LRSplineSurface>& surf,
 			{
 			  av_dist += dist2;
 			  nmb_out_el++;
-			  acc_out += (dist2 - tol);
+			  acc_out += (dist2 - tol2);
 			  if (ki >= nmb_pts)
 			    {
 			      nmb_out_sign_el++;
