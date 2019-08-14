@@ -102,6 +102,8 @@ ExtremalPoint::extremalPoints(shared_ptr<ParamSurface>& surface,
   if (dir.dimension() != surface->dimension())
     THROW("Inconsistent dimension of geometric space");
 
+  std::cout << "Compute extremal point" << std::endl;
+
   // Fetch associated spline surface
   shared_ptr<SplineSurface> tmp_spline;
   SplineSurface* surf = surface->getSplineSurface();
@@ -175,6 +177,7 @@ ExtremalPoint::extremalPoints(shared_ptr<ParamSurface>& surface,
     }
   else if (bddomain && kstat > 0)
     {
+      std::cout << "Iterate inside trimming loop" << std::endl;
       // Maximum value found outside trimmed surface. Iterate for internal
       // maximum values
       iterateExtremalPoints(surface, bddomain, dir, tol, maxval, sislsf,
