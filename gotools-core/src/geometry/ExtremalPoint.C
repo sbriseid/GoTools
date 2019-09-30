@@ -102,7 +102,7 @@ ExtremalPoint::extremalPoints(shared_ptr<ParamSurface>& surface,
   if (dir.dimension() != surface->dimension())
     THROW("Inconsistent dimension of geometric space");
 
-  std::cout << "Compute extremal point" << std::endl;
+  //std::cout << "Compute extremal point" << std::endl;
 
   // Fetch associated spline surface
   shared_ptr<SplineSurface> tmp_spline;

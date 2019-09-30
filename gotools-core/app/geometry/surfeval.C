@@ -73,8 +73,8 @@ int main(int argc, char* argv[] )
 
     std::vector<Point> p(3, Point(sf.dimension()));
     for (int j = 0; j < n; ++j) {
-	sf.point(p, pt[2*j], pt[2*j+1], 0);
-	cout << p[0];
+	sf.point(p, pt[2*j], pt[2*j+1], 1);
+	cout << p[0] << " " << p[1] << " " << p[2] << std::endl;
     }
 }
 
