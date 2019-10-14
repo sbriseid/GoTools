@@ -1025,7 +1025,7 @@ void LRSurfSmoothLS::fetchBasisDerivs(const vector<LRBSpline2D*>& bsplines,
   for (int ki=0; ki<bsize; ++ki)
     {
       // Compute all relevant derivatives in all Gauss points
-      vector<double> derivs;  // Storage for all derivatives in
+      //vector<double> derivs;  // Storage for all derivatives in
       // all points. Sequence: du for all points, then dv, duu, duv, dvv, ...
       // The position of the basis function is NOT stored.
       // bsplines[ki]->evalBasisGridDer(nmb_der, gausspar1, gausspar2,
