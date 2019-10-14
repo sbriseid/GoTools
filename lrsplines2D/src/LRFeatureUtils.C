@@ -69,7 +69,7 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
 
   int nc2 = ncell*ncell;
   vector<int> nmb_pts(3*nc2, 0);
-  vector<double> cellinfo(6*nc2, 0.0);
+  vector<double> cellinfo(14*nc2, 0.0);
   int *npt = &nmb_pts[0];
   int *nout_over = npt+nc2;
   int *nout_under = nout_over+nc2;
@@ -79,6 +79,13 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
   double *minheight = max_under+nc2;
   double *maxheight = minheight+nc2;
   double *nel = maxheight+nc2;
+  double *stdd = nel+nc2;
+  double *slope = stdd+nc2;
+  double *avheight = slope+nc2;
+  double *stddheight = avheight+nc2;
+  double *av2 = stddheight+nc2;
+  double *av_over = av2+nc2;
+  double *av_under = av_over+nc2;
 
   // Adjust default
   for (int kr=0; kr<nc2; ++kr)
@@ -121,7 +128,7 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
 	    }
 	}
 
-      // Fetch associated data points
+     // Fetch associated data points
       vector<double>& points = it->second->getDataPoints();
       int nmb = it->second->nmbDataPoints();
       int del = it->second->getNmbValPrPoint();
@@ -133,7 +140,9 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
 	  j1 = (int)((points[kr*del+1] - v1)/vdel);
 	  j1 = std::max(0, std::min(ncell-1, j1));
 	  int ixcell = j1*ncell + i1;
-	  avdist[ixcell] += points[kr*del+ix+1];
+	  av2[ixcell] += points[kr*del+ix+1];
+	  avdist[ixcell] += fabs(points[kr*del+ix+1]);
+	  avheight[ixcell] += points[kr*del+ix];
 	  max_over[ixcell] = std::max(max_over[ixcell], points[kr*del+ix+1]);
 	  max_under[ixcell] = std::min(max_under[ixcell], points[kr*del+ix+1]);
 	  maxheight[ixcell] = std::max(maxheight[ixcell], points[kr*del+ix]);
@@ -141,41 +150,278 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
 	  npt[ixcell]++;
 	  if (points[kr*del+ix+1] > tol)
 	    nout_over[ixcell]++;
+	  if (points[kr*del+ix+1] > 0.0)
+	    av_over[ixcell] += points[kr*del+ix+1];
+	  if (points[kr*del+ix+1] < -tol)
 	  if (points[kr*del+ix+1] < -tol)
 	    nout_under[ixcell]++;
+	  if (points[kr*del+ix+1] < 0.0)
+	    av_under[ixcell] -= points[kr*del+ix+1];
 	}
     }
   
   for (int kr=0; kr<nc2; ++kr)
     {
       if (npt[kr] > 0)
-	avdist[kr] /= (double)npt[kr];
+	{
+	  av2[kr] /= (double)npt[kr];
+	  avdist[kr] /= (double)npt[kr];
+	  avheight[kr] /= (double)npt[kr];
+	  av_over[kr] /= (double)npt[kr];
+	  av_under[kr] /= (double)npt[kr];
+	}
     }
 
-  // Write to file
-  out << ncell << "  " << ncell << "  " << "8" << std::endl;
+  // Standard deviation
+  for (LRSplineSurface::ElementMap::const_iterator it=srf.elementsBegin();
+       it != srf.elementsEnd(); ++it)
+    {
+      // Identify overlapping cells
+      double uel1 = it->second->umin();
+      double uel2 = it->second->umax();
+      double vel1 = it->second->vmin();
+      double vel2 = it->second->vmax();
+
+      // Fetch associated data points
+      vector<double>& points = it->second->getDataPoints();
+      int nmb = it->second->nmbDataPoints();
+      int del = it->second->getNmbValPrPoint();
+      for (int kr=0; kr<nmb; ++kr)
+	{
+	  // Identify cell
+	  int i1 = (int)((points[kr*del] - u1)/udel);
+	  i1 = std::max(0, std::min(ncell-1, i1));
+	  int j1 = (int)((points[kr*del+1] - v1)/vdel);
+	  j1 = std::max(0, std::min(ncell-1, j1));
+	  int ixcell = j1*ncell + i1;
+	  double tmp = points[kr*del+ix+1] - av2[ixcell];
+	  stdd[ixcell] += tmp*tmp;
+	  double tmp2 = points[kr*del+ix] - avheight[ixcell];
+	  stddheight[ixcell] += tmp2*tmp2;
+	}
+    }
+
   for (int kr=0; kr<nc2; ++kr)
     {
-      if (npt[kr] == 0)
-	out << "0.0  0.0  0.0  ";
-      else
-	{
-	  out << (double)(nout_under[kr]+nout_over[kr])/(double)npt[kr] << "  "; 
-	  out << (double)nout_under[kr]/(double)npt[kr] << "  ";
-	  out << (double)nout_over[kr]/(double)npt[kr] << "  ";
-	}
-      out << avdist[kr] << "  " ;
-      if (npt[kr] == 0)
-	out << "0.0  0.0  0.0";
-      else
-	{
-	  out << avdist[kr]/std::max(fabs(max_under[kr]), fabs(max_over[kr]));
-	  double max_diff = std::max(max_over[kr], 0.0) -
-	    std::min(max_under[kr], 0.0);
-	  double height_diff = maxheight[kr] - minheight[kr];
-	  out <<"  " << max_diff << "  " << height_diff;
-	}
-      out << "  " << nel[kr] << std::endl;
+      if (npt[kr] > 0)
+	stdd[kr] /= (double)npt[kr];
+    }
+
+  double upar, vpar;
+  for (int ki=0, upar=u1; ki<ncell; ++ki, upar+=udel)
+    for (int kj=0, vpar=v1; kj<ncell; ++kj, vpar+=vdel)
+      {
+	// Compute average slope in cell (9 points)
+	double slope2 = 0.0;
+	int ka, kb;
+	double upar2, vpar2;
+	double udel2 = udel/3.0;
+	double vdel2 = vdel/3.0;
+	vector<Point> der(3);
+	for (ka=0, upar2=upar+0.5*udel2; ka<3; ++ka, upar2+=udel2)
+	  for (kb=0, vpar2=vpar+0.5*vdel2; kb<3; ++kb, vpar2+=vdel2)
+	    {
+	      srf.point(der, upar2, vpar2, 1);
+	      slope2 += sqrt(der[1]*der[1]+der[2]*der[2]);
+	    }
+	slope[kj*ncell+ki] = slope2/9.0;
+      }
+
+  // Normalize to harmonize the different entries
+  double minval = 0.0;
+  double maxval = 10.0;
+  double currmin = std::numeric_limits<double>::max();
+  double currmax = std::numeric_limits<double>::lowest();
+  vector<vector<double> > outval(14);
+  for (int kh=0; kh<14; ++kh)
+    outval[kh].resize(nc2);
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      double tmp = (npt[kr] == 0) ? 0.0 : 
+	(double)(nout_under[kr]+nout_over[kr])/(double)npt[kr];
+      currmin = std::min(tmp, currmin);
+      currmax = std::max(tmp, currmax);
+      outval[0][kr] = tmp;
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[0][kr] = outval[0][kr]*maxval/currmax;
+  //outval[0][kr] = outval[0][kr]*(maxval-minval)/(currmax-currmin);
+
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      double tmp = (npt[kr] == 0) ? 0.0 : (double)(nout_under[kr])/(double)npt[kr];
+      currmin = std::min(tmp, currmin);
+      currmax = std::max(tmp, currmax);
+      outval[1][kr] = tmp;
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[1][kr] = outval[1][kr]*maxval/currmax;
+  //outval[1][kr] = outval[1][kr]*(maxval-minval)/(currmax-currmin);
+ 
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      double tmp = (npt[kr] == 0) ? 0.0 : (double)(nout_over[kr])/(double)npt[kr];
+      currmin = std::min(tmp, currmin);
+      currmax = std::max(tmp, currmax);
+      outval[2][kr] = tmp;
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[2][kr] = outval[2][kr]*maxval/currmax;
+  //outval[2][kr] = outval[2][kr]*(maxval-minval)/(currmax-currmin);
+
+
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      currmin = std::min(avdist[kr], currmin);
+      currmax = std::max(avdist[kr], currmax);
+      outval[3][kr] = avdist[kr];
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[3][kr] = outval[3][kr]*maxval/currmax;
+  //outval[3][kr] = outval[3][kr]*(maxval-minval)/(currmax-currmin);
+
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      double tmp = (npt[kr] == 0) ? 0.0 : 
+	avdist[kr]/std::max(fabs(max_under[kr]), fabs(max_over[kr]));
+      currmin = std::min(tmp, currmin);
+      currmax = std::max(tmp, currmax);
+      outval[4][kr] = tmp;
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[4][kr] = outval[4][kr]*maxval/currmax;
+  //outval[4][kr] = outval[4][kr]*(maxval-minval)/(currmax-currmin);
+
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      double tmp = (npt[kr] == 0) ? 0.0 : 
+	std::max(max_over[kr], 0.0) - std::min(max_under[kr], 0.0);
+      currmin = std::min(tmp, currmin);
+      currmax = std::max(tmp, currmax);
+      outval[5][kr] = tmp;
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[5][kr] = outval[5][kr]*maxval/currmax;
+  //outval[5][kr] = outval[5][kr]*(maxval-minval)/(currmax-currmin);
+  
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      double tmp = (npt[kr] == 0) ? 0.0 : maxheight[kr] - minheight[kr];
+      currmin = std::min(tmp, currmin);
+      currmax = std::max(tmp, currmax);
+      outval[6][kr] = tmp;
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[6][kr] = outval[6][kr]*maxval/currmax;
+  //outval[6][kr] = outval[6][kr]*(maxval-minval)/(currmax-currmin);
+
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      currmin = std::min(nel[kr], currmin);
+      currmax = std::max(nel[kr], currmax);
+      outval[7][kr] = nel[kr];
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[7][kr] = outval[7][kr]*maxval/currmax;
+  //outval[7][kr] = outval[7][kr]*(maxval-minval)/(currmax-currmin);
+
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      currmin = std::min(stdd[kr], currmin);
+      currmax = std::max(stdd[kr], currmax);
+      outval[8][kr] = stdd[kr];
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[8][kr] = outval[8][kr]*maxval/currmax;
+  //outval[8][kr] = outval[8][kr]*(maxval-minval)/(currmax-currmin);
+ 
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      currmin = std::min(slope[kr], currmin);
+      currmax = std::max(slope[kr], currmax);
+      outval[9][kr] = slope[kr];
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[9][kr] = outval[9][kr]*maxval/currmax;
+  //outval[9][kr] = outval[9][kr]*(maxval-minval)/(currmax-currmin);
+
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      currmin = std::min(avheight[kr], currmin);
+      currmax = std::max(avheight[kr], currmax);
+      outval[10][kr] = avheight[kr];
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      if (currmin < 0)
+	outval[10][kr] -= currmin;
+      outval[10][kr] = outval[10][kr]*(maxval-minval)/(currmax-currmin);
+    }
+ 
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      currmin = std::min(stddheight[kr], currmin);
+      currmax = std::max(stddheight[kr], currmax);
+      outval[11][kr] = stddheight[kr];
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[11][kr] = outval[11][kr]*maxval/currmax;
+  //outval[11][kr] = outval[11][kr]*(maxval-minval)/(currmax-currmin);
+ 
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      currmin = std::min(av_over[kr], currmin);
+      currmax = std::max(av_over[kr], currmax);
+      outval[12][kr] = av_over[kr];
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[12][kr] = outval[12][kr]*maxval/currmax;
+  //outval[12][kr] = outval[12][kr]*(maxval-minval)/(currmax-currmin);
+
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      currmin = std::min(av_under[kr], currmin);
+      currmax = std::max(av_under[kr], currmax);
+      outval[13][kr] = av_under[kr];
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[13][kr] = outval[13][kr]*maxval/currmax;
+  //outval[13][kr] = outval[13][kr]*(maxval-minval)/(currmax-currmin);
+
+      
+   // Write to file
+  out << ncell << "  " << ncell << "  " << "14" << std::endl;
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      for (int kh=0; kh<14; ++kh)
+	out << outval[kh][kr] << " ";
+      out << std::endl;
     }
 }
 
