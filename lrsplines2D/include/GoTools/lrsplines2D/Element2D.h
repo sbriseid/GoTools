@@ -44,6 +44,7 @@
 #include "GoTools/utils/config.h"
 #include "GoTools/lrsplines2D/Direction2D.h"
 #include "GoTools/geometry/SplineCurve.h"
+#include "GoTools/lrsplines2D/Element2DAccuracyInfo.h"
 
 namespace Go {
 
@@ -550,12 +551,22 @@ public:
 	/// Remove data points associated with the element
 	void eraseDataPoints()
 	{
+	  if (element_accuracy_)
+	    {
+	      int nmb_points = nmbDataPoints();
+	      element_accuracy_->addNmbPoints(-nmb_points);
+	    }
 	  if (LSdata_.get())
 	    LSdata_->eraseDataPoints();
 	}
 
 	void eraseSignificantPoints()
 	{
+	  if (element_accuracy_)
+	    {
+	      int nmb_points = nmbSignificantPoints();
+	      element_accuracy_->addNmbPoints(-nmb_points);
+	    }
 	  if (LSdata_.get())
 	    LSdata_->eraseSignificantPoints();
 	}
@@ -581,6 +592,11 @@ public:
 	  if (!LSdata_)
 	    LSdata_ = shared_ptr<LSSmoothData>(new LSSmoothData());
 	  LSdata_->addDataPoints(start, end, sort_in_u, del);
+	  if (element_accuracy_)
+	    {
+	      int nmb_points = nmbDataPoints();
+	      element_accuracy_->addNmbPoints(nmb_points);
+	    }
 	}
 
 	void addDataPoints(std::vector<double>::iterator start, 
@@ -592,6 +608,11 @@ public:
 	    LSdata_ = shared_ptr<LSSmoothData>(new LSSmoothData());
 	  LSdata_->addDataPoints(start, end, del, sort_in_u,
 				 prepare_outlier_detection);
+	  if (element_accuracy_)
+	    {
+	      int nmb_points = nmbDataPoints();
+	      element_accuracy_->addNmbPoints(nmb_points);
+	    }
 	}
 
 	/// Add significante data points to the element
@@ -602,6 +623,11 @@ public:
 	  if (!LSdata_)
 	    LSdata_ = shared_ptr<LSSmoothData>(new LSSmoothData());
 	  LSdata_->addSignificantPoints(start, end, sort_in_u, del);
+	  if (element_accuracy_)
+	    {
+	      int nmb_points = nmbSignificantPoints();
+	      element_accuracy_->addNmbPoints(nmb_points);
+	    }
 	}
 
 	void addSignificantPoints(std::vector<double>::iterator start, 
@@ -613,6 +639,11 @@ public:
 	    LSdata_ = shared_ptr<LSSmoothData>(new LSSmoothData());
 	  LSdata_->addSignificantPoints(start, end, del, sort_in_u,
 					prepare_outlier_detection);
+	  if (element_accuracy_)
+	    {
+	      int nmb_points = nmbSignificantPoints();
+	      element_accuracy_->addNmbPoints(nmb_points);
+	    }
 	}
 
 
@@ -790,6 +821,13 @@ public:
 	  LSdata_->setAccuracyInfo(accumulated_error, average_error, 
 				   max_error, nmb_outside_tol, 
 				   nmb_outside_sign, accumulated_out);
+	  if (element_accuracy_)
+	    {
+	      int nmb_pt = nmbDataPoints();
+	      double averr = accumulated_error/(double)nmb_pt;
+	      element_accuracy_->setAccuracyInfo(max_error, averr,
+					       nmb_outside_tol+nmb_outside_sign);
+	    }
 	}
 
 
@@ -873,6 +911,21 @@ public:
 	  is_modified_ = true;
 	}
 
+	void setElementAccuracyInfo(Element2DAccuracyInfo* info)
+	{
+	  element_accuracy_ = info;
+	}
+
+	bool hasElementAccuracyInfo() const
+	{
+	  return (element_accuracy_ != NULL);
+	} 
+
+	Element2DAccuracyInfo* getElementAccuracyInfo()
+	{
+	  return element_accuracy_;
+	}
+
 	// DEBUG
 	double sumOfScaledBsplines(double upar, double vpar);
 
@@ -906,6 +959,8 @@ private:
 	// Information used in the context of least squares approximation
 	// with smoothing
 	mutable shared_ptr<LSSmoothData> LSdata_;
+
+	Element2DAccuracyInfo* element_accuracy_;
 
 	// Get the evaluations of the Bernstein functions up to given degree.
 	// The evaluation of the j-th Bernstein function of degree i will be

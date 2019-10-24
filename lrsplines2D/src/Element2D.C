@@ -79,6 +79,7 @@ Element2D::Element2D() {
 	stop_v_  =  0;
 	overloadCount_ = 0;
 	is_modified_ = false;
+	element_accuracy_ = NULL;
 }
 
 Element2D::Element2D(double start_u, double start_v, double stop_u, double stop_v) {
@@ -89,6 +90,7 @@ Element2D::Element2D(double start_u, double start_v, double stop_u, double stop_
 	stop_v_  = stop_v ;
 	overloadCount_ = 0;
 	is_modified_ = false;
+	element_accuracy_ = NULL;
 }
 
 Element2D::~Element2D()

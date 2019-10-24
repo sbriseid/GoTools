@@ -55,6 +55,7 @@
 #include "GoTools/lrsplines2D/BSplineUniLR.h"
 #include "GoTools/lrsplines2D/LRBSpline2D.h"
 #include "GoTools/lrsplines2D/Element2D.h"
+#include "GoTools/lrsplines2D/Element2DAccuracyHistory.h"
 
 namespace Go
 {
@@ -663,6 +664,10 @@ namespace Go
     curr_element_ = curr_el;
   }
 
+  // Element history. Use from LRSurfApprox
+  void createElementAccuracyHistory(int max_iter);
+  void updateElementAccuracyHistory(int curr_iter);
+
   // ----------------------------------------------------
   // --------------- DEBUG FUNCTIONS --------------------
   // ----------------------------------------------------
@@ -678,6 +683,10 @@ namespace Go
 
   // For 1D surfaces the endpoints of the lines are given as (u,v,f(u,v))
   LineCloud getElementBds(int num_pts = 5) const;
+
+  LineCloud getElementPar() const;
+
+  void writeElementAccuracy(int level);
 
  private:
 
@@ -704,6 +713,9 @@ namespace Go
 
   ElementMap emap_;       // Map of individual elements
 
+  //  Element accuracy history information
+  std::unique_ptr<Element2DAccuracyHistory> element_accuracy_;  
+
   // Generated data
   mutable RectDomain domain_;
   mutable Element2D* curr_element_;
@@ -729,6 +741,7 @@ namespace Go
     std::vector<LRBSpline2D*> 
     collect_basis(int from_u, int to_u, 
 		  int from_v, int to_v) const;
+
 
     void 
       s1773(const double ppoint[],double aepsge, 

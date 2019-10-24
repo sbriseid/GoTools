@@ -444,7 +444,9 @@ class LRSurfApprox
     std::vector<int> coef_known_;
     shared_ptr<LRSplineSurface> prev_;  // Previous surface, no point information
     // in elements
-    
+    //  Element accuracy history information
+    std::unique_ptr<Element2DAccuracyHistory> element_accuracy_;  
+
     bool useMBA_;    // Only LR-MBA
     int toMBA_;      // Start with LR-MBA at the given iteration step
     bool initMBA_;   // The initial surface is made using LR-MBA
@@ -537,7 +539,8 @@ class LRSurfApprox
     //double density);
     /// Refine surface
     int refineSurf();
-    void refineSurf2();
+    int refineSurf2();
+    int refineSurf3();
 
     /// Create initial LR B-spline surface
     void makeInitSurf(int dim);
@@ -562,13 +565,15 @@ class LRSurfApprox
     /// Parameter domain surrounding the parameter values of all data points
     void computeParDomain(int dim, double& umin, double& umax, double& vmin, double& vmax);
 
-    void defineRefs(LRBSpline2D* bspline,
+    void defineRefs(LRBSpline2D* bspline, double average_out,
 		    std::vector<LRSplineSurface::Refinement2D>& refs_x,
 		    std::vector<LRSplineSurface::Refinement2D>& refs_y,
-		    int choice);
+		    int choice,
+		    std::vector<std::pair<Element2D*,double> >& elem_out);
 
     void checkFeasibleRef(Element2D* elem, 
-			  std::vector<LRSplineSurface::Refinement2D>& refs,
+			  std::vector<LRSplineSurface::Refinement2D>& refs_x,
+			  std::vector<LRSplineSurface::Refinement2D>& refs_y,
 			  std::vector<Element2D*>& affected);
 
     void constructGhostPoints(std::vector<double>& ghost_points);
@@ -590,6 +595,10 @@ class LRSurfApprox
     void getCandElements(double x, double y, double rad, 
 			 Element2D* start_elem,
 			 std::vector<Element2D*>& elems);
+
+    void appendRef(std::vector<LRSplineSurface::Refinement2D>& refs,
+		   LRSplineSurface::Refinement2D& curr_ref, 
+		   double tol);
 
     // Turn function into a 3D surface
     void turnTo3D();
