@@ -1206,9 +1206,9 @@ void LRSplineUtils::iteratively_split2 (vector<LRBSpline2D*>& bsplines,
 
   tuple<int, int, int, int>
 LRSplineUtils::refine_mesh(Direction2D d, double fixed_val, double start, 
-			   double end, int mult, bool absolute,
-			   int spline_degree, double knot_tol,
-			   Mesh2D& mesh,  
+			   double end, int mult, int generation, 
+			   bool absolute, int spline_degree, 
+			   double knot_tol, Mesh2D& mesh,  
 			   vector<unique_ptr<BSplineUniLR> >& bsplines)
 
 //------------------------------------------------------------------------------
@@ -1256,15 +1256,15 @@ LRSplineUtils::refine_mesh(Direction2D d, double fixed_val, double start,
       }
       // set or increment multiplicity
       absolute ? 
-	mesh.setMult(d, fixed_ix, start_ix, end_ix, mult) :
-	mesh.incrementMult(d, fixed_ix, start_ix, end_ix, mult);
+	mesh.setMult(d, fixed_ix, start_ix, end_ix, mult, generation) :
+	mesh.incrementMult(d, fixed_ix, start_ix, end_ix, mult, generation);
 
     } else { 
     // insert a new line, and set relevant part to desired multiplicity
     // @@sbr Should this perhaps result in a warning? Or do we want to
     // increase grid automatically?
     fixed_ix = mesh.insertLine(d, fixed_val, 0); 
-    mesh.setMult(d, fixed_ix, start_ix, end_ix, mult);
+    mesh.setMult(d, fixed_ix, start_ix, end_ix, mult, generation);
 
     // change index of _all_ basis functions who refer to knot values with indices >= inserted one
     increment_knotvec_indices(bsplines, fixed_ix);

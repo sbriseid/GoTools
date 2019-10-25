@@ -78,14 +78,17 @@ namespace Go
     double end;       // end value of the meshrectangle's non-fixed parameter
     Direction2D d;    // direction of the meshrectangle (XFIXED or YFIXED) YCONSTANT & XCONSTANT?
     int multiplicity; // multiplicity of the meshrectangle 
+    int generation;   // Iteration level
 
-    void setVal(double val, double st, double e, Direction2D dir, int mult)
+    void setVal(double val, double st, double e, Direction2D dir, int mult,
+		int gen=0)
     {
       kval = val;
       start = st;
       end = e;
       d = dir;
       multiplicity = mult;
+      generation = gen;
     }
   };
 
@@ -598,7 +601,7 @@ namespace Go
   // a _decrease_ of multiplicity for any involved meshrectangle, the method will throw an error instead).
   // The method will also throw an error if the resulting multiplicity for any meshrectangle would
   // end up being higher than degree+1.
-  void refine(Direction2D d, double fixed_val, double start, double end, int mult = 1, bool absolute=false);
+  void refine(Direction2D d, double fixed_val, double start, double end, int mult = 1, int generation=0, bool absolute=false);
 
   // Same function as previous, but information about the refinement is passed along in a 'Refinement2D' structure
   // (defined above).  The 'absolute' argument works as in the previous refine() method.

@@ -121,23 +121,28 @@ int main(int argc, char *argv[])
     {
       double parval, start, end;
       int dir;
-      int mult;
+      int mult, generation;
 
       filein2 >> parval;
       filein2 >> start;
       filein2 >> end;
       filein2 >> dir;
       filein2 >> mult;
+      filein2 >> generation;
       //lrsf->refine((dir==0) ? XFIXED : YFIXED, parval, start, end, mult);
       std::cout << "Iteration no. " << ki << std::endl;
-      lrsf->refine((dir==0) ? XFIXED : YFIXED, parval, start, end, mult, true);
+      lrsf->refine((dir==0) ? XFIXED : YFIXED, parval, start, end, mult, 
+		   generation, true);
 
-      puts("Writing lr-spline to file.");
-      if (lrsf->dimension() == 1)
-	lrsf->to3D();
-      lrsf->writeStandardHeader(fileout);
-      lrsf->write(fileout);
-      fileout << std::endl;
+      if (ki == nmb_refs-1)
+	{
+	  puts("Writing lr-spline to file.");
+	  // if (lrsf->dimension() == 1)
+	  // 	lrsf->to3D();
+	  lrsf->writeStandardHeader(fileout);
+	  lrsf->write(fileout);
+	  fileout << std::endl;
+	}
     }
   return 0;
 }

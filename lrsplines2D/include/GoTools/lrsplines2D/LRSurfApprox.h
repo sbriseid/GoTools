@@ -538,7 +538,7 @@ class LRSurfApprox
 
     //double density);
     /// Refine surface
-    int refineSurf();
+    int refineSurf(int iter);
     int refineSurf2();
     int refineSurf3();
 
@@ -571,7 +571,7 @@ class LRSurfApprox
 		    int choice,
 		    std::vector<std::pair<Element2D*,double> >& elem_out);
 
-    void checkFeasibleRef(Element2D* elem, 
+    void checkFeasibleRef(Element2D* elem, int iter,
 			  std::vector<LRSplineSurface::Refinement2D>& refs_x,
 			  std::vector<LRSplineSurface::Refinement2D>& refs_y,
 			  std::vector<Element2D*>& affected);

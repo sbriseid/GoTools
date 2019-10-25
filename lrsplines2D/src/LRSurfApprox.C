@@ -567,7 +567,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
       if (ki > 0 || (!initial_surface_))
 	{
 	  //refineSurf2();
-	  int nmb_refs = refineSurf();
+	  int nmb_refs = refineSurf(ki+1);
 	  if (nmb_refs == 0)
 	    break;  // No refinements performed
 	}
@@ -2776,7 +2776,7 @@ bool compare_elems(pair<Element2D*,double> el1, pair<Element2D*,double> el2)
 }
 
 //==============================================================================
-int LRSurfApprox::refineSurf()
+int LRSurfApprox::refineSurf(int iter)
 //==============================================================================
 {
 #ifdef DEBUG
@@ -2973,7 +2973,7 @@ int LRSurfApprox::refineSurf()
       
       // How to split					
       defineRefs(bsplines[bspl_perm[kr]], average_threshold,
-		 refs_x, refs_y, choice, elem_out);
+		 refs_x, refs_y, iter, elem_out);
     }
   
 #ifdef DEBUG_HIST
@@ -2989,7 +2989,7 @@ int LRSurfApprox::refineSurf()
 	break;   // Not a significant element
 
       vector<Element2D*> elements;  // Elements affected by the refinement(s)
-      checkFeasibleRef(elem_out[kr].first, refs_x, refs_y, elements);
+      checkFeasibleRef(elem_out[kr].first, iter, refs_x, refs_y, elements);
       for (size_t ki=0; ki<elements.size(); ++ki)
 	{
 	  size_t kj;
@@ -3176,7 +3176,7 @@ int LRSurfApprox::refineSurf2()
       // Check feasability of split
       //size_t nmb_refs = refs.size();
       vector<Element2D*> elements;  // Elements affected by the refinement(s)
-      checkFeasibleRef(elem[el_perm[kr]], refs_x, refs_y, elements);
+      checkFeasibleRef(elem[el_perm[kr]], 0, refs_x, refs_y, elements);
       if (elements.size() > 0)
 	{
 	  // Remove affected elements from pool
@@ -3790,7 +3790,7 @@ void LRSurfApprox::unsetCoefKnown()
 void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 			      vector<LRSplineSurface::Refinement2D>& refs_x,
 			      vector<LRSplineSurface::Refinement2D>& refs_y,
-			      int choice,
+			      int iter,
 			      vector<pair<Element2D*,double> >& elem_out)
 //==============================================================================
 {
@@ -3968,7 +3968,8 @@ void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 	    }
 
 	  LRSplineSurface::Refinement2D curr_ref;
-	  curr_ref.setVal(knotval, bspline->vmin(), bspline->vmax(), XFIXED, 1);
+	  curr_ref.setVal(knotval, bspline->vmin(), bspline->vmax(), XFIXED, 
+			  1, iter);
 
 	  // Check if the current refinement can be combined with an existing one
 	  appendRef(refs_x, curr_ref, tol);
@@ -4003,7 +4004,8 @@ void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 	    }
 
 	  LRSplineSurface::Refinement2D curr_ref;
-	  curr_ref.setVal(knotval, bspline->umin(), bspline->umax(), YFIXED, 1);
+	  curr_ref.setVal(knotval, bspline->umin(), bspline->umax(), YFIXED, 
+			  1, iter);
 
 	  // Check if the current refinement can be combined with an existing one
 	  appendRef(refs_y, curr_ref, tol);
@@ -4028,7 +4030,7 @@ void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 }
 
 //==============================================================================
-void LRSurfApprox::checkFeasibleRef(Element2D* elem, 
+void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter, 
 				    vector<LRSplineSurface::Refinement2D>& refs_x,
 				    vector<LRSplineSurface::Refinement2D>& refs_y,
 				    vector<Element2D*>& affected)
@@ -4157,7 +4159,7 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem,
       affected_combined.insert(aff_u.begin(), aff_u.end());
       LRSplineSurface::Refinement2D curr_ref;
       curr_ref.setVal(u_par, bsplines[ixu]->vmin(), bsplines[ixu]->vmax(),
-		      XFIXED, xmult);
+		      XFIXED, xmult, iter);
       //refs.push_back(curr_ref);
       appendRef(refs_x, curr_ref, tol);
     }
@@ -4167,7 +4169,7 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem,
       affected_combined.insert(aff_v.begin(), aff_v.end());
       LRSplineSurface::Refinement2D curr_ref;
       curr_ref.setVal(v_par, bsplines[ixv]->umin(), bsplines[ixv]->umax(),
-		      YFIXED, ymult);
+		      YFIXED, ymult, iter);
       //refs.push_back(curr_ref);
       appendRef(refs_y, curr_ref, tol);
     }

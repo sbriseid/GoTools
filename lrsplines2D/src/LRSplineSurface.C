@@ -667,12 +667,14 @@ bool LRSplineSurface::isFullTensorProduct() const
 			     bool absolute)
 //==============================================================================
 {
-  refine(ref.d, ref.kval, ref.start, ref.end, ref.multiplicity, absolute);
+  refine(ref.d, ref.kval, ref.start, ref.end, ref.multiplicity, 
+	 ref.generation, absolute);
 }
 
 //==============================================================================
 void LRSplineSurface::refine(Direction2D d, double fixed_val, double start, 
-			     double end, int mult, bool absolute)
+			     double end, int mult, int generation,
+			     bool absolute)
 //==============================================================================
 {
   #ifdef DEBUG
@@ -718,9 +720,9 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
   Mesh2D mesh2 = mesh_;
 
   const auto indices = // tuple<int, int, int, int>
-  LRSplineUtils::refine_mesh(d, fixed_val, start, end, mult, absolute, 
-			     degree(d), knot_tol_, mesh_,
-			     (d == XFIXED) ?  bsplinesuni1_ : bsplinesuni2_);
+    LRSplineUtils::refine_mesh(d, fixed_val, start, end, mult, generation,
+			       absolute, degree(d), knot_tol_, mesh_,
+			       (d == XFIXED) ?  bsplinesuni1_ : bsplinesuni2_);
 
 #ifdef DEBUG
   std::ofstream of2("mesh1.eps");
@@ -1148,6 +1150,7 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
 				 r.start, 
 				 r.end, 
 				 r.multiplicity, 
+				 r.generation,
 				 absolute,
 				 degree(r.d), 
 				 knot_tol_, 
