@@ -717,24 +717,27 @@ bool mrvec_is_correct(const vector<GPos>& v)
   int ki = 0;
   while (std::getline(is, line) && ki<num1)
     {
-      std::istringstream ss(line);
-      int num2;
-      ss >> num2;
-      vector<int> gposval;
-      while (!ss.eof())
+      if (line.length() > 1)
 	{
-	  std::string curr;
-	  ss >> curr;
-	  if (std::isdigit(curr.c_str()[0]))
-	    gposval.push_back(atoi(curr.c_str()));
+	  std::istringstream ss(line);
+	  int num2;
+	  ss >> num2;
+	  vector<int> gposval;
+	  while (!ss.eof())
+	    {
+	      std::string curr;
+	      ss >> curr;
+	      if (std::isdigit(curr.c_str()[0]))
+		gposval.push_back(atoi(curr.c_str()));
+	    }
+	  mrvec[ki].resize(num2);
+	  int idiv = (int)gposval.size()/num2;
+	  int kj, kr;
+	  for (kj=0, kr=0; kj<num2; ++kj, kr+=idiv)
+	    mrvec[ki][kj] = GPos(gposval[kr], gposval[kr+1],
+				 (idiv==3) ? gposval[kr+1] : 0);
+	  ++ki;
 	}
-      mrvec[ki].resize(num2);
-      int idiv = (int)gposval.size()/num2;
-      int kj, kr;
-      for (kj=0, kr=0; kj<num2; ++kj, kr+=idiv)
-	mrvec[ki][kj] = GPos(gposval[kr], gposval[kr+1],
-			     (idiv==3) ? gposval[kr+1] : 0);
-      ++ki;
     }
   }
 
