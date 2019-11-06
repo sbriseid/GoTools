@@ -37,33 +37,31 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#ifndef _LRMINMAX_H
-#define _LRMINMAX_H
+#include "GoTools/geometry/Factory.h"
+#include "GoTools/geometry/GoTools.h"
+#include "GoTools/utils/config.h"
+#include "GoTools/geometry/Utils.h"
+#include "GoTools/geometry/ObjectHeader.h"
+#include "GoTools/lrsplines2D/LRSplineSurface.h"
+#include "GoTools/lrsplines2D/LRSplineUtils.h"
+#include "GoTools/lrsplines2D/Element2D.h"
+#include <iostream>
+#include <fstream>
+#include <string.h>
 
-#include "GoTools/geometry/ParamSurface.h"
-#include "GoTools/utils/Point.h"
+using namespace Go;
+using std::vector;
 
-namespace Go {
+int main(int argc, char *argv[])
+{
+  if (argc != 6) {
+    std::cout << "Usage: input surface 1(.g2), input surface 2 (.g2), output surface(.g2), lower limit, upper limit" << std::endl;
+    return -1;
+  }
 
-  class CurveOnSurface;
-
-/// Computation of extremal points on LR B-spline surface
-namespace LRMinMax {
-
-void computeMinMaxPoints(shared_ptr<ParamSurface> surface,
-			 std::vector<std::pair<shared_ptr<ParamCurve>, double> >& contour_crvs,
-			 double tol, double epsge,
-			 std::vector<std::pair<Point, Point> >& minpoints,
-			 std::vector<std::pair<Point, Point> >& maxpoints);
-
- int computeExtremalPoints(shared_ptr<ParamSurface> surface,
-			    int sgn, double tol, double epsge,
-			    std::vector<std::pair<Point, Point> >& extpoints);
-
-} // End of namespace LRMinMax
-
-} // End of namespace Go
-
-
-#endif
+  std::ifstream insf1(argv[1]);
+  std::ifstream insf2(argv[2]);
+  std::ofstream outsf(argv[3]);
+  double low = atof(argv[4]);
+  double high = atof(argv[5]);
 

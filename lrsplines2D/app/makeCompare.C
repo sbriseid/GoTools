@@ -37,33 +37,68 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#ifndef _LRMINMAX_H
-#define _LRMINMAX_H
+#include "GoTools/utils/config.h"
+#include "GoTools/geometry/Factory.h"
+#include "GoTools/geometry/GoTools.h"
+#include "GoTools/geometry/Utils.h"
+#include "GoTools/geometry/ObjectHeader.h"
+#include "GoTools/geometry/BoundedSurface.h"
+#include "GoTools/lrsplines2D/LRSplineSurface.h"
+#include <iostream>
+#include <fstream>
+#include <string.h>
 
-#include "GoTools/geometry/ParamSurface.h"
-#include "GoTools/utils/Point.h"
+using namespace Go;
+using std::vector;
 
-namespace Go {
+int main(int argc, char *argv[])
+{
+  if (argc != 3) {
+    std::cout << "Usage: input surface(.g2), output surface(.g2)" << std::endl;
+    return -1;
+  }
 
-  class CurveOnSurface;
+  std::ifstream input(argv[1]);
+  std::ofstream output(argv[2]);
 
-/// Computation of extremal points on LR B-spline surface
-namespace LRMinMax {
+  GoTools::init();
+  Registrator<LRSplineSurface> r293;
 
-void computeMinMaxPoints(shared_ptr<ParamSurface> surface,
-			 std::vector<std::pair<shared_ptr<ParamCurve>, double> >& contour_crvs,
-			 double tol, double epsge,
-			 std::vector<std::pair<Point, Point> >& minpoints,
-			 std::vector<std::pair<Point, Point> >& maxpoints);
+  ObjectHeader header;
+  header.read(input);
+   shared_ptr<GeomObject> geom_obj(Factory::createObject(header.classType()));
+  geom_obj->read(input);
+  
+  shared_ptr<ParamSurface> sf = dynamic_pointer_cast<ParamSurface, GeomObject>(geom_obj);
+  if (!sf.get())
+    {
+      std::cerr << "Input file contains no surface" << std::endl;
+      exit(-1);
+    }
 
- int computeExtremalPoints(shared_ptr<ParamSurface> surface,
-			    int sgn, double tol, double epsge,
-			    std::vector<std::pair<Point, Point> >& extpoints);
+  shared_ptr<ParamSurface> sf2 = sf;  
+  shared_ptr<BoundedSurface> bdsf = 
+    dynamic_pointer_cast<BoundedSurface, ParamSurface>(sf);
+  if (bdsf.get())
+    sf2 = bdsf->underlyingSurface();
 
-} // End of namespace LRMinMax
+  shared_ptr<LRSplineSurface> lrsf = 
+    dynamic_pointer_cast<LRSplineSurface, ParamSurface>(sf2);
+  if (!lrsf.get())
+    {
+      std::cerr << "Input file contains no LR B-spline surface" << std::endl;
+      exit(-1);
+    }
 
-} // End of namespace Go
+  Point cf(1);
+  cf.setValue(0.0);
+  for (auto it=lrsf->basisFunctionsBeginNonconst(); 
+       it != lrsf->basisFunctionsEndNonconst(); ++it)
+    {
+      it->second->setCoefAndGamma(cf, 1.0);
+    }
 
-
-#endif
+  lrsf->writeStandardHeader(output);
+  lrsf->write(output);
+}
 

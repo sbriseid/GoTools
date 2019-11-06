@@ -39,10 +39,10 @@
 
 #include "GoTools/lrsplines2D/LRSplineSurface.h"
 #include "GoTools/lrsplines2D/LRBSpline2D.h"
-#include "GoTools/lrsplines2D/LRSplinePlotUtils.h"
+#include "GoTools/lrsplines2D/BSplineUniLR.h"
+#include "GoTools/lrsplines2D/Mesh2DUtils.h"
 #include "GoTools/geometry/SplineSurface.h"
 #include "GoTools/geometry/SplineCurve.h"
-#include "GoTools/geometry/CurveLoop.h"
 #include "GoTools/geometry/ObjectHeader.h"
 #include "GoTools/geometry/Factory.h"
 #include "GoTools/geometry/GoTools.h"
@@ -51,18 +51,19 @@
 #include <fstream>
 #include <string.h>
 
+using std::vector;
+
 using namespace Go;
 
 int main(int argc, char *argv[])
 {
-  if (argc != 4) {
-    std::cout << "Usage: lrspline_in (.g2) refinement_in lrspline_out.g2 " << std::endl;
+  if (argc != 3) {
+    std::cout << "Usage: lrspline_in (.g2) lrspline_out.g2 " << std::endl;
     return -1;
   }
 
   std::ifstream filein(argv[1]);
-  std::ifstream filein2(argv[2]);
-  std::ofstream fileout(argv[3]);
+  std::ofstream fileout(argv[2]);
 
   // Create the default factory
   GoTools::init();
@@ -103,46 +104,66 @@ int main(int argc, char *argv[])
       exit(-1);
     }
     
-  
-  shared_ptr<LRSplineSurface> tmp2(lrsf->clone());
-  if (tmp2->dimension() == 1)
-    tmp2->to3D();
+  int dim = lrsf->dimension();
+  const Mesh2D mesh = lrsf->mesh();
+  int end1 = mesh.numDistinctKnots(XFIXED);
+  int end2 = mesh.numDistinctKnots(YFIXED);
 
-  // tmp2->writeStandardHeader(fileout);
-  // tmp2->write(fileout);
-  // fileout << std::endl;
-  // LineCloud lines2 = tmp2->getElementBds();
-  // lines2.writeStandardHeader(fileout);
-  // lines2.write(fileout);
-  
-  int nmb_refs;
-  filein2 >> nmb_refs;
-  for (int ki=0; ki<nmb_refs; ++ki)
-    {
-      double parval, start, end;
-      int dir;
-      int mult, generation;
+  int degree1 = lrsf->degree(XFIXED);
+  int degree2 = lrsf->degree(YFIXED);
+  vector<shared_ptr<BSplineUniLR> > uni1;
+  vector<shared_ptr<BSplineUniLR> > uni2;
+  std::map<LRSplineSurface::BSKey, shared_ptr<LRBSpline2D> > bspl2d;
+  BSplineUniLR *u1, *u2;
+  size_t kv;
+  Point cg(dim);
+  double wgt = 1.0, gamma = 1.0;
+  for (int kj=0; kj<end2; ++kj)
+    for (int ki=0; ki<end1; ++ki)
+      {
+	vector<vector<int> > kvec_u, kvec_v;
+	Mesh2DUtils::derive_Bspline_mesh(mesh, degree1, degree2,
+					 ki, kj, kvec_u, kvec_v);
 
-      filein2 >> parval;
-      filein2 >> start;
-      filein2 >> end;
-      filein2 >> dir;
-      filein2 >> mult;
-      filein2 >> generation;
-      //lrsf->refine((dir==0) ? XFIXED : YFIXED, parval, start, end, mult);
-      std::cout << "Iteration no. " << ki << std::endl;
-      lrsf->refine((dir==0) ? XFIXED : YFIXED, parval, start, end, mult, 
-		   generation, true);
+	for (size_t kr=0; kr<kvec_u.size(); ++kr)
+	  {
+	    shared_ptr<BSplineUniLR> curr_u(new BSplineUniLR(1, degree1,
+							     kvec_u[kr].begin(),
+							     &mesh));
+	    for (kv=0; kv<uni1.size(); ++kv)
+	      if (uni1[kv].get() == curr_u.get())
+		break;
+	    if (kv == uni1.size())
+	      uni1.push_back(curr_u);
+	    u1 = uni1[kv].get();
 
-      if (ki == nmb_refs-1)
-	{
-	  puts("Writing lr-spline to file.");
-	  // if (lrsf->dimension() == 1)
-	  // 	lrsf->to3D();
-	  lrsf->writeStandardHeader(fileout);
-	  lrsf->write(fileout);
-	  fileout << std::endl;
-	}
-    }
+	    shared_ptr<BSplineUniLR> curr_v(new BSplineUniLR(2, degree2,
+							     kvec_v[kr].begin(),
+							     &mesh));
+	    for (kv=0; kv<uni2.size(); ++kv)
+	      if (uni2[kv].get() == curr_v.get())
+		break;
+	    if (kv == uni2.size())
+	      uni2.push_back(curr_v);
+	    u2 = uni2[kv].get();
+
+	    shared_ptr<LRBSpline2D> bspl(new LRBSpline2D(cg, wgt, u1, u2,
+							 gamma));
+
+	    LRSplineSurface::BSKey key = 
+	      LRSplineSurface::generate_key(*bspl, mesh);
+	    bspl2d.insert(std::make_pair(key, bspl));
+	  }
+	int stop_break = 1;
+      }
+
+  // Write to file
+  fileout << "293 1 0 0" << std::endl;
+  fileout << "0 1e-05" << std::endl;
+  fileout << mesh;
+  fileout << bspl2d.size() << std::endl;
+  for (auto it=bspl2d.begin(); it!=bspl2d.end(); ++it)
+    it->second->write(fileout);
+
   return 0;
 }

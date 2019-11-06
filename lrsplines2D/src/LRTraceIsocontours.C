@@ -6,10 +6,11 @@
 #include "GoTools/geometry/CurveBoundedDomain.h"
 #include "GoTools/lrsplines2D/LRSplinePlotUtils.h" // debug
 #include "GoTools/geometry/RectDomain.h"
+#include "GoTools/geometry/SplineDebugUtils.h"
 #include "GoTools/lrsplines2D/SSurfTraceIsocontours.h"
 #include "GoTools/lrsplines2D/TrimCrvUtils.h"
 
-//#define DEBUG
+#define DEBUG
 //#define DEBUG2
 
 using namespace std;
@@ -109,6 +110,9 @@ namespace Go
 	      cv->write(of);
 	    }
 	}
+
+      std::ofstream ofbd("sf_loop.g2");
+      SplineDebugUtils::writeBoundary(*bdsurf, ofbd);
 #endif
     }
 
@@ -199,6 +203,7 @@ vector<CurveVec> LRTraceIsocontours(const LRSplineSurface& lrs,
 #endif
 
 #ifdef DEBUG2
+  std::cout << "Number of surface fragments: " << surf_fragments.size() << std::endl;
   vector<shared_ptr<LRSplineSurface> > lr1(surf_fragments.size());
   vector<shared_ptr<LRSplineSurface> > lr2(surf_fragments.size());
   for (size_t ki=0; ki<surf_fragments.size(); ++ki)
@@ -633,7 +638,7 @@ void merge_segments(map<double, CurveVec>& mergemap, // map whose segments shoul
 	  // updating boundary curve pointers if necessary
 	  transform(bcurves.begin(), bcurves.end(), bcurves.begin(), [&](const IsectCurve& c) {
 	      return ((c.first == entry1.icurve.first) | (c.first == entry2.icurve.first)) ? new_curve : c;});
-#ifdef DEBUG2
+#ifdef DEBUG3
 	  std::ofstream of2("bcurves.g2");
 	  for (size_t ka=0; ka<bcurves.size(); ++ka)
 	    {

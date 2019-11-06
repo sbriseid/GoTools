@@ -152,20 +152,26 @@ int main(int argc, char *argv[])
       }
 #endif
 
+      int deg1 = lr_spline_sf->degree(Go::XFIXED);
+      int deg2 = lr_spline_sf->degree(Go::YFIXED);
       const Mesh2D& mesh = lr_spline_sf->mesh();
+      int nk1 = mesh.numDistinctKnots(Go::XFIXED);
+      int nk2 = mesh.numDistinctKnots(Go::YFIXED);
       double umin = mesh.minParam(Go::XFIXED);
       int umin_ind = mesh.getKnotIdx(Go::XFIXED, umin, knot_tol);
       double w1 = 0.34; // Random value in the range (0.0, 1.0).
       ref_u.kval = w1*mesh.kval(Go::XFIXED, umin_ind) + (1.0 - w1)*mesh.kval(Go::XFIXED, umin_ind + 1);
       ref_u.start = mesh.minParam(Go::YFIXED);
-      ref_u.end = mesh.maxParam(Go::YFIXED);
+      //ref_u.end = mesh.maxParam(Go::YFIXED);
+      ref_u.end = mesh.kval(Go::YFIXED, 2);
       ref_u.d = Go::XFIXED;
       double vmin = mesh.minParam(Go::YFIXED);
       int vmin_ind = mesh.getKnotIdx(Go::YFIXED, vmin, knot_tol);
       double w2 = 0.72;// Random value in the range (0.0, 1.0).
       ref_v.kval = w2*mesh.kval(Go::YFIXED, vmin_ind) + (1.0 - w2)*mesh.kval(Go::YFIXED, vmin_ind + 1);
       ref_v.start = mesh.minParam(Go::XFIXED);
-      ref_v.end = mesh.maxParam(Go::XFIXED);
+      //ref_v.end = mesh.maxParam(Go::XFIXED);
+      ref_v.end = mesh.kval(Go::XFIXED, 2);
       ref_v.d = Go::YFIXED;
 
   }
@@ -178,12 +184,14 @@ int main(int argc, char *argv[])
       const Mesh2D& mesh = lr_spline_sf->mesh();
       ref_u.kval = 0.5*(mesh.kval(Go::XFIXED, 0) + mesh.kval(Go::XFIXED, 1));
       ref_u.start = mesh.minParam(Go::YFIXED);
-      ref_u.end = mesh.maxParam(Go::YFIXED);
+      //ref_u.end = mesh.maxParam(Go::YFIXED);
+      ref_u.end = mesh.kval(Go::YFIXED, 2);
       ref_u.d = Go::XFIXED;
       ref_v.kval = 0.5*(mesh.kval(Go::YFIXED, 0) + mesh.kval(Go::YFIXED, 1));
       ref_v.start = mesh.minParam(Go::XFIXED);
-      ref_v.end = mesh.maxParam(Go::XFIXED);
-      ref_v.d = Go::YFIXED;
+      //ref_v.end = mesh.maxParam(Go::XFIXED);
+      ref_v.end = mesh.kval(Go::XFIXED, 2);
+     ref_v.d = Go::YFIXED;
 
       input_sf = shared_ptr<ParamSurface>(lr_spline_sf->clone());
 

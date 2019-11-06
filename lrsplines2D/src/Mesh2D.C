@@ -48,7 +48,9 @@
 #include <assert.h>
 #include <algorithm>
 #include <stdexcept>
-
+#include <iostream>
+#include <sstream>
+#include <string>
 #include <array>
 
 using std::vector;
@@ -69,7 +71,7 @@ namespace { // anonymous namespace
 // - Verifies that multiplicities are >= 0.
 bool mrvec_is_correct(const vector<GPos>& vec);
 
-
+  void read_mrvec(std::istream& is, std::vector<std::vector<GPos> >& mrvec);
 };
 
 
@@ -94,8 +96,10 @@ void Mesh2D::read(std::istream& is)
   Mesh2D tmp;
   object_from_stream(is, tmp.knotvals_x_);
   object_from_stream(is, tmp.knotvals_y_);
-  object_from_stream(is, tmp.mrects_x_);
-  object_from_stream(is, tmp.mrects_y_);
+  read_mrvec(is, tmp.mrects_x_);
+  read_mrvec(is, tmp.mrects_y_);
+  // object_from_stream(is, tmp.mrects_x_);
+  // object_from_stream(is, tmp.mrects_y_);
   tmp.consistency_check_();
   swap(tmp);
 }
@@ -185,6 +189,51 @@ int Mesh2D::nu(Direction2D d, int ix, int start, int end) const
 }
 
 // =============================================================================
+  void Mesh2D::nugen(Direction2D d, int ix, int start, int end,
+		     int& nu, int& gen) const
+// =============================================================================
+{
+  if (end >= numDistinctKnots(flip(d))) 
+    {
+      nu = 0; // proposed meshrectangle surpasses grid
+      gen = 0;
+      return;
+    }
+
+  const auto& mr = select_meshvec_(d, ix);
+  if (!(end > start)) 
+    {
+      nu = 0; // we can now safely assume that end > start
+      gen = 0;
+      return;
+    }
+
+  nu = mr[0].mult;
+  gen = mr[0].generation;
+  for (auto i = mr.begin(); i != mr.end(); ++i) 
+    {
+      if (i->ix <= start) 
+	{
+	  nu = i->mult;
+	  gen = i->generation;
+	}
+      else if (i->ix >= end)   
+	break; // finished
+      else if (i->mult == 0)   
+	{
+	  nu = 0; // gap encountered - nu is zero
+	  gen = 0;
+	  break;
+	}
+      else if (i->mult < nu)
+	{                   
+	  nu = i->mult;
+	  gen = i->generation;
+	}
+    }
+}
+
+// =============================================================================
 int Mesh2D::extent(Direction2D d, int ix, int start, int mult) const
 // =============================================================================
 {
@@ -198,7 +247,8 @@ int Mesh2D::extent(Direction2D d, int ix, int start, int mult) const
 }
 
 // =============================================================================
-void Mesh2D::incrementMult(Direction2D d, int ix, int start, int end, int mult)
+  void Mesh2D::incrementMult(Direction2D d, int ix, int start, int end, int mult,
+			     int generation)
 // =============================================================================
 {
   // The current implementation is dead simple but likely inefficient.  A more
@@ -206,13 +256,17 @@ void Mesh2D::incrementMult(Direction2D d, int ix, int start, int end, int mult)
   // be a relevant bottleneck (but that might be unlikely...).
 
   for (int i = start; i < end; ++i) {
-    const int cur_mult = nu(d, ix, i, i+1);
-    setMult(d, ix, i, i+1, cur_mult + mult); // set the new multiplicity to the old one plus 'mult'
+    int cur_mult, cur_gen;
+    nugen(d, ix, i, i+1, cur_mult, cur_gen);
+    // set the new multiplicity to the old one plus 'mult'
+    setMult(d, ix, i, i+1, cur_mult + mult, 
+	    (generation<0) ? cur_gen : generation);
   }
 }
 
 // =============================================================================
-void Mesh2D::setMult(Direction2D d, int ix, int start, int end, int mult)
+  void Mesh2D::setMult(Direction2D d, int ix, int start, int end, int mult,
+		       int generation)
 // =============================================================================
 {
   if ((end <= start) || (mult < 0))
@@ -228,11 +282,14 @@ void Mesh2D::setMult(Direction2D d, int ix, int start, int end, int mult)
   result.insert(result.end(), mr.begin(), p);
   
   // inserting the new GPos
-  if (result.empty() || result.back().mult != mult) 
-    result.push_back(GPos(start, mult));
+  if (result.empty() || result.back().mult != mult || 
+      result.back().generation != generation) 
+    result.push_back(GPos(start, mult, generation));
   if (end < last_pos) {
-    int tmp = nu(d, ix, end, end+1);
-    if (tmp != mult) result.push_back(GPos(end, tmp));
+    int tmp, gen;
+    nugen(d, ix, end, end+1, tmp, gen);
+    if (tmp != mult || gen != generation) 
+      result.push_back(GPos(end, tmp, gen));
   }
 
   // inserting succeeding GPoses (not affected by the change)
@@ -246,7 +303,7 @@ void Mesh2D::setMult(Direction2D d, int ix, int start, int end, int mult)
 }
 
 // =============================================================================
-int Mesh2D::insertLine(Direction2D d, double kval, int mult)
+  int Mesh2D::insertLine(Direction2D d, double kval, int mult, int gen)
 // =============================================================================
 {
   // Mesh2D does not impose any specific tolerance, but assumes that there is one
@@ -266,7 +323,7 @@ int Mesh2D::insertLine(Direction2D d, double kval, int mult)
   auto& other  = (d == XFIXED) ? mrects_y_ : mrects_x_;
 
   // inserting new line
-  target.insert(target.begin() + ix, vector<GPos> (1, GPos(0, mult)));
+  target.insert(target.begin() + ix, vector<GPos> (1, GPos(0, mult, gen)));
   kvec.insert(p, kval);
   
   // adjust indexes in the other 
@@ -644,12 +701,46 @@ bool mrvec_is_correct(const vector<GPos>& v)
   for (auto m = v.begin(); m != v.end(); ++m) {
     if      (m->ix <= prev_ix) return false; // should be _strictly_ increasing.
     else if (m->mult < 0)      return false; // multiplicities should never be negative
+    else if (m->generation < 0)
+      return false;
     prev_ix = m->ix;
   }
   return true;
 }
 
-  
+  void read_mrvec(std::istream& is, std::vector<std::vector<GPos> >& mrvec)
+  {
+  int num1;
+  is >> num1;
+  mrvec.resize(num1);
+  std::string line;
+  int ki = 0;
+  while (std::getline(is, line) && ki<num1)
+    {
+      if (line.length() > 1)
+	{
+	  std::istringstream ss(line);
+	  int num2;
+	  ss >> num2;
+	  vector<int> gposval;
+	  while (!ss.eof())
+	    {
+	      std::string curr;
+	      ss >> curr;
+	      if (std::isdigit(curr.c_str()[0]))
+		gposval.push_back(atoi(curr.c_str()));
+	    }
+	  mrvec[ki].resize(num2);
+	  int idiv = (int)gposval.size()/num2;
+	  int kj, kr;
+	  for (kj=0, kr=0; kj<num2; ++kj, kr+=idiv)
+	    mrvec[ki][kj] = GPos(gposval[kr], gposval[kr+1],
+				 (idiv==3) ? gposval[kr+1] : 0);
+	  ++ki;
+	}
+    }
+  }
+
 }; // end anonymous namespace
 
 }; // end namespace Go

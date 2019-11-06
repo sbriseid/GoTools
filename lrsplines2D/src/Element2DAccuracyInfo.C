@@ -37,33 +37,17 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#ifndef _LRMINMAX_H
-#define _LRMINMAX_H
+#include "GoTools/lrsplines2D/Element2DAccuracyInfo.h"
+#include "GoTools/lrsplines2D/Element2D.h"
 
-#include "GoTools/geometry/ParamSurface.h"
-#include "GoTools/utils/Point.h"
+using namespace Go;
 
-namespace Go {
-
-  class CurveOnSurface;
-
-/// Computation of extremal points on LR B-spline surface
-namespace LRMinMax {
-
-void computeMinMaxPoints(shared_ptr<ParamSurface> surface,
-			 std::vector<std::pair<shared_ptr<ParamCurve>, double> >& contour_crvs,
-			 double tol, double epsge,
-			 std::vector<std::pair<Point, Point> >& minpoints,
-			 std::vector<std::pair<Point, Point> >& maxpoints);
-
- int computeExtremalPoints(shared_ptr<ParamSurface> surface,
-			    int sgn, double tol, double epsge,
-			    std::vector<std::pair<Point, Point> >& extpoints);
-
-} // End of namespace LRMinMax
-
-} // End of namespace Go
-
-
-#endif
-
+void Element2DAccuracyInfo::resetElementInfo(Element2D* element)
+{
+  umin_ = element->umin();
+  umax_ = element->umax();
+  vmin_ = element->vmin();
+  vmax_ = element->vmax();
+  nmb_pts_ = element->nmbDataPoints() + element->nmbSignificantPoints();
+  info_set_ = false;
+}

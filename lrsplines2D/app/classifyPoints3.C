@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
   // Write to file
   for (ki=0; ki<level_points.size(); ++ki)
     {
+      std::cout << "Level: " << limits[ki] << ", no. of pts: " << level_points[ki].size()/3 << std::endl;
       if (level_points[ki].size() == 0)
 	continue;
 

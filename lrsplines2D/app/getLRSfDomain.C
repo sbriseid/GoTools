@@ -37,40 +37,47 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#include "GoTools/utils/config.h"
+#include "GoTools/geometry/ParamSurface.h"
+#include "GoTools/geometry/ObjectHeader.h"
 #include "GoTools/geometry/Factory.h"
 #include "GoTools/geometry/GoTools.h"
-#include "GoTools/geometry/Utils.h"
-#include "GoTools/geometry/ObjectHeader.h"
-#include "GoTools/geometry/BoundedSurface.h"
+#include "GoTools/geometry/RectDomain.h"
 #include "GoTools/lrsplines2D/LRSplineSurface.h"
+#include "GoTools/geometry/SplineDebugUtils.h"
 #include <iostream>
 #include <fstream>
 #include <string.h>
 
+using namespace std;
 using namespace Go;
-using std::vector;
 
-int main(int argc, char *argv[])
+int main( int argc, char* argv[] )
 {
-  if (argc != 3 && argc != 4) {
-    std::cout << "Usage: input surface(.g2), output surface(.g2), distance (optional)" << std::endl;
-    return -1;
+  if (argc != 2) {
+    std::cout << "Input parameters : Input surface file(.g2) "  << std::endl;
+    exit(-1);
   }
 
-  std::ifstream input(argv[1]);
-  std::ofstream output(argv[2]);
-  double dist = 0.0;
-  if (argc == 4)
-    dist = atof(argv[3]);
+  // Read input arguments
+  std::ifstream infile(argv[1]);
 
+  // Create the default factory
   GoTools::init();
   Registrator<LRSplineSurface> r293;
+  //Registrator<BoundedSurface> r210;
 
+  // Read input surface
   ObjectHeader header;
-  header.read(input);
-   shared_ptr<GeomObject> geom_obj(Factory::createObject(header.classType()));
-  geom_obj->read(input);
+  try {
+    header.read(infile);
+  }
+  catch (...)
+    {
+      std::cerr << "Exiting" << std::endl;
+      exit(-1);
+    }
+  shared_ptr<GeomObject> geom_obj(Factory::createObject(header.classType()));
+  geom_obj->read(infile);
   
   shared_ptr<ParamSurface> sf = dynamic_pointer_cast<ParamSurface, GeomObject>(geom_obj);
   if (!sf.get())
@@ -79,39 +86,32 @@ int main(int argc, char *argv[])
       exit(-1);
     }
 
-  shared_ptr<ParamSurface> sf2 = sf;  
   shared_ptr<BoundedSurface> bdsf = 
     dynamic_pointer_cast<BoundedSurface, ParamSurface>(sf);
   if (bdsf.get())
-    sf2 = bdsf->underlyingSurface();
+    sf = bdsf->underlyingSurface();
+
+  // Fetch domain
+  RectDomain domain = sf->containingDomain();
+
+  // Output
+  printf("Surface domain: %13.4f %13.4f %13.4f %13.4f \n", domain.umin(), 
+	 domain.umax(), domain.vmin(), domain.vmax());
 
   shared_ptr<LRSplineSurface> lrsf = 
-    dynamic_pointer_cast<LRSplineSurface, ParamSurface>(sf2);
-  if (!lrsf.get())
+    dynamic_pointer_cast<LRSplineSurface, ParamSurface>(sf);
+  if (lrsf.get())
     {
-      std::cerr << "Input file contains no LR B-spline surface" << std::endl;
-      exit(-1);
+      std::ofstream ofel("sf_elements.g2");
+      LineCloud lines = lrsf->getElementBds();
+      lines.writeStandardHeader(ofel);
+      lines.write(ofel);
     }
 
-  if (dist == 0.0)
+  if (bdsf.get())
     {
-      // Bounding box
-      BoundingBox box = sf->boundingBox();
-      Point low = box.low();
-      Point high = box.high();
-      Point mid = 0.5*(low + high);
-      
-      // Translate surface
-      lrsf->translate(-mid);
+      std::ofstream ofl("sf_loop.g2");
+      SplineDebugUtils::writeBoundary(*bdsf, ofl);
     }
-  else
-    {
-      Point vec(sf->dimension());
-      vec.setValue(dist);
-      lrsf->translate(vec);
-    }
-  
-  sf->writeStandardHeader(output);
-  sf->write(output);
 }
 

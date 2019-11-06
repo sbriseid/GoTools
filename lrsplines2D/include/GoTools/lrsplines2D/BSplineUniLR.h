@@ -161,6 +161,13 @@ class BSplineUniLR : public Streamable
     return (ix >= suppMin() &&  ix < suppMax());
   }
 
+  // Check if the knot indexed by ix is used in the B-spline description
+  bool useKnot(int ix) const {
+    std::vector<int>::const_iterator it = 
+      std::find(kvec_.begin(), kvec_.end(), ix);
+    return (it != kvec_.end());
+  }
+
   double getGrevilleParameter() const;
 
   bool overlaps(double pmin, double pmax) const; 
