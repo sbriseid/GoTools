@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
   vector<double> data(points.rawData(), points.rawData()+3*nmb_pts);
 
   //int dim = 1;
-  int nmb_coef = 6;
+  int nmb_coef = 14; //6;
   int order = 3; //4;
   double mba_coef = 0.0;
   if (initmba)
@@ -184,6 +184,8 @@ int main(int argc, char *argv[])
       approx.setMinimumElementSize(min_el_u, min_el_v);
     }
       
+  // Feature output
+  approx.setFeatureOut(224);
 
   double maxdist, avdist, avdist_total; // will be set below
   int nmb_out_eps;        // will be set below
