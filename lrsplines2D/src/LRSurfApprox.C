@@ -43,6 +43,7 @@
 #include "GoTools/lrsplines2D/Mesh2D.h"
 #include "GoTools/lrsplines2D/LRSplineMBA.h"
 #include "GoTools/lrsplines2D/LRSplineUtils.h"
+#include "GoTools/lrsplines2D/LRFeatureUtils.h"
 #include "GoTools/creators/SmoothSurf.h"
 #include "GoTools/geometry/PointCloud.h"
 #include "GoTools/lrsplines2D/LRSplinePlotUtils.h"
@@ -57,7 +58,7 @@
 //#define DEBUG
 //#define DEBUG1
 //#define DEBUG2
-#define DEBUG_HIST
+//#define DEBUG_HIST
 
 using std::vector;
 using std::cout;
@@ -540,6 +541,13 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
       std::cout << "Average distance, significant points: " << avdist_sign_ << std::endl;
       std::cout << "Number of significant points outside tolerance(" << sign_aepsge_ << "): " << outsideeps_sign_ << std::endl;
     }
+
+  if (write_feature_)
+    {
+      std::ofstream f_out("cellinfo0.txt");
+      LRFeatureUtils::writeCellInfo(*srf_, aepsge_, ncell_, f_out);
+    }
+
 #ifdef DEBUG_HIST
   //srf_->writeElementAccuracy(0);
 #endif
@@ -745,6 +753,17 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  std::cout << "Average distance, significant points: " << avdist_sign_ << std::endl;
 	  std::cout << "Number of significant points outside tolerance(" << sign_aepsge_ << "): " << outsideeps_sign_ << std::endl;
 	}
+
+      if (write_feature_)
+        {
+         std::string body = "cellinfo";
+         std::string extension = ".txt";
+         std::string ver = std::to_string(ki+1);
+         std::string outfile = body + ver + extension;
+         std::ofstream f_out2(outfile.c_str());
+	 LRFeatureUtils::writeCellInfo(*srf_, aepsge_, ncell_, f_out2);
+	}
+
 #ifdef DEBUG_HIST
       srf_->writeElementAccuracy(ki);
       int hist_break = 1;
