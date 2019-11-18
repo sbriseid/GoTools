@@ -297,15 +297,15 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
   currmax = std::numeric_limits<double>::lowest();
   for (int kr=0; kr<nc2; ++kr)
     {
-      double div = std::max(fabs(max_under[kr]), fabs(max_over[kr]));
-      double tmp = (npt[kr] == 0 || div < 1.0e-6) ? 0.0 : 
-	avdist[kr]/div;
+      double tmp = (npt[kr] == 0) ? 0.0 :
+	std::max(fabs(max_over[kr]), fabs(max_under[kr]));
       currmin = std::min(tmp, currmin);
       currmax = std::max(tmp, currmax);
       outval[4][kr] = tmp;
     }
   for (int kr=0; kr<nc2; ++kr)
     outval[4][kr] = (currmax < 1.0e-6) ? 0 : outval[4][kr]*maxval/currmax;
+
 
   currmin = std::numeric_limits<double>::max();
   currmax = std::numeric_limits<double>::lowest();
@@ -360,9 +360,9 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
   currmax = std::numeric_limits<double>::lowest();
   for (int kr=0; kr<nc2; ++kr)
     {
-      // double tmp = (npt[kr] == 0) ? 0.0 : 
-      // 	(double)(nout_under[kr]+nout_over[kr])/(double)npt[kr];
-      double tmp = std::max(fabs(max_over[kr]), fabs(max_under[kr]));
+      double div = std::max(fabs(max_under[kr]), fabs(max_over[kr]));
+      double tmp = (npt[kr] == 0 || div < 1.0e-6) ? 0.0 : 
+	avdist[kr]/div;
       currmin = std::min(tmp, currmin);
       currmax = std::max(tmp, currmax);
       outval[9][kr] = tmp;
