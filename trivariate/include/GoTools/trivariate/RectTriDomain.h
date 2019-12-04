@@ -37,8 +37,8 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#ifndef _RECTDOMAIN_H
-#define _RECTDOMAIN_H
+#ifndef _RECTTRIDOMAIN_H
+#define _RECTTRIDOMAIN_H
 
 #include "GoTools/utils/Array.h"
 #include "GoTools/geometry/Domain.h"
@@ -51,53 +51,43 @@ namespace Go
    *
    */
 
-class GO_API RectDomain : public Domain
+class GO_API RectTriDomain 
 {
 public:
     /// Constructs an uninitialized domain
-    RectDomain() {}
+    RectTriDomain() {}
 
     /// Constructs and defines a rectangular domain by two of its
     /// opposing corners.
     /// \param corner1 the first corner
     /// \param corner2 the opposing corner to 'corner1'
-    RectDomain(const Array<double, 2>& corner1, 
-	       const Array<double, 2>& corner2);
+    RectTriDomain(const Array<double, 3>& corner1, 
+	       const Array<double, 3>& corner2);
 
-    /// Virtual destructor, enables safe inheritance.
-    virtual ~RectDomain();
+    /// destructor
+    ~RectTriDomain();
     
     // check whether a given parameter pair is located inside the domain.
     // DOXYGEN documentation can be found in the base class header Domain.h
-    virtual bool isInDomain(const Array<double, 2>& point, 
+    bool isInDomain(const Array<double, 3>& point, 
 			    double tolerance) const;
 
     // check whether a given parameter pair is located inside the domain.
     // DOXYGEN documentation can be found in the base class header Domain.h
-    virtual int isInDomain2(const Array<double, 2>& point, 
+    int isInDomain2(const Array<double, 3>& point, 
 			    double tolerance) const;
 
     // check whether a gien parameter pair is located on the Domain boundary. 
     // DOXYGEN documentation can be found in the base class header Domain.h
-    virtual bool isOnBoundary(const Array<double, 2>& point, 
+    bool isOnBoundary(const Array<double, 3>& point, 
 			      double tolerance) const;
-
-    /// Check if a given parameter pair lies on a corner in the domain within
-    /// the given tolerance
-    bool isOnCorner(const Array<double, 2>& point, 
-		    double tolerance) const;
-
-    /// Given two parameter pairs, check if they specify a domain boundary
-    /// return value: -1=no boundary, 0=umin, 1=umax, 2=vmin, 3=vmax
-    int whichBoundary(const Array<double, 2>& point1, const Array<double, 2>& point2, 
-		      double tolerance) const;
 
     /// Find the (u, v) point in the Domain that is closest (using Euclidean distance
     /// in R^2) to a given (u, v) point.  If the given point is in the domain, then 
     /// the answer is obviously the same point.
     // DOXYGEN documentation can be found in the base class header Domain.h
-    virtual void closestInDomain(const Array<double, 2>& point,
-				 Array<double, 2>& clo_pt,
+    void closestInDomain(const Array<double, 3>& point,
+				 Array<double, 3>& clo_pt,
 				 double tolerance) const;
 
     /// Find the (u, v) point on the boundary of the Domain that is closest
@@ -105,36 +95,44 @@ public:
     /// point is already considered \em on the boundary, then the answer is obviously
     /// the same point.
     // DOXYGEN documentation can be found in the base class header Domain.h
-    virtual void closestOnBoundary(const Array<double, 2>& point,
-				   Array<double, 2>& clo_bd_pt,
+    void closestOnBoundary(const Array<double, 3>& point,
+				   Array<double, 3>& clo_bd_pt,
 				   double tolerance) const;
 
-    /// Expand the RectDomain just enough to cover the RectDomain given as argument.
-    /// \param rd the RectDomain that we want to be covered by 'this' RectDomain.
-    void addUnionWith(const RectDomain& rd);
+    /// Expand the RectTriDomain just enough to cover the RectTriDomain given as argument.
+    /// \param rd the RectTriDomain that we want to be covered by 'this' RectTriDomain.
+    void addUnionWith(const RectTriDomain& rd);
 
-    /// Set 'this' RectDomain to be the intersection of its current extent and that of
-    /// the argument RectDomain.
-    /// \param rd the RectDomain that we want to intersect with 'this' one.
-    void intersectWith(const RectDomain& rd);
+    /// Set 'this' RectTriDomain to be the intersection of its current extent and that of
+    /// the argument RectTriDomain.
+    /// \param rd the RectTriDomain that we want to intersect with 'this' one.
+    void intersectWith(const RectTriDomain& rd);
 
-    /// Get the RectDomain's smallest value for the first parameter
-    /// \return the RectDomain's smallest value for the first parameter
+    /// Get the RectTriDomain's smallest value for the first parameter
+    /// \return the RectTriDomain's smallest value for the first parameter
     double umin() const { return ll_[0]; }
 
-    /// Get the RectDomain's largest value for the first parameter
-    /// \return the RectDomain's largest value for the first parameter
+    /// Get the RectTriDomain's largest value for the first parameter
+    /// \return the RectTriDomain's largest value for the first parameter
     double umax() const { return ur_[0]; }
 
-    /// Get the RectDomain's smallest value for the second parameter
-    /// \return the RectDomain's smallest value for the second parameter
+    /// Get the RectTriDomain's smallest value for the second parameter
+    /// \return the RectTriDomain's smallest value for the second parameter
     double vmin() const { return ll_[1]; }
     
-    /// Get the RectDomain's largest value for the second parameter
-    /// \return the RectDomain's largest value for the second parameter
+    /// Get the RectTriDomain's largest value for the second parameter
+    /// \return the RectTriDomain's largest value for the second parameter
     double vmax() const { return ur_[1]; }
 
-    /// Length of diagonal
+    /// Get the RectTriDomain's smallest value for the third parameter
+    /// \return the RectTriDomain's smallest value for the third parameter
+    double wmin() const { return ll_[1]; }
+    
+    /// Get the RectTriDomain's largest value for the third parameter
+    /// \return the RectTriDomain's largest value for the third parameter
+    double wmax() const { return ur_[1]; }
+
+     /// Length of diagonal
     double diagLength()
     {
       return ll_.dist(ur_);
@@ -142,18 +140,18 @@ public:
 
     /// Check if two domains overlap, boundary overlap within tolerance
     /// included
-    bool overlap(const RectDomain& rd, double tol);
+    bool overlap(const RectTriDomain& rd, double tol);
 
-    /// Get the 'lower left' corner of this RectDomain.
-    /// \return a 2D array containing the 'lower left' corner of this RectDomain
-    Array<double, 2> lowerLeft()  const { return ll_; }
+    /// Get the 'lower left' corner of this RectTriDomain.
+    /// \return a 2D array containing the 'lower left' corner of this RectTriDomain
+    Array<double, 3> lowerLeft()  const { return ll_; }
 
-    /// Get the 'upper right' corner of this RectDomain
-    /// \return a 2D array containing the 'upper right' corner of this RectDomain
-    Array<double, 2> upperRight() const { return ur_; }
+    /// Get the 'upper right' corner of this RectTriDomain
+    /// \return a 2D array containing the 'upper right' corner of this RectTriDomain
+    Array<double, 3> upperRight() const { return ur_; }
 
     /// Translate box
-    void move(Array<double, 2> vec)
+    void move(Array<double, 3> vec)
     {
       ll_ += vec;
       ur_ += vec;
@@ -161,12 +159,12 @@ public:
 
 private:
     // We store the lower left and upper right points
-    Array<double, 2> ll_;
-    Array<double, 2> ur_;
+    Array<double, 3> ll_;
+    Array<double, 3> ur_;
 };
 
 
 } // namespace Go
 
-#endif // _RECTDOMAIN_H
+#endif // _RECTTRIDOMAIN_H
 

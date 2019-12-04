@@ -41,6 +41,7 @@
 #define _LRSURFAPPROX_H_
 
 #include "GoTools/geometry/SplineSurface.h"
+#include "GoTools/geometry/RectDomain.h"
 #include "GoTools/creators/Eval1D3DSurf.h"
 #include "GoTools/lrsplines2D/LRSplineSurface.h"
 #include "GoTools/lrsplines2D/LRSurfSmoothLS.h"
@@ -58,7 +59,34 @@ namespace Go
 class LRSurfApprox
 {
  public:
+  /// Storage of variable tolerances
+  struct TolBox {
+    RectDomain box;
+    double tol;
 
+    void setVal(double umin, double umax, double vmin, double vmax,
+		double tolerance)
+    {
+      box = RectDomain(Vector2D(umin, vmin), Vector2D(umax, vmax));
+      tol = tolerance;
+    }
+
+    void setTol(double tolerance)
+    {
+      tol = tolerance;
+    }
+
+    void translateBox(double udel, double vdel)
+    {
+      box.move(Vector2D(udel,vdel));
+    }
+
+    bool contains(double uval, double vval)
+    {
+      return box.isInDomain(Vector2D(uval,vval), 0.0);
+    }
+  };
+  
   /// Constructor given a parameterized point set
   /// \param points Parameterized point set given as (u1,v1,x1,y1,z1, u2, v2, ...)
   ///               The length of the array is (2+dim)x(the number of points)
@@ -396,7 +424,11 @@ class LRSurfApprox
       has_var_tol_sign_ = false;
       var_fac_pos_ = var_fac_neg_ = 1.0;
     }
-    
+
+    void setVarTolBox(std::vector<TolBox> tolerances)
+    {
+      tolerances_ = tolerances;
+    }
 
     /// Whether or not intermediate information should be written to
     /// standard output (default is not)
@@ -519,6 +551,7 @@ private:
     double var_fac_neg_;
     double mintol_;
     bool has_var_tol_sign_;
+    std::vector<TolBox> tolerances_;
 
     // Features output
     bool write_feature_;

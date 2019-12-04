@@ -89,7 +89,23 @@ void print_help_text()
   std::cout << "-signpoints: Filename significant points, same formats as point cloud \n";
   std::cout << "-signtol: Tolerance for significant points, default 0.5*tolerance \n";
   std::cout << "-signpost: Flag for post prossessing significant points outside tolerance (0=false, 1=true). Default false \n";
+  std::cout << "-tolfile: File specifying domains with specific tolerances, global tolerance apply outside domains. PointCloud2LR -tolfile for file format \n";
+  std::cout << "-toldoc: Documentation on file format for tolerance domains. \n";
   std::cout << "-h or --help : Write this text\n";
+}
+
+void print_tol_file_format()
+{
+  std::cout << "File specifying domains/boxes with different tolerances. \n";
+  std::cout << "If not otherwise stated, the global tolerance will applies outside the boxes \n";
+  std::cout << "Numbers are given as floats and separated by space \n";
+  std::cout << "Line1: Number of boxes (integer), whether or not the tolerance is specified outside the boxes (0/1) \n";
+  std::cout << "Following lines: \n";
+  std::cout << "xmin ymin xmax ymax tolerance \n";
+  std::cout << "Positive numbers for tolerance means absolute value, \n";
+  std::cout << "negative numbers mean multiplication factor to standard deviation of points \n";
+  std::cout << "Last line (if given): Tolerance, positive or negative float as for previous lines. Value overrules global tolerance. \n";
+  std::cout << "Ensure non-overlapping boxes. No test applied. \n";
 }
 
 int fetchIntParameter(int argc, char *argv[], int ki, int& parameter, 
@@ -143,6 +159,7 @@ int main(int argc, char *argv[])
   char *pointfile = 0;     // Input point file
   char *surffile = 0;       // Surface output file
   char *infofile = 0;      // Accuracy information output file
+  char *tolfile = 0;       // File specifying varying tolerances
   int del = 3;             // Number of entries for each point
   double AEPSGE = 0.5;     // Requested accuracy
   int max_iter = 6;        // Maximum number of iterations in adaptive alogrithm
@@ -170,6 +187,11 @@ int main(int argc, char *argv[])
       if (arg == "-h" || arg == "--help")
 	{
 	  print_help_text();
+	  exit(0);
+	}
+      else if (arg == "-toldoc")
+	{
+	  print_tol_file_format();
 	  exit(0);
 	}
       else if (arg == "-par")
@@ -263,6 +285,13 @@ int main(int argc, char *argv[])
       else if (arg == "-signpost")
 	{
 	  int stat = fetchIntParameter(argc, argv, ki, signpost, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+      else if (arg == "-tolfile")
+	{
+	  int stat = fetchCharParameter(argc, argv, ki, tolfile, 
 				       nmb_par, par_read);
 	  if (stat < 0)
 	    return 1;
@@ -388,7 +417,44 @@ int main(int argc, char *argv[])
 	FileUtils::readTxtPointFile(signpointsin, del, sign_data,
 				    nmb_sign, sign_extent);
     }
-      
+
+  if (nmb_sign > 0)
+    {
+      // Modify data extent
+      for (int ka=0; ka<2*del; ka+=2)
+	{
+	  extent[ka] = std::min(extent[ka], sign_extent[ka]);
+	  extent[ka+1] = std::max(extent[ka+1], sign_extent[ka+1]);
+	}
+    }
+  
+  bool use_stdd = false;
+  vector<LRSurfApprox::TolBox> tolerances;
+  if (tolfile != 0)
+    {
+      std::ifstream tolin(tolfile);
+      int nmb_box, last;
+      double umin, umax, vmin, vmax, tol;
+      tolin >> nmb_box >> last;
+      tolerances.resize(nmb_box);
+      for (int ka=0; ka<nmb_box; ++ka)
+	{
+	  tolin >> umin >> umax >> vmin >> vmax >> tol;
+	  tolerances[ka].setVal(std::max(umin,extent[0]), std::min(umax,extent[1]),
+				std::max(vmin,extent[2]), std::min(vmax,extent[3]), tol);
+	  if (tol < 0.0)
+	    use_stdd = true;
+	}
+      if (last > 0)
+	{
+	  tolin >> AEPSGE;
+	  if (AEPSGE < 0.0)
+	    use_stdd = true;
+	}
+    }
+  if (AEPSGE < 0.0)
+    use_stdd = true;
+	  
 #ifdef DEBUG2
   double maxtol = 0.0;
   double mintol = 1.0e8;
@@ -409,16 +475,6 @@ int main(int argc, char *argv[])
 #endif
 
   // Move point cloud to origo
-    if (nmb_sign > 0)
-      {
-	// Modify data extent
-	for (int ka=0; ka<2*del; ka+=2)
-	  {
-	    extent[ka] = std::min(extent[ka], sign_extent[ka]);
-	    extent[ka+1] = std::max(extent[ka+1], sign_extent[ka+1]);
-	  }
-      }
-
   Point mid(0.5*(extent[2*(del-3)] + extent[2*(del-3)+1]),
 	    0.5*(extent[2*(del-2)] + extent[2*(del-2)+1]), 0.0);
   for (ki=0; ki<nmb_pts; ++ki)
@@ -431,7 +487,36 @@ int main(int argc, char *argv[])
       {
 	sign_data[del*ki+kj] -= mid[kj-del+3];
       }
-      
+
+  for (size_t kj=0; kj<tolerances.size(); ++kj)
+    tolerances[kj].translateBox(-mid[0], -mid[1]);
+
+  if (use_stdd)
+    {
+      double avheight = 0.0;
+      for (ki=0; ki<nmb_pts; ++ki)
+	{
+	  double height = data[del*ki+del-1];
+	  avheight += (height/(double)nmb_pts);
+	}
+      double stdd = 0.0;
+     for (ki=0; ki<nmb_pts; ++ki)
+	{
+	  double height = data[del*ki+del-1];
+	  stdd += (pow(avheight-height,2)/(double)nmb_pts);
+	}
+     stdd = sqrt(stdd);
+     for (size_t kj=0; kj<tolerances.size(); ++kj)
+       {
+	 if (tolerances[kj].tol < 0.0)
+	   tolerances[kj].setTol(fabs(tolerances[kj].tol)*stdd);
+       }
+     if (AEPSGE < 0.0)
+       AEPSGE = fabs(AEPSGE)*stdd;
+
+     std::cout << "Standard deviation: " << stdd << std::endl;
+    }
+     
 
 #ifdef DEBUG
   // Write translated surface and points to g2 format
@@ -483,6 +568,10 @@ int main(int argc, char *argv[])
       double sign_fac = 200.0; //100.0; //20.0; //1.0; //10.0;
       approx.setSignificantFactor(sign_fac);
     }
+
+  if (tolerances.size() > 0)
+    approx.setVarTolBox(tolerances);
+  
   approx.setVerbose(true);
 
   // Feature output
