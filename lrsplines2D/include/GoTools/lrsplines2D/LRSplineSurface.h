@@ -697,7 +697,6 @@ namespace Go
   		  Mesh2D& mesh, 
 		  std::vector<LRBSpline2D*>& b_splines,
 		  int first_ixu, int first_ixv);
-
  private:
 
   // ----------------------------------------------------
@@ -729,6 +728,7 @@ namespace Go
   // Generated data
   mutable RectDomain domain_;
   mutable Element2D* curr_element_;
+
 
 #if 0
   // @@sbr Remove this when LRSplineEvalGrid does not need them any longer!

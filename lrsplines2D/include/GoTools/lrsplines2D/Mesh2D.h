@@ -93,7 +93,12 @@ public:
 	 const std::vector<std::vector<int> >& mrvecx,
 	 const std::vector<std::vector<int> >& mrvecy);
   
-  // Read the mesh from a stream
+
+  Mesh2D(const std::vector<double>& xknots, const std::vector<double>& yknots,
+	 const std::vector<std::vector<int> >& mrvecx,
+	 const std::vector<std::vector<int> >& mrvecy);
+   
+   // Read the mesh from a stream
   virtual void read(std::istream& is);        
 
   // Write the mesh to a stream
@@ -405,6 +410,7 @@ std::vector<int> Mesh2D::compactify_ixvec_(Iterator kvec_start, Iterator kvec_en
 
   return result;
 }
+
 
 // =============================================================================
 inline double Mesh2D::minParam(Direction2D d) const

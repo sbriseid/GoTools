@@ -579,7 +579,6 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  if (nmb_refs == 0)
 	    break;  // No refinements performed
 	}
-      //refineSurf2();
 #ifdef DEBUG
       std::ofstream of2("refined_sf.g2");
       std::ofstream of2el("refined_el.g2");
@@ -651,6 +650,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
       if (make_ghost_points_ && ki>0 && ghost_points_inner &&
 	  !useMBA_ && ki<toMBA_)
 	{
+	  std::cout << "Ghost points " << std::endl;
 	  constructInnerGhostPoints();
 	}
 
@@ -2795,6 +2795,13 @@ bool compare_refs(LRSplineSurface::Refinement2D r1,
 		  LRSplineSurface::Refinement2D r2)
 {
   return (r1.kval < r2.kval);
+}
+
+
+//==============================================================================
+bool compare_elems(pair<Element2D*,double> el1, pair<Element2D*,double> el2)
+{
+  return (el1.second > el2.second);
 }
 
 //==============================================================================
