@@ -93,11 +93,6 @@ public:
 	 const std::vector<std::vector<int> >& mrvecx,
 	 const std::vector<std::vector<int> >& mrvecy);
   
-
-  Mesh2D(const std::vector<double>& xknots, const std::vector<double>& yknots,
-	 const std::vector<std::vector<int> >& mrvecx,
-	 const std::vector<std::vector<int> >& mrvecy);
-   
    // Read the mesh from a stream
   virtual void read(std::istream& is);        
 

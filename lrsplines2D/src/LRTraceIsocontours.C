@@ -384,23 +384,39 @@ IsectCurve join_isectcurves(const IsectCurve& c1, const IsectCurve& c2,
 // ----------------------------------------------------------------------------
 {
   shared_ptr<SplineCurve> pcurve1 = shared_ptr<SplineCurve>(c1.first->clone());
-  shared_ptr<SplineCurve> scurve1 = shared_ptr<SplineCurve>(c1.second->clone());
+  shared_ptr<SplineCurve> scurve1; 
   shared_ptr<SplineCurve> pcurve2 = shared_ptr<SplineCurve>(c2.first->clone());
-  shared_ptr<SplineCurve> scurve2 = shared_ptr<SplineCurve>(c2.second->clone());
+  shared_ptr<SplineCurve> scurve2; 
 
-  if (c1_at_start) {
-    pcurve1->reverseParameterDirection();
-    scurve1->reverseParameterDirection();
-  }
+  if (c1.second.get())
+    {
+      scurve1 = shared_ptr<SplineCurve>(c1.second->clone());
+      scurve2 = shared_ptr<SplineCurve>(c2.second->clone());
+      if (c1_at_start) {
+	pcurve1->reverseParameterDirection();
+	scurve1->reverseParameterDirection();
+      }
 
-  if (!c2_at_start) {
-    pcurve2->reverseParameterDirection();
-    scurve2->reverseParameterDirection();
-  }
+      if (!c2_at_start) {
+	pcurve2->reverseParameterDirection();
+	scurve2->reverseParameterDirection();
+      }
   
-  pcurve1->appendCurve(pcurve2.get());
-  scurve1->appendCurve(scurve2.get());
+      pcurve1->appendCurve(pcurve2.get());
+      scurve1->appendCurve(scurve2.get());
+    }
+  else
+    {
+      if (c1_at_start) {
+	pcurve1->reverseParameterDirection();
+      }
+
+      if (!c2_at_start) {
+	pcurve2->reverseParameterDirection();
+      }
   
+      pcurve1->appendCurve(pcurve2.get());
+    }
   return IsectCurve { pcurve1, scurve1 };
 }
 

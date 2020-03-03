@@ -646,28 +646,6 @@ public:
 	    }
 	}
 
-	/// Add significante data points to the element
-	void addSignificantPoints(std::vector<double>::iterator start, 
-				  std::vector<double>::iterator end,
-				  bool sort_in_u, int del=0)
-	{
-	  if (!LSdata_)
-	    LSdata_ = shared_ptr<LSSmoothData>(new LSSmoothData());
-	  LSdata_->addSignificantPoints(start, end, sort_in_u, del);
-	}
-
-	void addSignificantPoints(std::vector<double>::iterator start, 
-				  std::vector<double>::iterator end,
-				  int del, bool sort_in_u, 
-				  bool prepare_outlier_detection=false)
-	{
-	  if (!LSdata_)
-	    LSdata_ = shared_ptr<LSSmoothData>(new LSSmoothData());
-	  LSdata_->addSignificantPoints(start, end, del, sort_in_u,
-					prepare_outlier_detection);
-	}
-
-
 	void addGhostPoints(std::vector<double>::iterator start, 
 			    std::vector<double>::iterator end,
 			    bool sort_in_u, int del=0)

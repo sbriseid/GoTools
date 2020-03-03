@@ -2847,11 +2847,6 @@ int LRSurfApprox::refineSurf3()
   return (int)refs_x.size() + (int)refs_y.size();
  }
 
-//==============================================================================
-bool compare_elems(pair<Element2D*,double> el1, pair<Element2D*,double> el2)
-{
-  return (el1.second > el2.second);
-}
 
 //==============================================================================
 int LRSurfApprox::refineSurf(int iter)
