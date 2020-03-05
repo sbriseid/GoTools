@@ -783,13 +783,13 @@ findPcurveInsideSegments(const SplineCurve& curve,
       }
 	
 
-    if (int_seg.size() % 2 == 1)
-      {
-	if (!in1)
-	  int_seg.erase(int_seg.begin());
-	else if (!in2)
-	  int_seg.pop_back();
-      }
+    // if (int_seg.size() % 2 == 1)
+    //   {
+    // 	if (!in1)
+    // 	  int_seg.erase(int_seg.begin());
+    // 	else if (!in2)
+    // 	  int_seg.pop_back();
+    //   }
 
     if (int_seg.size() == 0)
       return;  // No internal segments

@@ -83,6 +83,7 @@ void print_help_text()
   std::cout << "                -1 = initiate computation using MBA \n";
   std::cout << "Default setting is start with least squares, turn to MBA for the last iterations \n";
   std::cout << "-outlier <0/1>: Flag for removal of outliers (0=false, 1=true. Default false \n";
+  std::cout << "-minsize <size> : Minimum element size, all directions \n";
   std::cout << "-reltol <0/1>: Apply relative tolerance flag. Default false \n";
   std::cout << "-tolfac1: Factor for modification of tolerance, positive heights. Default 0.0 \n";
   std::cout << "-tolfac2: Factor for modification of tolerance, negative heights. Default 0.0 \n";
@@ -91,6 +92,7 @@ void print_help_text()
   std::cout << "-signpost: Flag for post prossessing significant points outside tolerance (0=false, 1=true). Default false \n";
   std::cout << "-tolfile: File specifying domains with specific tolerances, global tolerance apply outside domains. PointCloud2LR -tolfile for file format \n";
   std::cout << "-toldoc: Documentation on file format for tolerance domains. \n";
+  std::cout << "-feature: <resolution> : Write feature information to file according to given grid resolution \n";
   std::cout << "-h or --help : Write this text\n";
 }
 
@@ -175,6 +177,8 @@ int main(int argc, char *argv[])
   char *signpointfile = 0;  // Input significant points
   double signtol = -1.0;  // Tolerance for significant points
   int signpost = 0;  // Flag for post procession of significant points
+  double minsize = -1.0;
+  int feature_out = -1;
 
   int ki, kj;
   vector<bool> par_read(argc-1, false);
@@ -247,6 +251,13 @@ int main(int argc, char *argv[])
 	  if (stat < 0)
 	    return 1;
 	}
+      else if (arg == "-minsize")
+	{
+	  int stat = fetchDoubleParameter(argc, argv, ki, minsize, 
+					  nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
       else if (arg == "-reltol")
 	{
 	  int stat = fetchIntParameter(argc, argv, ki, reltol, 
@@ -292,6 +303,13 @@ int main(int argc, char *argv[])
       else if (arg == "-tolfile")
 	{
 	  int stat = fetchCharParameter(argc, argv, ki, tolfile, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+      else if (arg == "-feature")
+	{
+	  int stat = fetchIntParameter(argc, argv, ki, feature_out, 
 				       nmb_par, par_read);
 	  if (stat < 0)
 	    return 1;
@@ -371,6 +389,9 @@ int main(int argc, char *argv[])
 	  extent[2*ki] = low[ki];
 	  extent[2*ki+1] = high[ki];
 	}
+      std::cout << "Domain: [" << extent[0] << ", " << extent[1] << "] x [" << extent[2];
+      std::cout << ", " << extent[3] << "]" << std::endl;
+      std::cout << "Range: " << extent[4] << " - " << extent[5] << std::endl;
     }
   else
     FileUtils::readTxtPointFile(pointsin, del, data, nmb_pts, extent);
@@ -559,8 +580,15 @@ int main(int argc, char *argv[])
     }
   if (outlierflag > 0)
     approx.setOutlierFlag(true);
+  if (minsize > 0.0)
+    approx.setMinimumElementSize(minsize, minsize);
   if (reltol > 0)
-    approx.setVarTol(tolfac1, tolfac2);
+    {
+      double tol1 = extent[4]<0.0 ? AEPSGE - tolfac2*extent[4] : AEPSGE + tolfac1*extent[4];
+      double tol2 = extent[5]<0.0 ? AEPSGE - tolfac2*extent[5] : AEPSGE + tolfac1*extent[5];
+      std::cout << "Variable tolerance: " << tol1 << " - " << tol2 << std::endl;
+      approx.setVarTol(tolfac1, tolfac2);
+    }
 
   if (sign_data.size() > 0)
     {
@@ -573,6 +601,10 @@ int main(int argc, char *argv[])
     approx.setVarTolBox(tolerances);
   
   approx.setVerbose(true);
+
+  // Feature output
+  if (feature_out > 0)
+    approx.setFeatureOut(feature_out);
 
   if (del == 3)
     {

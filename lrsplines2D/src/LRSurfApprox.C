@@ -744,7 +744,6 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  std::cout << "Number of significant points outside tolerance(" << sign_aepsge_ << "): " << outsideeps_sign_ << std::endl;
 	}
 
-<<<<<<< HEAD
       if (write_feature_)
 	{
 	  std::string body = "cellinfo";
@@ -756,9 +755,6 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	}
 
    }
-=======
-    }
->>>>>>> origin/master
 
   if (nmb_sign_ > 0 && maxdist_sign_ > sign_aepsge_)
     {
@@ -2794,6 +2790,33 @@ bool compare_elems(pair<Element2D*,double> el1, pair<Element2D*,double> el2)
   return (el1.second > el2.second);
 }
 
+int divide(double *err, int *perm, int low, int high)
+{
+  int p1 = perm[high];
+  int ki = low - 1;
+  for (int kj=low; kj<=high-1; ++kj)
+    {
+      if (err[perm[kj]] > err[p1])
+	{
+	  ++ki;
+	  std::swap(perm[ki],perm[kj]);
+	}
+    }
+  std::swap(perm[ki+1], perm[high]);
+  return (ki+1);
+}
+
+void quicksort(double *err, int *perm, int low, int high)
+{
+  if (low < high)
+    {
+      int pos = divide(err, perm, low, high);
+
+      quicksort(err, perm, low, pos-1);
+      quicksort(err, perm, pos+1, high);
+    }
+}
+
 //==============================================================================
 int LRSurfApprox::refineSurf()
 //==============================================================================
@@ -2928,17 +2951,18 @@ int LRSurfApprox::refineSurf()
     bspl_perm[ki] = ki;
 
   // Do the sorting
-  for (ki=0; ki<num_bspl; ++ki)
-    {
-       for (kj=ki+1; kj<num_bspl; ++kj)
-	{
-	  // Modify if there is a significant number of large error points 
-	  if (error2[bspl_perm[ki]] < error2[bspl_perm[kj]])
-	    {
-	      std::swap(bspl_perm[ki], bspl_perm[kj]);
-	    }
-	}
-    }
+  quicksort(&error2[0], &bspl_perm[0], 0, num_bspl-1);
+  // for (ki=0; ki<num_bspl; ++ki)
+  //   {
+  //      for (kj=ki+1; kj<num_bspl; ++kj)
+  // 	{
+  // 	  // Modify if there is a significant number of large error points 
+  // 	  if (error2[bspl_perm[ki]] < error2[bspl_perm[kj]])
+  // 	    {
+  // 	      std::swap(bspl_perm[ki], bspl_perm[kj]);
+  // 	    }
+  // 	}
+  //   }
   
   // Split the most important B-splines, but only if the maximum
   // error is larger than the tolerance
@@ -4048,6 +4072,7 @@ void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
     delete [] alloc;
 }
 
+#if 0
 //==============================================================================
 void LRSurfApprox::checkFeasibleRef(Element2D* elem, 
 				    vector<LRSplineSurface::Refinement2D>& refs_x,
@@ -4194,6 +4219,145 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem,
     }
 
     affected.insert(affected.end(), affected_combined.begin(), affected_combined.end());
+}
+
+#endif
+//==============================================================================
+void LRSurfApprox::checkFeasibleRef(Element2D* elem, 
+				    vector<LRSplineSurface::Refinement2D>& refs_x,
+				    vector<LRSplineSurface::Refinement2D>& refs_y,
+				    vector<Element2D*>& affected)
+//==============================================================================
+{
+  double tol = srf_->getKnotTol();
+  double eps = 0.01;
+
+  // Fetch B-splines
+  const vector<LRBSpline2D*>& bsplines = elem->getSupport();
+  size_t nmb = bsplines.size();
+
+  int degree1 = srf_->degree(XFIXED);
+  int degree2 = srf_->degree(YFIXED);
+  int xmult = (degree1 <= 3) ? 1 : 2;
+  int ymult = (degree2 <= 3) ? 1 : 2;
+  
+ // Refine one B-spline with support in the parent element in one or two
+  // parameter directions depending on how many elements with a large error
+  // that lies in its support
+  // First check refinement in the u-direction
+  double u_par = 0.5*(elem->umin() + elem->umax());
+  double udel = elem->umax() - elem->umin();
+  double minsize_u = (usize_min_ > 0.0) ? 2.0*usize_min_ : 1.0e8;
+  size_t ki, kj;
+  double udelmax = 0.0;
+  bool udir = true;
+  std::set<Element2D*> uelems;
+  for (ki=0; ki<nmb; ++ki)
+    {
+      udelmax = std::max(udelmax, bsplines[ki]->umax() - bsplines[ki]->umin());
+      
+      // Collect elements
+      const vector<Element2D*>& curr_el = bsplines[ki]->supportedElements();
+      for (kj=0; kj<curr_el.size(); ++kj)
+	{
+	  if (curr_el[kj]->umax() < u_par || curr_el[kj]->umin() > u_par)
+	    continue;  // Element not affected
+
+	  if (curr_el[kj]->umax() - curr_el[kj]->umin() < minsize_u)
+	    {
+	      // Element too small to be divided
+	      udir = false;
+	    }
+
+	  uelems.insert(curr_el[kj]);
+	}
+    }
+	  
+  // The v-direction
+  double v_par = 0.5*(elem->vmin() + elem->vmax());
+  double vdel = elem->vmax() - elem->vmin();
+  double minsize_v = (vsize_min_ > 0.0) ? 2.0*vsize_min_ : 1.0e8;
+  double vdelmax = 0.0;
+  bool vdir = true;
+  std::set<Element2D*> velems;
+  for (ki=0; ki<nmb; ++ki)
+    {
+       vdelmax = std::max(vdelmax, bsplines[ki]->vmax() - bsplines[ki]->vmin());
+      
+      // Collect elements
+      const vector<Element2D*>& curr_el = bsplines[ki]->supportedElements();
+      for (kj=0; kj<curr_el.size(); ++kj)
+	{
+	  if (curr_el[kj]->vmax() < v_par || curr_el[kj]->vmin() > v_par)
+	    continue;  // Element not affected
+
+	  if (curr_el[kj]->vmax() - curr_el[kj]->vmin() < minsize_v)
+	    {
+	      // Element too small to be divided
+	      vdir = false;
+	    }
+	  
+	  velems.insert(curr_el[kj]);
+	}
+    }
+  
+  // Estimate significant of split in all parameter directions
+  vector<Element2D*> element_u(uelems.begin(), uelems.end());
+  vector<Element2D*> element_v(velems.begin(), velems.end());
+  double fac = 0.1;
+  double fac3 = 0.75; //0.95;
+  int nmb_u = 0;
+  for (ki=0; ki<element_u.size(); ++ki)
+    {
+      double max_err, av_err;
+      int nmb_outside, nmb_out_sign;
+      element_u[ki]->getAccuracyInfo(av_err, max_err, nmb_outside, nmb_out_sign);
+      int nmb_pts = element_u[ki]->nmbDataPoints();
+      if (nmb_outside > fac*nmb_pts || av_err > fac3*avdist_)
+	nmb_u++;
+    }
+
+  int nmb_v = 0;
+  for (ki=0; ki<element_v.size(); ++ki)
+    {
+      double max_err, av_err;
+      int nmb_outside, nmb_out_sign;
+      element_v[ki]->getAccuracyInfo(av_err, max_err, nmb_outside, nmb_out_sign);
+      int nmb_pts = element_v[ki]->nmbDataPoints();
+      if (nmb_outside > fac*nmb_pts || av_err > fac3*avdist_)
+	nmb_v++;
+    }
+
+
+  // if (udir == false && vdir == false)
+  //   udir = vdir = true;   // No direction without small elements,
+  // // use other criteria
+  
+  // Assemble information
+int div_x = 0, div_y = 0;
+  double fac2 = 0.5;
+  double sizefac = 3.0;
+  if (udir &&
+       (nmb_u >= nmb_v || udel > sizefac*vdel || udelmax >= vdelmax))
+    {
+      for (ki=0; ki<nmb; ++ki)
+	{
+	  LRSplineSurface::Refinement2D curr_ref;
+	  curr_ref.setVal(u_par, bsplines[ki]->vmin(), bsplines[ki]->vmax(), XFIXED, xmult);
+	  appendRef(refs_x, curr_ref, tol);
+	}
+    }
+			       
+  if (vdir &&
+      (nmb_v >= nmb_u || vdel > sizefac*udel || vdelmax >= udelmax))
+    {
+      for (ki=0; ki<nmb; ++ki)
+	{
+	  LRSplineSurface::Refinement2D curr_ref;
+	  curr_ref.setVal(v_par, bsplines[ki]->umin(), bsplines[ki]->umax(), YFIXED, ymult);
+	  appendRef(refs_y, curr_ref, tol);
+	}
+    }
 }
 
 int comp_u_par(const void* el1, const void* el2)
