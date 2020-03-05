@@ -4247,7 +4247,7 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem,
   // First check refinement in the u-direction
   double u_par = 0.5*(elem->umin() + elem->umax());
   double udel = elem->umax() - elem->umin();
-  double minsize_u = (usize_min_ > 0.0) ? 2.0*usize_min_ : 1.0e8;
+  double minsize_u = (usize_min_ > 0.0) ? 2.0*usize_min_ : 1.0e-8;
   size_t ki, kj;
   double udelmax = 0.0;
   bool udir = true;
@@ -4276,7 +4276,7 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem,
   // The v-direction
   double v_par = 0.5*(elem->vmin() + elem->vmax());
   double vdel = elem->vmax() - elem->vmin();
-  double minsize_v = (vsize_min_ > 0.0) ? 2.0*vsize_min_ : 1.0e8;
+  double minsize_v = (vsize_min_ > 0.0) ? 2.0*vsize_min_ : 1.0e-8;
   double vdelmax = 0.0;
   bool vdir = true;
   std::set<Element2D*> velems;
