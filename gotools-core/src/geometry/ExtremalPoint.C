@@ -179,6 +179,7 @@ ExtremalPoint::extremalPoints(shared_ptr<ParamSurface>& surface,
       // maximum values
       iterateExtremalPoints(surface, bddomain, dir, tol, maxval, sislsf,
 			    ext_par);
+      std::cout << "Iterate extreme" << std::endl;
     }
 
   if (sislsf) freeSurf(sislsf);
