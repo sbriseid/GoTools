@@ -464,7 +464,7 @@ class LRSurfApprox
       average_outside = avout_;
     }
 
-    /// Feature output
+     /// Feature output
     void setFeatureOut(int ncell)
     {
       write_feature_ = true;
@@ -488,6 +488,8 @@ private:
     std::vector<int> coef_known_;
     shared_ptr<LRSplineSurface> prev_;  // Previous surface, no point information
     // in elements
+    //  Element accuracy history information
+    std::unique_ptr<Element2DAccuracyHistory> element_accuracy_;  
 
     bool useMBA_;    // Only LR-MBA
     int toMBA_;      // Start with LR-MBA at the given iteration step
@@ -585,8 +587,9 @@ private:
 
     //double density);
     /// Refine surface
-    int refineSurf();
+    int refineSurf(int iter);
     int refineSurf2();
+    int refineSurf3();
 
     /// Create initial LR B-spline surface
     void makeInitSurf(int dim);
@@ -614,9 +617,10 @@ private:
     void defineRefs(LRBSpline2D* bspline, double average_out,
 		    std::vector<LRSplineSurface::Refinement2D>& refs_x,
 		    std::vector<LRSplineSurface::Refinement2D>& refs_y,
+		    int choice,
 		    std::vector<std::pair<Element2D*,double> >& elem_out);
 
-    void checkFeasibleRef(Element2D* elem, 
+    void checkFeasibleRef(Element2D* elem, int iter,
 			  std::vector<LRSplineSurface::Refinement2D>& refs_x,
 			  std::vector<LRSplineSurface::Refinement2D>& refs_y,
 			  std::vector<Element2D*>& affected);

@@ -72,6 +72,10 @@ int search_downwards_for_nonzero_multiplicity(const Mesh2D& m, Direction2D d,
 int search_upwards_for_nonzero_multiplicity(const Mesh2D& m, Direction2D d, 
 					    int start_ix, int ix1, int ix2);
 
+ void derive_Bspline_mesh(const Mesh2D& m, int degree1, int degree2,
+			  int start1, int start2,
+			  std::vector<std::vector<int> >& kvec_u, 
+			  std::vector<std::vector<int> >& kvec_v);
 }; // end namespace Mesh2DUtils
 
 }; // end namespace Go

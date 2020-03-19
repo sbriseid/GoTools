@@ -37,41 +37,39 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#include "GoTools/lrsplines2D/LRSplineSurface.h"
-#include "GoTools/lrsplines2D/LRBSpline2D.h"
-#include "GoTools/lrsplines2D/LRSplinePlotUtils.h"
-#include "GoTools/geometry/SplineSurface.h"
-#include "GoTools/geometry/SplineCurve.h"
-#include "GoTools/geometry/CurveLoop.h"
+#include "GoTools/geometry/ParamSurface.h"
 #include "GoTools/geometry/ObjectHeader.h"
 #include "GoTools/geometry/Factory.h"
 #include "GoTools/geometry/GoTools.h"
-
+#include "GoTools/geometry/RectDomain.h"
+#include "GoTools/lrsplines2D/LRSplineSurface.h"
+#include "GoTools/geometry/SplineDebugUtils.h"
 #include <iostream>
 #include <fstream>
 #include <string.h>
 
+using namespace std;
 using namespace Go;
 
-int main(int argc, char *argv[])
+int main( int argc, char* argv[] )
 {
-  if (argc != 4) {
-    std::cout << "Usage: lrspline_in (.g2) refinement_in lrspline_out.g2 " << std::endl;
-    return -1;
+  if (argc != 2) {
+    std::cout << "Input parameters : Input surface file(.g2) "  << std::endl;
+    exit(-1);
   }
 
-  std::ifstream filein(argv[1]);
-  std::ifstream filein2(argv[2]);
-  std::ofstream fileout(argv[3]);
+  // Read input arguments
+  std::ifstream infile(argv[1]);
 
   // Create the default factory
   GoTools::init();
   Registrator<LRSplineSurface> r293;
+  //Registrator<BoundedSurface> r210;
 
   // Read input surface
   ObjectHeader header;
   try {
-    header.read(filein);
+    header.read(infile);
   }
   catch (...)
     {
@@ -79,7 +77,7 @@ int main(int argc, char *argv[])
       exit(-1);
     }
   shared_ptr<GeomObject> geom_obj(Factory::createObject(header.classType()));
-  geom_obj->read(filein);
+  geom_obj->read(infile);
   
   shared_ptr<ParamSurface> sf = dynamic_pointer_cast<ParamSurface, GeomObject>(geom_obj);
   if (!sf.get())
@@ -88,61 +86,32 @@ int main(int argc, char *argv[])
       exit(-1);
     }
 
+  shared_ptr<BoundedSurface> bdsf = 
+    dynamic_pointer_cast<BoundedSurface, ParamSurface>(sf);
+  if (bdsf.get())
+    sf = bdsf->underlyingSurface();
+
+  // Fetch domain
+  RectDomain domain = sf->containingDomain();
+
+  // Output
+  printf("Surface domain: %13.4f %13.4f %13.4f %13.4f \n", domain.umin(), 
+	 domain.umax(), domain.vmin(), domain.vmax());
+
   shared_ptr<LRSplineSurface> lrsf = 
     dynamic_pointer_cast<LRSplineSurface, ParamSurface>(sf);
-  if (!lrsf.get())
+  if (lrsf.get())
     {
-      shared_ptr<SplineSurface> splsf = 
-	dynamic_pointer_cast<SplineSurface, ParamSurface>(sf);
-      if (splsf.get())
-	lrsf = shared_ptr<LRSplineSurface>(new LRSplineSurface(splsf.get(), 1.0e-6));
+      std::ofstream ofel("sf_elements.g2");
+      LineCloud lines = lrsf->getElementBds();
+      lines.writeStandardHeader(ofel);
+      lines.write(ofel);
     }
-  if (!lrsf.get())
+
+  if (bdsf.get())
     {
-      std::cerr << "Input file contains no spline surface" << std::endl;
-      exit(-1);
+      std::ofstream ofl("sf_loop.g2");
+      SplineDebugUtils::writeBoundary(*bdsf, ofl);
     }
-    
-  
-  shared_ptr<LRSplineSurface> tmp2(lrsf->clone());
-  if (tmp2->dimension() == 1)
-    tmp2->to3D();
-
-  // tmp2->writeStandardHeader(fileout);
-  // tmp2->write(fileout);
-  // fileout << std::endl;
-  // LineCloud lines2 = tmp2->getElementBds();
-  // lines2.writeStandardHeader(fileout);
-  // lines2.write(fileout);
-  
-  int nmb_refs;
-  filein2 >> nmb_refs;
-  for (int ki=0; ki<nmb_refs; ++ki)
-    {
-      double parval, start, end;
-      int dir;
-      int mult, generation;
-
-      filein2 >> parval;
-      filein2 >> start;
-      filein2 >> end;
-      filein2 >> dir;
-      filein2 >> mult;
-      filein2 >> generation;
-      //lrsf->refine((dir==0) ? XFIXED : YFIXED, parval, start, end, mult);
-      std::cout << "Iteration no. " << ki << std::endl;
-      lrsf->refine((dir==0) ? XFIXED : YFIXED, parval, start, end, mult, 
-		   generation, true);
-
-      if (ki == nmb_refs-1)
-	{
-	  puts("Writing lr-spline to file.");
-	  // if (lrsf->dimension() == 1)
-	  // 	lrsf->to3D();
-	  lrsf->writeStandardHeader(fileout);
-	  lrsf->write(fileout);
-	  fileout << std::endl;
-	}
-    }
-  return 0;
 }
+

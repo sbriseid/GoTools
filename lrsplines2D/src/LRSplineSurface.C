@@ -44,6 +44,7 @@
 #include <iostream> // @@ debug
 #include <fstream>
 #include <iterator> // @@ debug - remove
+#include <string.h>
 //#include <chrono>   // @@ debug
 #include <set>
 #include <tuple>
@@ -666,12 +667,14 @@ bool LRSplineSurface::isFullTensorProduct() const
 			     bool absolute)
 //==============================================================================
 {
-  refine(ref.d, ref.kval, ref.start, ref.end, ref.multiplicity, absolute);
+  refine(ref.d, ref.kval, ref.start, ref.end, ref.multiplicity, 
+	 ref.generation, absolute);
 }
 
 //==============================================================================
 void LRSplineSurface::refine(Direction2D d, double fixed_val, double start, 
-			     double end, int mult, bool absolute)
+			     double end, int mult, int generation,
+			     bool absolute)
 //==============================================================================
 {
   #ifdef DEBUG
@@ -717,9 +720,9 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
   Mesh2D mesh2 = mesh_;
 
   const auto indices = // tuple<int, int, int, int>
-  LRSplineUtils::refine_mesh(d, fixed_val, start, end, mult, absolute, 
-			     degree(d), knot_tol_, mesh_,
-			     (d == XFIXED) ?  bsplinesuni1_ : bsplinesuni2_);
+    LRSplineUtils::refine_mesh(d, fixed_val, start, end, mult, generation,
+			       absolute, degree(d), knot_tol_, mesh_,
+			       (d == XFIXED) ?  bsplinesuni1_ : bsplinesuni2_);
 
 #ifdef DEBUG
   std::ofstream of2("mesh1.eps");
@@ -999,8 +1002,7 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
 
 #ifdef DEBUG
 	    if (it2 == emap_.end())
-	      int stop_break = 1;
-	    //std::cout << "LRSplineSurface::refine : Element not found" << std::endl;
+	      std::cout << "LRSplineSurface::refine : Element not found" << std::endl;
 #endif
 	  }
 
@@ -1019,6 +1021,7 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
 	int nmbout;
 	int pt_del;
 
+	Element2DAccuracyInfo *prev_eleminfo = NULL;
 	if (it2 != emap_.end())
 	  {
 	    // Update size of existing element
@@ -1031,7 +1034,7 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
 	    it2->second->getOutsidePoints(data_points, d, sort_in_u);
 	    it2->second->getOutsideSignificantPoints(significant_points, 
 						     d, sort_in_u_significant);
- 	    it2->second->getOutsideGhostPoints(ghost_points, d, 
+	    it2->second->getOutsideGhostPoints(ghost_points, d, 
 					       sort_in_u_ghost);
 	    pt_del = it2->second->getNmbValPrPoint();
 	    // it2->second->getAccuracyInfo(averr, maxerr, nmbout);
@@ -1039,6 +1042,13 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
 
 	    // Update accuracy statistices in element
 	    it2->second->updateAccuracyInfo();
+
+	    if (it2->second->hasElementAccuracyInfo())
+	      {
+		prev_eleminfo = 
+		  it2->second->getElementAccuracyInfo()->getPrevious();
+		it2->second->getElementAccuracyInfo()->resetElementInfo(it2->second.get());
+	      }
 
 	    // Update supported LRBsplines
 	    for (size_t kb=0; kb<bsplines_affected.size(); ++kb)
@@ -1079,16 +1089,25 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
 	    if (data_points.size() > 0)
 	      elem->addDataPoints(data_points.begin(), data_points.end(),
 				  sort_in_u, pt_del);
-           if (significant_points.size() > 0)
-             elem->addSignificantPoints(significant_points.begin(), 
-                                        significant_points.end(),
-                                        sort_in_u_significant, pt_del);
+	    if (significant_points.size() > 0)
+	      elem->addSignificantPoints(significant_points.begin(), 
+					 significant_points.end(),
+					 sort_in_u_significant, pt_del);
+	      
 	    if (ghost_points.size() > 0)
 	      elem->addGhostPoints(ghost_points.begin(), ghost_points.end(),
 				   sort_in_u_ghost, pt_del);
 	    //elem->setAccuracyInfo(accerr, averr, maxerr, nmbout);  // Not exact info as the
 	    // element has been split
 	    elem->updateAccuracyInfo();  // Accuracy statistic in element
+
+	    if (element_accuracy_)
+	      {
+		Element2DAccuracyInfo *curr_elemaccuracy =
+		  element_accuracy_->addElementInfo(elem.get());
+		if (prev_eleminfo)
+		  curr_elemaccuracy->updateAccuracyPtr(prev_eleminfo);
+	      }
 
 	    emap_.insert(std::make_pair(key, std::move(elem)));
 	    //auto it3 = emap_.find(key);
@@ -1131,6 +1150,7 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
 				 r.start, 
 				 r.end, 
 				 r.multiplicity, 
+				 r.generation,
 				 absolute,
 				 degree(r.d), 
 				 knot_tol_, 
@@ -1284,6 +1304,32 @@ void LRSplineSurface::to3D()
   // }
 }
 
+
+//==============================================================================
+LineCloud LRSplineSurface::getElementPar() const
+//==============================================================================
+{
+  vector<double> all_lines;
+   for (LRSplineSurface::ElementMap::const_iterator it=elementsBegin();
+       it != elementsEnd(); ++it)
+    {
+      double umin = it->second->umin();
+      double vmin = it->second->vmin();
+      double umax = it->second->umax();
+      double vmax = it->second->vmax();
+      vector<double> bdpar(24);
+      bdpar[0] = bdpar[6] = bdpar[9] = bdpar[18] = umin;
+      bdpar[1] = bdpar[4] = bdpar[7] = bdpar[13] = vmin;
+      bdpar[3] = bdpar[12] = bdpar[15] = bdpar[21] = umax;
+      bdpar[10] = bdpar[16] = bdpar[19] = bdpar[22] = vmax;
+      bdpar[2] = bdpar[5] = bdpar[8] = bdpar[11] = bdpar[14] = 0.0;
+      bdpar[17] = bdpar[20] = bdpar[23] = 0.0;
+
+      all_lines.insert(all_lines.end(), bdpar.begin(), bdpar.end());
+    }
+   LineCloud lines(&all_lines[0], (int)all_lines.size()/6);
+  return lines;
+}
 
 //==============================================================================
 LineCloud LRSplineSurface::getElementBds(int num_pts) const
@@ -3571,6 +3617,57 @@ LRSplineSurface::collect_basis(int from_u, int to_u,
 	}
     }
   return b_splines;
+}
+
+//===========================================================================
+void
+LRSplineSurface::createElementAccuracyHistory(int max_iter)
+//===========================================================================
+{
+  if (max_iter < 0)
+    return;
+  element_accuracy_ = std::move(std::unique_ptr<Element2DAccuracyHistory>
+				(new Element2DAccuracyHistory(max_iter)));
+  element_accuracy_->setCurrentLevel(0);
+  for (LRSplineSurface::ElementMap::const_iterator it=elementsBegin(); 
+       it!=elementsEnd(); ++it)
+    (void)element_accuracy_->addElementInfo(it->second.get());
+}
+
+//===========================================================================
+void
+LRSplineSurface::updateElementAccuracyHistory(int curr_iter)
+//===========================================================================
+{
+  if (!element_accuracy_)
+    return;
+
+  element_accuracy_->setCurrentLevel(curr_iter);
+  for (LRSplineSurface::ElementMap::const_iterator it=elementsBegin(); 
+       it!=elementsEnd(); ++it)
+    (void)element_accuracy_->addElementInfo(it->second.get());
+}
+
+//===========================================================================
+void
+LRSplineSurface::writeElementAccuracy(int level)
+//===========================================================================
+{
+  if (!element_accuracy_)
+    return;
+
+  char tmp[4];
+  sprintf(tmp, "_%d", level);
+  char filename[40];
+  strcpy(filename, "element_accuracy");
+  strncat(filename, tmp, 3);
+  strncat(filename, ".txt", 4);
+  char filename2[40];
+  strcpy(filename2, "element_division");
+  strncat(filename2, tmp, 3);
+  strncat(filename2, ".g2", 3);
+  double frac = 0.995;
+  element_accuracy_->checkAccuracyChange(level, filename, filename2, frac);
 }
 
 //===========================================================================

@@ -37,48 +37,56 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#include <fstream>
-#include "GoTools/geometry/SplineSurface.h"
+#include "GoTools/utils/config.h"
+#include "GoTools/geometry/PointCloud.h"
+#include "GoTools/geometry/BoundedSurface.h"
+#include "GoTools/geometry/ParamSurface.h"
+#include "GoTools/geometry/Factory.h"
+#include "GoTools/geometry/GoTools.h"
+#include "GoTools/utils/Array.h"
 #include "GoTools/geometry/ObjectHeader.h"
-#include "GoTools/utils/errormacros.h"
+#include "GoTools/lrsplines2D/LRSplineSurface.h"
+#include <iostream>
+#include <fstream>
+#include <string.h>
+
+//#define DEBUG
 
 using namespace Go;
-using namespace std;
+using std::vector;
+using std::string;
 
-int main(int argc, char* argv[] )
+int main(int argc, char *argv[])
 {
-    ALWAYS_ERROR_IF(argc < 3, "Usage: " << argv[0]
-		    << " inputsurf inputpoints" << endl);
-
-    // Open input surface file
-    ifstream is(argv[1]);
-    ALWAYS_ERROR_IF(is.bad(), "Bad or no input filename");
-
-    ObjectHeader head;
-    is >> head;
-
-    // Read surface from file
-    SplineSurface sf;
-    is >> sf;
-
-    // Get points
-    ifstream pts(argv[2]);
-    ALWAYS_ERROR_IF(pts.bad(), "Bad or no input filename");
-    int n;
-    pts >> n;
-    vector<double> pt(n*2);
-    for (int i = 0; i < n; ++i) {
-	pts >> pt[2*i] >> pt[2*i+1];
+  if (argc != 5) 
+    {
+      std::cout << "Parameters: inpoints(.g2), outpoints(.g2), scaling_factor, factor z" << std::endl;
+      return 1;
     }
 
-    std::vector<Point> p(3, Point(sf.dimension()));
-    for (int j = 0; j < n; ++j) {
-	sf.point(p, pt[2*j], pt[2*j+1], 1);
-	cout << p[0] << " " << p[1] << " " << p[2] << std::endl;
+  std::ifstream ptsin(argv[1]);
+  std::ofstream ptsout(argv[2]);
+  double scale = atof(argv[3]);
+  double scalez = atof(argv[4]);
+
+
+  ObjectHeader header2;
+  header2.read(ptsin);
+  PointCloud3D points;
+  points.read(ptsin);
+
+
+  double *data = points.rawData();
+  int nmb = points.numPoints();
+
+  int ki;
+  for (ki=0; ki<nmb; ++ki)
+    {
+      data[3*ki] *= scale;
+      data[3*ki+1] *= scale;
+      data[3*ki+2] *= scalez;
     }
+
+  points.writeStandardHeader(ptsout);
+  points.write(ptsout);
 }
-
-
-
-
-

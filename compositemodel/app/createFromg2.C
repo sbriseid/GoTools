@@ -46,6 +46,8 @@
 #include "GoTools/compositemodel/ftSurface.h"
 #include "GoTools/compositemodel/CompositeModelFactory.h"
 #include "GoTools/compositemodel/CompositeModelFileHandler.h"
+#include "GoTools/geometry/CurveLoop.h"
+#include "GoTools/geometry/CurveOnSurface.h"
 #include <fstream>
 
 //using namespace std;
@@ -85,6 +87,22 @@ int main( int argc, char* argv[] )
       for (ki=0; ki<nmb; ki++)
       {
 	  shared_ptr<ParamSurface> surf = sfmodel->getSurface(ki);
+
+	  // Ensure space curve information in boundary curves
+	  vector<CurveLoop> loops = surf->allBoundaryLoops();
+	  for (size_t kr=0; kr<loops.size(); ++kr)
+	    {
+	      int size = loops[kr].size();
+	      for (int kj=0; kj<size; ++kj)
+		{
+		  shared_ptr<ParamCurve> cv = loops[kr][kj];
+		  shared_ptr<CurveOnSurface> sfcv =
+		    dynamic_pointer_cast<CurveOnSurface,ParamCurve>(cv);
+		  if (sfcv.get())
+		    sfcv->ensureSpaceCrvExistence(gap);
+		}
+	    }
+
 
 	  surf->writeStandardHeader(out_file);
 	  surf->write(out_file);

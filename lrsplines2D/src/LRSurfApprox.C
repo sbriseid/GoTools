@@ -43,6 +43,7 @@
 #include "GoTools/lrsplines2D/Mesh2D.h"
 #include "GoTools/lrsplines2D/LRSplineMBA.h"
 #include "GoTools/lrsplines2D/LRSplineUtils.h"
+#include "GoTools/lrsplines2D/LRFeatureUtils.h"
 #include "GoTools/creators/SmoothSurf.h"
 #include "GoTools/geometry/PointCloud.h"
 #include "GoTools/lrsplines2D/LRSplinePlotUtils.h"
@@ -59,6 +60,7 @@
 //#define DEBUG
 //#define DEBUG1
 //#define DEBUG2
+#define DEBUG_HIST
 
 using std::vector;
 using std::cout;
@@ -432,6 +434,8 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	}
     }
 
+  // Initiate element accuracy history information
+  srf_->createElementAccuracyHistory(max_iter);
 
   LRSurfSmoothLS LSapprox;
 
@@ -546,6 +550,11 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
       LRFeatureUtils::writeCellInfo(*srf_, aepsge_, ncell_, f_out);
     }
 
+
+#ifdef DEBUG_HIST
+  //srf_->writeElementAccuracy(0);
+#endif
+
   ghost_elems.clear();
   points_.clear();  // Not used anymore TESTING
   for (int ki=0; ki<max_iter; ++ki)
@@ -553,6 +562,9 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
       // Check if the requested accuracy is reached
       if (maxdist_ <= aepsge_ || outsideeps_ == 0)
 	break;
+
+      // Update history of element accuracy info
+      srf_->updateElementAccuracyHistory(ki+1);
 
       // Refine surface
       prev_ =  shared_ptr<LRSplineSurface>(srf_->clone());
@@ -565,7 +577,8 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 
       if (ki > 0 || (!initial_surface_))
 	{
-	  int nmb_refs = refineSurf();
+	  //refineSurf2();
+	  int nmb_refs = refineSurf(ki+1);
 	  if (nmb_refs == 0)
 	    break;  // No refinements performed
 	}
@@ -745,16 +758,20 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	}
 
       if (write_feature_)
-	{
-	  std::string body = "cellinfo";
-	  std::string extension = ".txt";
-	  std::string ver = std::to_string(ki+1);
-	  std::string outfile = body + ver + extension;
-	  std::ofstream f_out2(outfile.c_str());
-	  LRFeatureUtils::writeCellInfo(*srf_, aepsge_, ncell_, f_out2);
+        {
+         std::string body = "cellinfo";
+         std::string extension = ".txt";
+         std::string ver = std::to_string(ki+1);
+         std::string outfile = body + ver + extension;
+         std::ofstream f_out2(outfile.c_str());
+	 LRFeatureUtils::writeCellInfo(*srf_, aepsge_, ncell_, f_out2);
 	}
 
-   }
+#ifdef DEBUG_HIST
+      srf_->writeElementAccuracy(ki);
+      int hist_break = 1;
+#endif
+    }
 
   if (nmb_sign_ > 0 && maxdist_sign_ > sign_aepsge_)
     {
@@ -2790,6 +2807,50 @@ bool compare_elems(pair<Element2D*,double> el1, pair<Element2D*,double> el2)
   return (el1.second > el2.second);
 }
 
+//==============================================================================
+int LRSurfApprox::refineSurf3()
+//==============================================================================
+{
+  // Test
+  double tol = srf_->getKnotTol();
+  vector<LRSplineSurface::Refinement2D> refs_x, refs_y;
+  for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
+       it != srf_->elementsEnd(); ++it)
+    {
+      double av_err, max_err;
+      int nmb_out, nmb_out_sign;
+      it->second->getAccuracyInfo(av_err, max_err, nmb_out, nmb_out_sign);
+      if (nmb_out > 0 || nmb_out_sign > 0)
+	{
+	  double umin = it->second->umin();
+	  double umax = it->second->umax();
+	  double vmin = it->second->vmin();
+	  double vmax = it->second->vmax();
+
+ 	  LRSplineSurface::Refinement2D curr_ref1;
+	  curr_ref1.setVal(0.5*(umin+umax), vmin, vmax, XFIXED, 1);
+	  appendRef(refs_x, curr_ref1, tol);
+
+
+ 	  LRSplineSurface::Refinement2D curr_ref2;
+	  curr_ref2.setVal(0.5*(vmin+vmax), umin, umax, YFIXED, 1);
+	  appendRef(refs_y, curr_ref2, tol);
+	}
+    }
+
+  for (size_t kr=0; kr<refs_x.size(); ++kr)
+    {
+      srf_->refine(refs_x[kr], true /*false*/);
+    }
+
+  for (size_t kr=0; kr<refs_y.size(); ++kr)
+    {
+      srf_->refine(refs_y[kr], true /*false*/);
+    }
+  return (int)refs_x.size() + (int)refs_y.size();
+ }
+
+
 int divide(double *err, int *perm, int low, int high)
 {
   int p1 = perm[high];
@@ -2818,7 +2879,7 @@ void quicksort(double *err, int *perm, int low, int high)
 }
 
 //==============================================================================
-int LRSurfApprox::refineSurf()
+int LRSurfApprox::refineSurf(int iter)
 //==============================================================================
 {
 #ifdef DEBUG
@@ -3016,7 +3077,7 @@ int LRSurfApprox::refineSurf()
       
       // How to split					
       defineRefs(bsplines[bspl_perm[kr]], average_threshold,
-		 refs_x, refs_y, elem_out);
+		 refs_x, refs_y, iter, elem_out);
     }
   
 #ifdef DEBUG_HIST
@@ -3032,7 +3093,7 @@ int LRSurfApprox::refineSurf()
 	break;   // Not a significant element
 
       vector<Element2D*> elements;  // Elements affected by the refinement(s)
-      checkFeasibleRef(elem_out[kr].first, refs_x, refs_y, elements);
+      checkFeasibleRef(elem_out[kr].first, iter, refs_x, refs_y, elements);
       for (size_t ki=0; ki<elements.size(); ++ki)
 	{
 	  size_t kj;
@@ -3219,7 +3280,7 @@ int LRSurfApprox::refineSurf2()
       // Check feasability of split
       //size_t nmb_refs = refs.size();
       vector<Element2D*> elements;  // Elements affected by the refinement(s)
-      checkFeasibleRef(elem[el_perm[kr]], refs_x, refs_y, elements);
+      checkFeasibleRef(elem[el_perm[kr]], 0, refs_x, refs_y, elements);
       if (elements.size() > 0)
 	{
 	  // Remove affected elements from pool
@@ -3836,6 +3897,7 @@ void LRSurfApprox::unsetCoefKnown()
 void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 			      vector<LRSplineSurface::Refinement2D>& refs_x,
 			      vector<LRSplineSurface::Refinement2D>& refs_y,
+			      int iter,
 			      vector<pair<Element2D*,double> >& elem_out)
 //==============================================================================
 {
@@ -4013,7 +4075,8 @@ void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 	    }
 
 	  LRSplineSurface::Refinement2D curr_ref;
-	  curr_ref.setVal(knotval, bspline->vmin(), bspline->vmax(), XFIXED, 1);
+	  curr_ref.setVal(knotval, bspline->vmin(), bspline->vmax(), XFIXED, 
+			  1, iter);
 
 	  // Check if the current refinement can be combined with an existing one
 	  appendRef(refs_x, curr_ref, tol);
@@ -4048,7 +4111,8 @@ void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 	    }
 
 	  LRSplineSurface::Refinement2D curr_ref;
-	  curr_ref.setVal(knotval, bspline->umin(), bspline->umax(), YFIXED, 1);
+	  curr_ref.setVal(knotval, bspline->umin(), bspline->umax(), YFIXED, 
+			  1, iter);
 
 	  // Check if the current refinement can be combined with an existing one
 	  appendRef(refs_y, curr_ref, tol);
@@ -4074,7 +4138,7 @@ void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 
 #if 0
 //==============================================================================
-void LRSurfApprox::checkFeasibleRef(Element2D* elem, 
+void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter, 
 				    vector<LRSplineSurface::Refinement2D>& refs_x,
 				    vector<LRSplineSurface::Refinement2D>& refs_y,
 				    vector<Element2D*>& affected)
@@ -4203,7 +4267,7 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem,
       affected_combined.insert(aff_u.begin(), aff_u.end());
       LRSplineSurface::Refinement2D curr_ref;
       curr_ref.setVal(u_par, bsplines[ixu]->vmin(), bsplines[ixu]->vmax(),
-		      XFIXED, xmult);
+		      XFIXED, xmult, iter);
       //refs.push_back(curr_ref);
       appendRef(refs_x, curr_ref, tol);
     }
@@ -4213,17 +4277,17 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem,
       affected_combined.insert(aff_v.begin(), aff_v.end());
       LRSplineSurface::Refinement2D curr_ref;
       curr_ref.setVal(v_par, bsplines[ixv]->umin(), bsplines[ixv]->umax(),
-		      YFIXED, ymult);
+		      YFIXED, ymult, iter);
       //refs.push_back(curr_ref);
       appendRef(refs_y, curr_ref, tol);
     }
 
     affected.insert(affected.end(), affected_combined.begin(), affected_combined.end());
 }
-
 #endif
+
 //==============================================================================
-void LRSurfApprox::checkFeasibleRef(Element2D* elem, 
+void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter,
 				    vector<LRSplineSurface::Refinement2D>& refs_x,
 				    vector<LRSplineSurface::Refinement2D>& refs_y,
 				    vector<Element2D*>& affected)

@@ -299,6 +299,8 @@ class LRBSpline2D : public Streamable
       bspline_u_->coversPar(u_ix) && bspline_v_->coversPar(v_ix);
   }
 
+  bool useKnot(Direction2D d, int ix, int start, int end) const;
+
   Point getGrevilleParameter() const;
   double getGrevilleParameter(Direction2D d) const
   {
