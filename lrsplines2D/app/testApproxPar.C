@@ -65,13 +65,21 @@ int main(int argc, char *argv[])
   int max_iter = atoi(argv[4]);
   double smoothwg = atof(argv[5]);
 
+  std::ofstream ptout("points.g2");
+  
   // Read parameterized points (u, v, x, y, z)
   int nmb_pts;
   int dim=3, del=5;
   filein >> nmb_pts;
+  ptout << "400 1 0 0" << std::endl;
+  ptout << nmb_pts << std::endl;
+    
   vector<double> data(del*nmb_pts);
   for (ki=0; ki<nmb_pts; ++ki)
-    filein >> data[del*ki] >> data[del*ki+1] >> data[del*ki+2] >> data[del*ki+3] >> data[del*ki+4];
+    {
+      filein >> data[del*ki] >> data[del*ki+1] >> data[del*ki+2] >> data[del*ki+3] >> data[del*ki+4];
+      ptout << data[del*ki+2] << " " << data[del*ki+3] << " " << data[del*ki+4] << std::endl;
+    }
 
   // Compute bounding box
   Point low(data[2], data[3], data[4]);

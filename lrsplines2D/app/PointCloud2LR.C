@@ -52,7 +52,7 @@
 
 //#define DEBUG
 //#define DEBUG_EL
-//#define DEBUG2
+#define DEBUG2
 
 using namespace Go;
 using std::vector;
@@ -491,8 +491,8 @@ int main(int argc, char *argv[])
       mintol = std::min(tol, mintol);
       maxtol = std::max(tol, maxtol);
     }
-  std::cout << "Elevation: [" << minheight << ", " << maxheight << "]" << std:;endl;
-  std::cout << "Tolerances: [" << mintol << ", " << maxtol << "]" << std:;endl;
+  std::cout << "Elevation: [" << minheight << ", " << maxheight << "]" << std::endl;
+    std::cout << "Tolerances: [" << mintol << ", " << maxtol << "]" << std::endl;
 #endif
 
   // Move point cloud to origo
@@ -512,7 +512,7 @@ int main(int argc, char *argv[])
   for (size_t kj=0; kj<tolerances.size(); ++kj)
     tolerances[kj].translateBox(-mid[0], -mid[1]);
 
-  if (use_stdd)
+  if (true)//use_stdd)
     {
       double avheight = 0.0;
       for (ki=0; ki<nmb_pts; ++ki)
@@ -527,14 +527,16 @@ int main(int argc, char *argv[])
 	  stdd += (pow(avheight-height,2)/(double)nmb_pts);
 	}
      stdd = sqrt(stdd);
-     for (size_t kj=0; kj<tolerances.size(); ++kj)
+     if (use_stdd)
        {
-	 if (tolerances[kj].tol < 0.0)
-	   tolerances[kj].setTol(fabs(tolerances[kj].tol)*stdd);
+	 for (size_t kj=0; kj<tolerances.size(); ++kj)
+	   {
+	     if (tolerances[kj].tol < 0.0)
+	       tolerances[kj].setTol(fabs(tolerances[kj].tol)*stdd);
+	   }
+	 if (AEPSGE < 0.0)
+	   AEPSGE = fabs(AEPSGE)*stdd;
        }
-     if (AEPSGE < 0.0)
-       AEPSGE = fabs(AEPSGE)*stdd;
-
      std::cout << "Standard deviation: " << stdd << std::endl;
     }
      
