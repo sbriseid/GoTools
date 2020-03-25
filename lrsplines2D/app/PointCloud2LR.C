@@ -51,7 +51,7 @@
 #include <sys/time.h>
 
 //#define DEBUG
-//#define DEBUG_EL
+#define DEBUG_EL
 //#define DEBUG2
 
 using namespace Go;

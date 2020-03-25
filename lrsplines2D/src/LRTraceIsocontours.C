@@ -11,7 +11,7 @@
 #include "GoTools/lrsplines2D/TrimCrvUtils.h"
 
 #define DEBUG
-//#define DEBUG2
+#define DEBUG2
 
 using namespace std;
 using namespace Go;
