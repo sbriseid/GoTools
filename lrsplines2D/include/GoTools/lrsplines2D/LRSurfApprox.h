@@ -587,7 +587,8 @@ private:
 
     //double density);
     /// Refine surface
-    int refineSurf(int iter);
+    //int refineSurf(int iter);
+    int refineSurf(int dir, double threshold);
     int refineSurf2();
     int refineSurf3(int dir, double threshold);
     int refineSurf4(int dir, double threshold);
@@ -617,13 +618,13 @@ private:
     /// Parameter domain surrounding the parameter values of all data points
     void computeParDomain(int dim, double& umin, double& umax, double& vmin, double& vmax);
 
-    void defineRefs(LRBSpline2D* bspline, double average_out,
+    void defineRefs(LRBSpline2D* bspline, double average_out, int dir,
 		    std::vector<LRSplineSurface::Refinement2D>& refs_x,
 		    std::vector<LRSplineSurface::Refinement2D>& refs_y,
 		    int choice,
 		    std::vector<std::pair<Element2D*,double> >& elem_out);
 
-    void checkFeasibleRef(Element2D* elem, int iter,
+    void checkFeasibleRef(Element2D* elem, int dir, int iter,
 			  std::vector<LRSplineSurface::Refinement2D>& refs_x,
 			  std::vector<LRSplineSurface::Refinement2D>& refs_y,
 			  std::vector<Element2D*>& affected);

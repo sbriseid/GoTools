@@ -416,7 +416,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   FILE *fp = fopen("acc_stat.txt","w");
   fprintf(fp, "Max iterations = %d, tolerance = %4.2f, no pts: %d \n",max_iter, aepsge_,nmb_pts_);
   fprintf(fp,"iter, maxdist, average dist, no. pts. out, no. coefs, rel. improvement, no. pts.in, diff no pts out, diff no coefs, added elements, diff maxdist, diff avdist, average out  \n");
-  bool alter = false;
+  bool alter = true;
   int div = (alter) ? 2 : 1;
 
   if (srf_->dimension() == 3 && initial_surface_)
@@ -592,22 +592,23 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 
       if (ki > 0 || (!initial_surface_))
 	{
-	    double threshold = (aepsge_ + 0.5*maxout_)/2.0 + avout_;
-	    if (ki > 0 && maxdist_/maxdist_prev_ > 0.9)
-	      {
-		// Slow convergence. Reduce threshold
-		threshold = (aepsge_ + avdist_ + 0.5*maxdist_)/3.0;
-	      }
-	    if (threshold_prev > 0.0 && threshold/threshold_prev > 0.9)
-	      threshold = 0.9*threshold_prev;
-	    threshold = std::max(aepsge_, threshold);
-	    //threshold = aepsge_;
-	    std::cout << "Threshold: " << threshold << std::endl;
-	    // int nmb_refs = refineSurf3(alter ? ((ki%2 == 0) ? 1 : 2) : 3,
-	    // 			       threshold);
-	    int nmb_refs = refineSurf4(alter ? ((ki%2 == 0) ? 1 : 2) : 3,
-				       threshold);
-	  //int nmb_refs = refineSurf(ki+1);
+	  double threshold = (aepsge_ + 0.5*maxout_)/2.0 + avout_;
+	  if (ki > 0 && maxdist_/maxdist_prev_ > 0.9)
+	    {
+	      // Slow convergence. Reduce threshold
+	      threshold = (aepsge_ + avdist_ + 0.5*maxdist_)/3.0;
+	    }
+	  if (threshold_prev > 0.0 && threshold/threshold_prev > 0.9)
+	    threshold = 0.9*threshold_prev;
+	  threshold = std::max(aepsge_, threshold);
+	  //threshold = aepsge_;
+	  std::cout << "Threshold: " << threshold << std::endl;
+	  int nmb_refs = refineSurf3(alter ? ((ki%2 == 0) ? 1 : 2) : 3,
+	  			       threshold);
+	  // int nmb_refs = refineSurf4(alter ? ((ki%2 == 0) ? 1 : 2) : 3,
+	  // 			       threshold);
+	  // int nmb_refs = refineSurf(alter ? ((ki%2 == 0) ? 1 : 2) : 3,
+	  // 			    threshold);
 	  if (nmb_refs == 0)
 	    {
 	      std::cout << "No refinements performed" << std::endl;
@@ -3015,7 +3016,7 @@ int LRSurfApprox::refineSurf3(int dir, double threshold)
   av_wgt /= (double)el_out;
 
   double fac = (max_wgt > 2.0*min_wgt) ? 0.5 : 1.0;;
-  double thresh2 = fac*min_wgt + (1.0-fac)*av_wgt;
+  double thresh2 = min_wgt; //fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
   std::cout << "min_wgt = " << min_wgt << ", av_wgt = " << av_wgt << ", max_wgt = " << max_wgt << std::endl;
   std::cout << "thresh2 = " << thresh2 << std::endl;
   
@@ -3181,9 +3182,12 @@ int LRSurfApprox::refineSurf4(int dir, double threshold)
 }
 
 //==============================================================================
-int LRSurfApprox::refineSurf(int iter)
+//int LRSurfApprox::refineSurf(int iter)
+int LRSurfApprox::refineSurf(int dir, double threshold)
 //==============================================================================
 {
+  int iter=0;
+  
 #ifdef DEBUG
   std::ofstream of0("element_info.dat");
   int idx=0;
@@ -3341,7 +3345,9 @@ int LRSurfApprox::refineSurf(int iter)
   int nmb_refs = 0;
 
   int nmb_fixed = 0;
-  double average_threshold = std::max(0.01*average_nmb, average_nmb_out);
+  //nmb_split = nmb_perm;
+  min_nmb_pts = 0;
+  double average_threshold = 0.0;//std::max(0.01*average_nmb, average_nmb_out);
   for (kr=0; kr<bspl_perm.size(); ++kr)
     {
       //if (max_error[bspl_perm[kr]] < aepsge_)
@@ -3378,7 +3384,7 @@ int LRSurfApprox::refineSurf(int iter)
       nmb_refs++;  // Split this B-spline
       
       // How to split					
-      defineRefs(bsplines[bspl_perm[kr]], average_threshold,
+      defineRefs(bsplines[bspl_perm[kr]], average_threshold, dir,
 		 refs_x, refs_y, iter, elem_out);
     }
   
@@ -3386,6 +3392,9 @@ int LRSurfApprox::refineSurf(int iter)
   std::cout << "Remaining elements with outside points: " << elem_out.size() << std::endl;
 #endif
 
+  bool elemref = false;
+  if (elemref)
+    {
   // Sort remaining elements
   double frac = 0.6*av_wgt;
   std::sort(elem_out.begin(), elem_out.end(), compare_elems);
@@ -3395,7 +3404,7 @@ int LRSurfApprox::refineSurf(int iter)
 	break;   // Not a significant element
 
       vector<Element2D*> elements;  // Elements affected by the refinement(s)
-      checkFeasibleRef(elem_out[kr].first, iter, refs_x, refs_y, elements);
+      checkFeasibleRef(elem_out[kr].first, dir, iter, refs_x, refs_y, elements);
       for (size_t ki=0; ki<elements.size(); ++ki)
 	{
 	  size_t kj;
@@ -3418,7 +3427,8 @@ int LRSurfApprox::refineSurf(int iter)
   // 	  nmb_fixed++;
   // 	}
   //   }
-
+    }
+  
 #ifdef DEBUG
   std::ofstream of("refine0.dat");
   //std::streamsize prev = of.precision(15);
@@ -3582,7 +3592,7 @@ int LRSurfApprox::refineSurf2()
       // Check feasability of split
       //size_t nmb_refs = refs.size();
       vector<Element2D*> elements;  // Elements affected by the refinement(s)
-      checkFeasibleRef(elem[el_perm[kr]], 0, refs_x, refs_y, elements);
+      checkFeasibleRef(elem[el_perm[kr]], 3, 0, refs_x, refs_y, elements);
       if (elements.size() > 0)
 	{
 	  // Remove affected elements from pool
@@ -4197,6 +4207,7 @@ void LRSurfApprox::unsetCoefKnown()
 
 //==============================================================================
 void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
+			      int dir,
 			      vector<LRSplineSurface::Refinement2D>& refs_x,
 			      vector<LRSplineSurface::Refinement2D>& refs_y,
 			      int iter,
@@ -4350,6 +4361,8 @@ void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 
   double threshhold = std::min(av_info, 0.5*max_info);
   double sizefac = 1.5; //3.0;
+  if (dir == 1 || dir == 3)
+    {
   double minsize_u = std::max(2.0*usize_min_, 1.0e-8);
   for (kj=0; kj<size1; ++kj)
     {
@@ -4385,7 +4398,10 @@ void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 	  refined = true;
 	}
     }
+    }
 
+  if (dir == 2 || dir == 3)
+    {
   double minsize_v = std::max(2.0*vsize_min_, 1.0e-8);
   for (kj=0; kj<size2; ++kj)
     {
@@ -4421,6 +4437,7 @@ void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 	  refined = true;
 	}
     }
+    }
   if (refined)
     {
       for (size_t ki=0; ki<elem.size(); ++ki)
@@ -4440,7 +4457,7 @@ void LRSurfApprox::defineRefs(LRBSpline2D* bspline, double average_out,
 
 #if 0
 //==============================================================================
-void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter, 
+void LRSurfApprox::checkFeasibleRef(Element2D* elem, int dir, int iter, 
 				    vector<LRSplineSurface::Refinement2D>& refs_x,
 				    vector<LRSplineSurface::Refinement2D>& refs_y,
 				    vector<Element2D*>& affected)
@@ -4589,7 +4606,7 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter,
 #endif
 
 //==============================================================================
-void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter,
+void LRSurfApprox::checkFeasibleRef(Element2D* elem, int dir, int iter,
 				    vector<LRSplineSurface::Refinement2D>& refs_x,
 				    vector<LRSplineSurface::Refinement2D>& refs_y,
 				    vector<Element2D*>& affected)
@@ -4703,7 +4720,7 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter,
 int div_x = 0, div_y = 0;
   double fac2 = 0.5;
   double sizefac = 3.0;
-  if (udir &&
+  if ((dir == 1 || dir == 3) && udir &&
        (nmb_u >= nmb_v || udel > sizefac*vdel || udelmax >= vdelmax))
     {
       for (ki=0; ki<nmb; ++ki)
@@ -4714,7 +4731,7 @@ int div_x = 0, div_y = 0;
 	}
     }
 			       
-  if (vdir &&
+  if ((dir == 2 || dir == 3) && vdir &&
       (nmb_v >= nmb_u || vdel > sizefac*udel || vdelmax >= udelmax))
     {
       for (ki=0; ki<nmb; ++ki)
