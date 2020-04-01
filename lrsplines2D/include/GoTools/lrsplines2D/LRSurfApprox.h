@@ -588,9 +588,9 @@ private:
     //double density);
     /// Refine surface
     //int refineSurf(int iter);
-    int refineSurf(int dir, double threshold);
+    int refineSurf(int iter, int& dir, double threshold);
     int refineSurf2();
-    int refineSurf3(int dir, double threshold);
+    int refineSurf3(int iter, int& dir, double threshold);
     int refineSurf4(int dir, double threshold);
     void getRefineExtension(Element2D *elem, Direction2D fixdir,
 			    int strategy, double& pmin, double& pmax);
