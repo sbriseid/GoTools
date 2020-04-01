@@ -2897,6 +2897,8 @@ int LRSurfApprox::refineSurf()
   double average_nmb_out = 0.0;
   double average_nmb = 0.0;
   double basis_average_out = 0.0;
+  vector<int> bspl_perm(num_bspl, 0);
+  size_t nmb_perm= 0;
   for (LRSplineSurface::BSplineMap::const_iterator it=srf_->basisFunctionsBegin();
        it != srf_->basisFunctionsEnd(); ++it, ++kr)
     {
@@ -2933,6 +2935,8 @@ int LRSurfApprox::refineSurf()
 	error2[kr] *= error_fac2;
       average_nmb_out += (double)(num_out_pts[kr]);
       average_nmb += (double)(num_pts[kr]);
+      if (num_out_pts[kr] > 0)
+	bspl_perm[nmb_perm++] = kr;
     }
   mean_err /= (double)num_bspl;
   average_nmb_out /= (double)num_bspl;
@@ -2945,13 +2949,13 @@ int LRSurfApprox::refineSurf()
   std::cout << "Average fraction of outside elements in bspline: " << basis_average_out << std::endl;
 #endif
   // Sort bsplines according to average error weighted with the domain size
-  vector<int> bspl_perm(num_bspl);
   int ki, kj;
-  for (ki=0; ki<num_bspl; ++ki)
-    bspl_perm[ki] = ki;
+  //vector<int> bspl_perm(num_bspl);
+  // for (ki=0; ki<num_bspl; ++ki)
+  //   bspl_perm[ki] = ki;
 
   // Do the sorting
-  quicksort(&error2[0], &bspl_perm[0], 0, num_bspl-1);
+  quicksort(&error2[0], &bspl_perm[0], 0, nmb_perm-1);
   // for (ki=0; ki<num_bspl; ++ki)
   //   {
   //      for (kj=ki+1; kj<num_bspl; ++kj)
@@ -2967,7 +2971,7 @@ int LRSurfApprox::refineSurf()
   // Split the most important B-splines, but only if the maximum
   // error is larger than the tolerance
   //double fac = 0.5;
-  int nmb_perm = (int)bspl_perm.size();
+  //int nmb_perm = (int)bspl_perm.size();
   int nmb_split = (int)(0.75*nmb_perm);  //(int)(0.5*nmb_perm);
   //nmb_split = std::min(nmb_split, 600);  // Limit the number of refinements
   int min_nmb_pts = 1; //4;
@@ -2979,7 +2983,7 @@ int LRSurfApprox::refineSurf()
 
   int nmb_fixed = 0;
   double average_threshold = std::max(0.01*average_nmb, average_nmb_out);
-  for (kr=0; kr<bspl_perm.size(); ++kr)
+  for (kr=0; kr<nmb_perm; ++kr)
     {
       //if (max_error[bspl_perm[kr]] < aepsge_)
       if (num_out_pts[bspl_perm[kr]] == 0 && num_out_sign[bspl_perm[kr]] == 0)
