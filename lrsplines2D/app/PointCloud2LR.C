@@ -54,6 +54,7 @@
 //#define DEBUG_EL
 #define DEBUG2
 
+
 using namespace Go;
 using std::vector;
 using std::string;
@@ -82,6 +83,7 @@ void print_help_text()
   std::cout << "                 n = start with least squares, turn to MBA after n iterations \n";
   std::cout << "                -1 = initiate computation using MBA \n";
   std::cout << "Default setting is start with least squares, turn to MBA for the last iterations \n";
+  std::cout << "-degree <polynomial degree> : 2 or 3 recommended \n";
   std::cout << "-outlier <0/1>: Flag for removal of outliers (0=false, 1=true. Default false \n";
   std::cout << "-minsize <size> : Minimum element size, all directions \n";
   std::cout << "-reltol <0/1>: Apply relative tolerance flag. Default false \n";
@@ -171,6 +173,7 @@ int main(int argc, char *argv[])
   int mba = 0;      // Use least squares approximation
   int tomba = std::min(5, max_iter-1);    // Turn to the mba method at 
   // iteration level 5 or in the last iteration
+  int degree = 2;
   int outlierflag = 0;
   int reltol = 0;
   double tolfac1 = 0.0, tolfac2 = 0.0;
@@ -244,7 +247,14 @@ int main(int argc, char *argv[])
 	  else
 	    tomba = mm;
 	}
-      else if (arg == "-outlier")
+      else if (arg == "-degree")
+	{
+	  int stat = fetchIntParameter(argc, argv, ki, degree, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+       else if (arg == "-outlier")
 	{
 	  int stat = fetchIntParameter(argc, argv, ki, outlierflag, 
 				       nmb_par, par_read);
@@ -561,8 +571,8 @@ int main(int argc, char *argv[])
   //     initmba = 0;
   //     mba = 0;
   //   }
-  int nmb_coef = 14;
-  int order = 3; 
+  int order = degree + 1; 
+  int nmb_coef = std::max(order, 14);
   double mba_coef = 0.0;
   if (initmba)
     mba_coef = 0.5*(extent[2*(del-1)] + extent[2*(del-1)+1]);

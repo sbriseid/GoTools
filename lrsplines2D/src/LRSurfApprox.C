@@ -416,7 +416,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   FILE *fp = fopen("acc_stat.txt","w");
   fprintf(fp, "Max iterations = %d, tolerance = %4.2f, no pts: %d \n",max_iter, aepsge_,nmb_pts_);
   fprintf(fp,"iter, maxdist, average dist, no. pts. out, no. coefs, rel. improvement, no. pts.in, diff no pts out, diff no coefs, added elements, diff maxdist, diff avdist, average out  \n");
-  bool alter = true;
+  bool alter = false;
   int div = 1; //(alter) ? 2 : 1;
   int currdiv = (alter) ? 1 : 3;
 
@@ -604,10 +604,10 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  threshold = std::max(aepsge_, threshold);
 	  threshold = aepsge_;
 	  std::cout << "Threshold: " << threshold << std::endl;
-	  //int nmb_refs = refineSurf3(ki+1, currdiv, threshold);
+	  int nmb_refs = refineSurf3(ki+1, currdiv, threshold);
 	  // int nmb_refs = refineSurf4(alter ? ((ki%2 == 0) ? 1 : 2) : 3,
 	  // 			       threshold);
-	  int nmb_refs = refineSurf(ki+1, currdiv, threshold);
+	  //int nmb_refs = refineSurf(ki+1, currdiv, threshold);
 	  if (nmb_refs == 0)
 	    {
 	      std::cout << "No refinements performed" << std::endl;
@@ -2929,7 +2929,7 @@ void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
       pmax = (fixdir == XFIXED) ? bsplines[ix]->vmax() :
 	bsplines[ix]->umax();
     }
-  else
+  else if (strategy == 2)
     {
       // "Best" overlapping B-spline
       double tol = 0.1;
@@ -2974,6 +2974,62 @@ void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
 	      curr_wgt > max_wgt)
 	    {
 	      max_wgt = curr_wgt;
+	      min_frac = frac;
+	      ix = (int)ki;
+	    }
+	}
+    }
+      else
+	{
+	  // Combination of 2 and 3
+      double tol = 0.1;
+      double max_wgt = 0.0;
+      double max_size = 0.0;
+      double min_frac = 0.0;
+      double maxfrac_combined = 0.0;
+      int ix = -1;
+      for (size_t ki=0; ki<nmb; ++ki)
+	{
+	  // Count the number of elements with large error affected
+	  double curr_wgt = 0.0;
+	  const vector<Element2D*>& curr_el = bsplines[ki]->supportedElements();
+	  for (size_t kj=0; kj<curr_el.size(); ++kj)
+	    {
+	      double emin = (fixdir == XFIXED) ?
+		curr_el[kj]->umin() : curr_el[kj]->vmin();
+	      double emax = (fixdir == XFIXED) ?
+		curr_el[kj]->umax() : curr_el[kj]->vmax();
+	      if (emax < par || emin > par)
+		continue;  // Element not affected
+
+	      // Compute weight for importance of refinement
+	      double max_err, av_err;
+	      int nmb_outside, nmb_out_sign;
+	      curr_el[kj]->getAccuracyInfo(av_err, max_err, nmb_outside, 
+					   nmb_out_sign);
+	      int nmb_pts = curr_el[kj]->nmbDataPoints();
+	      if (nmb_pts > 0)
+		{
+		  double wgt = av_err*(double)nmb_outside/(double)nmb_pts;
+		  curr_wgt += wgt;
+		}
+	    }
+
+	  double bmin = (fixdir == XFIXED) ? bsplines[ki]->vmin() :
+	    bsplines[ki]->umin();
+	  double bmax = (fixdir == XFIXED) ? bsplines[ki]->vmax() :
+	    bsplines[ki]->umax();
+	  double bsize = bmax - bmin;
+	  double bdel1 = par2 - bmin;
+	  double bdel2 = bmax - par2;
+	  double frac = std::min(bdel1, bdel2)/std::max(bdel1,bdel2);
+	  double frac_combined = (ix < 0) ? 1.0 : curr_wgt/max_wgt + bsize/max_size;
+	  if ((fabs(maxfrac_combined-frac_combined) < tol && frac < min_frac) ||
+	      frac_combined > maxfrac_combined)
+	    {
+	      maxfrac_combined = frac_combined;
+	      max_wgt = curr_wgt;
+	      max_size = bsize;
 	      min_frac = frac;
 	      ix = (int)ki;
 	    }
@@ -3031,7 +3087,7 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold)
     dir = 3 - dir;
   
   // Extension strategy: 1=all, 2=largest, 3="best"
-  int extstrategy = (outel_fac > choose_fac2) ? 3 : 1;
+  int extstrategy = 4; //(outel_fac > choose_fac2) ? 3 : 1;
   std::cout << "Dir: " << dir2 << ", extstrategy: " << extstrategy << std::endl;
   vector<LRSplineSurface::Refinement2D> refs_x, refs_y;
   for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
@@ -3286,6 +3342,8 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   double average_nmb_out = 0.0;
   double average_nmb = 0.0;
   double basis_average_out = 0.0;
+  vector<int> bspl_perm(num_bspl, 0);
+  size_t nmb_perm= 0;
   for (LRSplineSurface::BSplineMap::const_iterator it=srf_->basisFunctionsBegin();
        it != srf_->basisFunctionsEnd(); ++it, ++kr)
     {
@@ -3322,6 +3380,8 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
 	error2[kr] *= error_fac2;
       average_nmb_out += (double)(num_out_pts[kr]);
       average_nmb += (double)(num_pts[kr]);
+      if (num_out_pts[kr] > 0)
+	bspl_perm[nmb_perm++] = kr;
     }
   mean_err /= (double)num_bspl;
   average_nmb_out /= (double)num_bspl;
@@ -3334,13 +3394,13 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   std::cout << "Average fraction of outside elements in bspline: " << basis_average_out << std::endl;
 #endif
   // Sort bsplines according to average error weighted with the domain size
-  vector<int> bspl_perm(num_bspl);
   int ki, kj;
-  for (ki=0; ki<num_bspl; ++ki)
-    bspl_perm[ki] = ki;
+  //vector<int> bspl_perm(num_bspl);
+  // for (ki=0; ki<num_bspl; ++ki)
+  //   bspl_perm[ki] = ki;
 
   // Do the sorting
-  quicksort(&error2[0], &bspl_perm[0], 0, num_bspl-1);
+  quicksort(&error2[0], &bspl_perm[0], 0, nmb_perm-1);
   // for (ki=0; ki<num_bspl; ++ki)
   //   {
   //      for (kj=ki+1; kj<num_bspl; ++kj)
@@ -3356,7 +3416,7 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   // Split the most important B-splines, but only if the maximum
   // error is larger than the tolerance
   //double fac = 0.5;
-  int nmb_perm = (int)bspl_perm.size();
+  //int nmb_perm = (int)bspl_perm.size();
   int nmb_split = (int)(0.75*nmb_perm);  //(int)(0.5*nmb_perm);
   //nmb_split = std::min(nmb_split, 600);  // Limit the number of refinements
   int min_nmb_pts = 1; //4;
@@ -3370,7 +3430,7 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   //nmb_split = nmb_perm;
   min_nmb_pts = 0;
   double average_threshold = std::max(0.01*average_nmb, average_nmb_out);
-  for (kr=0; kr<bspl_perm.size(); ++kr)
+  for (kr=0; kr<nmb_perm; ++kr)
     {
       //if (max_error[bspl_perm[kr]] < aepsge_)
       if (num_out_pts[bspl_perm[kr]] == 0 && num_out_sign[bspl_perm[kr]] == 0)
