@@ -473,6 +473,10 @@ private:
                                    int nmb, int del, const Element3D* elem);
 
     /// Refine volume
+    void getRefineExtension(Element3D *elem, Direction3D dir,
+			    int strategy, double& pmin2, double& pmax2,
+			    double& pmin3, double& pmax3);
+    int refineVol3(int iter, int& dir, double threshold);
     int refineVol(int iter, int& dir, double threshold);
     void refineVol2();
     

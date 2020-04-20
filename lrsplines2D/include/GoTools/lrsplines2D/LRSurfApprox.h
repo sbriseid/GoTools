@@ -591,7 +591,7 @@ private:
     int refineSurf(int iter, int& dir, double threshold);
     int refineSurf2();
     int refineSurf3(int iter, int& dir, double threshold);
-    int refineSurf4(int dir, double threshold);
+    int refineSurf4(int& dir, double threshold);
     void getRefineExtension(Element2D *elem, Direction2D fixdir,
 			    int strategy, double& pmin, double& pmax);
 
@@ -622,7 +622,7 @@ private:
 		    std::vector<LRSplineSurface::Refinement2D>& refs_x,
 		    std::vector<LRSplineSurface::Refinement2D>& refs_y,
 		    int choice,
-		    std::vector<std::pair<Element2D*,double> >& elem_out);
+		    std::vector<Element2D*>& elem_div);
 
     void checkFeasibleRef(Element2D* elem, int dir, int iter,
 			  std::vector<LRSplineSurface::Refinement2D>& refs_x,
