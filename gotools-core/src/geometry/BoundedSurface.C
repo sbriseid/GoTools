@@ -917,6 +917,25 @@ std::vector<CurveLoop> BoundedSurface::absolutelyAllBoundaryLoops() const
 }
 
 //===========================================================================
+std::vector<shared_ptr<CurveLoop> >
+BoundedSurface::boundaryLoops() const
+//===========================================================================
+{
+  std::vector<shared_ptr<CurveLoop> > clvec;
+    for (size_t j=0; j<boundary_loops_.size(); j++) {
+	double loop_tol = boundary_loops_[j]->getSpaceEpsilon();
+	std::vector<shared_ptr<ParamCurve> > curves;
+	CurveLoop& loop = *(boundary_loops_[j]);
+	for (int i = 0; i < loop.size(); ++i) {
+	    curves.push_back(loop[i]);
+	}
+	shared_ptr<CurveLoop> curr(new CurveLoop(curves, loop_tol));
+	clvec.push_back(curr);
+    }
+    return clvec;
+}
+
+//===========================================================================
 void BoundedSurface::getLoopCvInfo(int& nmb_loops, int& nmb_cvs, 
 				   int& nmb_corners, double& min_cv_len, 
 				   double& max_cv_len, double angtol) const

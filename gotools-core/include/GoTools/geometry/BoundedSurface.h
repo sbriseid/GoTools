@@ -254,7 +254,9 @@ public:
     /// \return vector containing CurveLoops.  The first of these describe the
     ///         outer boundary of the surface (counterclockwise) whereas the others
     ///         describe boundaries of interior holes (clockwise).
+    /// Boundary loops are copied, but not the curves
     std::vector<CurveLoop> absolutelyAllBoundaryLoops() const;
+    std::vector<shared_ptr<CurveLoop> > boundaryLoops() const;
 
     /// Fetch information about boundary loops: Number of loops, total
     /// number of trimming curves, minimum and maximum curve length (estimate)

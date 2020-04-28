@@ -416,7 +416,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   FILE *fp = fopen("acc_stat.txt","w");
   fprintf(fp, "Max iterations = %d, tolerance = %4.2f, no pts: %d \n",max_iter, aepsge_,nmb_pts_);
   fprintf(fp,"iter, maxdist, average dist, no. pts. out, no. coefs, rel. improvement, no. pts.in, diff no pts out, diff no coefs, added elements, diff maxdist, diff avdist, average out  \n");
-  bool alter = true;
+  bool alter = false;
   int div = 1; //(alter) ? 2 : 1;
   int currdiv = (alter) ? 1 : 3;
 
@@ -604,9 +604,9 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  threshold = std::max(aepsge_, threshold);
 	  //threshold = aepsge_;
 	  std::cout << "Threshold: " << threshold << std::endl;
-	  int nmb_refs = refineSurf3(ki+1, currdiv, threshold);
+	  //int nmb_refs = refineSurf3(ki+1, currdiv, threshold);
 	  //int nmb_refs = refineSurf4(currdiv, threshold);
-	  //int nmb_refs = refineSurf(ki+1, currdiv, threshold);
+	  int nmb_refs = refineSurf(ki+1, currdiv, threshold);
 	  if (nmb_refs == 0)
 	    {
 	      std::cout << "No refinements performed" << std::endl;
@@ -3485,7 +3485,7 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   std::cout << "Remaining elements with outside points: " << elem_out.size() << std::endl;
 #endif
 
-  bool elemref = false;
+  bool elemref = true;
   if (elemref)
     {
       // Removing affected elements

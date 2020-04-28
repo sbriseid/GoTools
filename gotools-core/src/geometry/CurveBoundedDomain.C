@@ -730,13 +730,13 @@ void CurveBoundedDomain::
 findPcurveInsideSegments(const SplineCurve& curve,
 			 double tolerance,
 			 vector<double>& params_start_end_interval,
-			 bool with_bd) const
+			 bool with_bd, bool split_at_tang) const
 //===========================================================================
 {
     params_start_end_interval.clear();
     vector<double> int_seg;
     vector<intersection_point> intpt;
-    findPcurveInsideSegments(curve, tolerance, intpt, with_bd);
+    findPcurveInsideSegments(curve, tolerance, intpt, with_bd, split_at_tang);
     for (int i = 0; i < int(intpt.size()); ++i) {
 	int_seg.push_back(intpt[i].par1);
     }
@@ -834,63 +834,66 @@ findPcurveInsideSegments(const SplineCurve& curve,
     }
 
     // Simplify segmentation by joining segments of the same type (inside/outside)
-    for (int j=0; j<int(int_seg_type.size()); ++j)
+    if (!split_at_tang)
       {
-	int k;
-	for (k=j+1; k<int(int_seg_type.size()); ++k)
-	  if (int_seg_type[k] != int_seg_type[j])
-	    break;
-	if (k > j+1)
+	for (int j=0; j<int(int_seg_type.size()); ++j)
 	  {
-	    // Simplify
-	    int type = int_seg_type[j];
-	    if (int_seg_type[j] == 0)
+	    int k;
+	    for (k=j+1; k<int(int_seg_type.size()); ++k)
+	      if (int_seg_type[k] != int_seg_type[j])
+		break;
+	    if (k > j+1)
 	      {
-		// Check if the segment is still small
-		double from_par = int_seg[j];
-		double to_par = int_seg[k];
-		Point tmp1 = curve.ParamCurve::point(from_par);
-		Point tmp2 = curve.ParamCurve::point(0.5*(from_par+to_par));
-		Point tmp3 = curve.ParamCurve::point(to_par);
-		double len = tmp1.dist(tmp2) + tmp2.dist(tmp3);
-		if (to_par - from_par > knot_diff_tol && len > tolerance) 
+		// Simplify
+		int type = int_seg_type[j];
+		if (int_seg_type[j] == 0)
 		  {
-		    Point med_pt = curve.ParamCurve::point(0.5*(from_par+to_par));
-		    int is_in_domain = 0;
-		    try {
-		      is_in_domain = 
-			isInDomain2(Vector2D(med_pt[0], med_pt[1]), 
-					   knot_diff_tol);
-		    }
-		    catch (...)
+		    // Check if the segment is still small
+		    double from_par = int_seg[j];
+		    double to_par = int_seg[k];
+		    Point tmp1 = curve.ParamCurve::point(from_par);
+		    Point tmp2 = curve.ParamCurve::point(0.5*(from_par+to_par));
+		    Point tmp3 = curve.ParamCurve::point(to_par);
+		    double len = tmp1.dist(tmp2) + tmp2.dist(tmp3);
+		    if (to_par - from_par > knot_diff_tol && len > tolerance) 
 		      {
-			if (len > 10.0*tolerance)
-			  THROW("Could not trim intersection curve with surface boundary");
-			else
-			  is_in_domain = 0;
+			Point med_pt = curve.ParamCurve::point(0.5*(from_par+to_par));
+			int is_in_domain = 0;
+			try {
+			  is_in_domain = 
+			    isInDomain2(Vector2D(med_pt[0], med_pt[1]), 
+					knot_diff_tol);
+			}
+			catch (...)
+			  {
+			    if (len > 10.0*tolerance)
+			      THROW("Could not trim intersection curve with surface boundary");
+			    else
+			      is_in_domain = 0;
+			  }
+			type = (is_in_domain >= 1) ? 2 : 1;
 		      }
-		    type = (is_in_domain >= 1) ? 2 : 1;
+		    else
+		      {
+			int_seg.erase(int_seg.begin()+j+1, int_seg.begin()+k);
+			int_seg_type.erase(int_seg_type.begin()+j+1, int_seg_type.begin()+k);
+		      }
 		  }
 		else
 		  {
 		    int_seg.erase(int_seg.begin()+j+1, int_seg.begin()+k);
 		    int_seg_type.erase(int_seg_type.begin()+j+1, int_seg_type.begin()+k);
 		  }
+		int_seg_type[j] = type;
 	      }
-	    else
-	      {
-		int_seg.erase(int_seg.begin()+j+1, int_seg.begin()+k);
-		int_seg_type.erase(int_seg_type.begin()+j+1, int_seg_type.begin()+k);
-	      }
-	    int_seg_type[j] = type;
 	  }
       }
-
+    
     for (int j=1; j<int(int_seg_type.size()-1); ++j)
       {
 	if (int_seg_type[j] == 0)
 	  {
-	    if (int_seg_type[j-1] == int_seg_type[j+1])
+	    if (int_seg_type[j-1] == int_seg_type[j+1] && (!split_at_tang))
 	      {
 		// Remove small segment
 		int_seg.erase(int_seg.begin()+j, int_seg.begin()+j+1);
@@ -906,7 +909,8 @@ findPcurveInsideSegments(const SplineCurve& curve,
 	if (int_seg_type[j-1] == 2 || int_seg_type[j-1] == 3)
 	  {
 	    if (params_start_end_interval.size() == 0 || 
-		int_seg[j-1]>params_start_end_interval[params_start_end_interval.size()-1])
+		int_seg[j-1]>params_start_end_interval[params_start_end_interval.size()-1] ||
+		split_at_tang)
 	      params_start_end_interval.push_back(int_seg[j-1]);
 	    params_start_end_interval.push_back(int_seg[j]);
 	  }
@@ -921,7 +925,7 @@ findPcurveInsideSegments(const SplineCurve& curve,
 			 vector<double>& boundary_params,
 			 vector<int>& boundary_loops,
 			 vector<int>& boundary_curves,
-			 bool with_bd) const
+			 bool with_bd, bool split_at_tang) const
 //===========================================================================
 {
   params_start_end_interval.clear();
@@ -929,7 +933,7 @@ findPcurveInsideSegments(const SplineCurve& curve,
   boundary_loops.clear();
   boundary_curves.clear();
   vector<intersection_point> intpt;
-  findPcurveInsideSegments(curve, tolerance, intpt, with_bd);
+  findPcurveInsideSegments(curve, tolerance, intpt, with_bd, split_at_tang);
   for (int i = 0; i < int(intpt.size()); ++i)
     {
       params_start_end_interval.push_back(intpt[i].par1);
@@ -944,7 +948,7 @@ void CurveBoundedDomain::
 findPcurveInsideSegments(const SplineCurve& curve, 
 			 double tolerance, 
 			 vector<intersection_point>& intpt,
-			 bool with_bd) const 
+			 bool with_bd, bool split_at_tang) const 
 //===========================================================================
 {
     // Find all intersections between this spline curve and the 
@@ -1213,11 +1217,17 @@ findPcurveInsideSegments(const SplineCurve& curve,
 	if (kj<4)
 	    continue;   // Touching intersections not counted
 
+	int nmb_to_create = 1;
 	if ((pretopology[4*ki] == pretopology[4*ki+1] && 
 	     (pretopology[4*ki] == pretop_IN || pretopology[4*ki] == pretop_OUT)) ||
 	    (pretopology[4*ki+2] == pretopology[4*ki+3] && 
 	     (pretopology[4*ki+2] == pretop_IN || pretopology[4*ki+2] == pretop_OUT)))
-	    continue;   // Touching intersections not counted
+	  {
+	    if (split_at_tang)
+	      nmb_to_create = 2;
+	    else
+	      continue;   // Touching intersections not counted
+	  }
 	
 	nmbpoint = (int)intpt.size();
 	// for (kj=0; kj<nmbpoint; kj++)
@@ -1238,12 +1248,13 @@ findPcurveInsideSegments(const SplineCurve& curve,
 	  }
 	if (kj < nmbcrv)
 	    continue;   // Do not count corner points twice
-	
-	intpt.push_back(intersection_point(intersection_par[ki].first,
-					   intersection_par[ki].second,
-					   curve_pos[ki].first,
-					   curve_pos[ki].second,
-					   &pretopology[4*ki]));
+
+	for (int ka=0; ka<nmb_to_create; ++ka)
+	  intpt.push_back(intersection_point(intersection_par[ki].first,
+					     intersection_par[ki].second,
+					     curve_pos[ki].first,
+					     curve_pos[ki].second,
+					     &pretopology[4*ki]));
     }
     nmbpoint = (int)intpt.size();
 
@@ -1306,6 +1317,7 @@ bool CurveBoundedDomain::doIntersect(const SplineCurve& curve,
 
 	intersect2Dcurves(&curve, par_crv.get(), tol, intersection_par, 
 			  pretopology, int_crvs);
+
 
 	if (intersection_par.size() > 0 || int_crvs.size() > 0)
 	  return true;

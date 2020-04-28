@@ -27,6 +27,7 @@ void print_help_text()
   std::cout << "-info <filename> : Write accuracy information to file \n";
   std::cout << "-initmba <0/1>: 0 = initiate with least squares method \n";
   std::cout << "                1 = apply only multilevel B-spline approximation (MBA) (Default) \n";
+  std::cout << "-degree <2/3> : degree of polynomial segments, default = 2\n";
   std::cout << "-minsize <length>: Minimum element size (all directions) \n";
   std::cout << "-tolfile: File specifying domains with specific tolerances, global tolerance apply outside domains. PointCloud2LR -tolfile for file format \n";
   std::cout << "-toldoc: Documentation on file format for tolerance domains. \n";
@@ -107,6 +108,7 @@ int main (int argc, char *argv[]) {
   int levels;
   int initMBA = 1;
   int del = 4;
+  int degree = 2;
   double minsize = -1.0;
   double outfrac = 0.0;
   int ncell1=0, ncell2=0, ncell3=0;
@@ -148,6 +150,13 @@ int main (int argc, char *argv[]) {
       else if (arg == "-initmba")
 	{
 	  int stat = fetchIntParameter(argc, argv, ki, initMBA, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+      else if (arg == "-degree")
+	{
+	  int stat = fetchIntParameter(argc, argv, ki, degree, 
 				       nmb_par, par_read);
 	  if (stat < 0)
 	    return 1;
@@ -336,7 +345,7 @@ int main (int argc, char *argv[]) {
   std::cout << "Range: [" << minval << "," << maxval << "]" << std::endl;
   int dim = 1;
   int ncoef = 6; //6; //8; //6
-  int order = 3; //5; //3
+  int order = degree+1; //5; //3
   int nm = ncoef*ncoef*ncoef;
   double dom = (domain[1]-domain[0])*(domain[3]-domain[2])*(domain[5]-domain[4]);
   double c1 = std::pow((double)nm/dom, 1.0/3.0);

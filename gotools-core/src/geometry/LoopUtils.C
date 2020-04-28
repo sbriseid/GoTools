@@ -113,7 +113,7 @@ representAsSurfaceCurves(const std::vector< shared_ptr<ParamCurve> >& curves,
 
 //===========================================================================
 bool
-LoopUtils::loopIsCCW(const vector<shared_ptr<SplineCurve> >& simple_par_loop, 
+LoopUtils::loopIsCCW(const vector<shared_ptr<ParamCurve> >& simple_par_loop, 
 		     double space_epsilon, double int_tol)
 //===========================================================================
 {
@@ -170,11 +170,11 @@ LoopUtils::loopIsCCW(const vector<shared_ptr<SplineCurve> >& simple_par_loop,
     // We then check for intersections between normal_curve and simple_par_loop,
     // not counting start point of normal_curve.    
     vector<double> params_interval;
-    vector<shared_ptr<ParamCurve> > par_loop;
-    for (size_t ki=0; ki<simple_par_loop.size(); ++ki)
-      par_loop.push_back(simple_par_loop[ki]);
+    //vector<shared_ptr<ParamCurve> > par_loop;
+    // for (size_t ki=0; ki<simple_par_loop.size(); ++ki)
+    //   par_loop.push_back(simple_par_loop[ki]);
     shared_ptr<CurveLoop> loop = 
-      shared_ptr<CurveLoop>(new CurveLoop(par_loop, space_epsilon));
+      shared_ptr<CurveLoop>(new CurveLoop(simple_par_loop, space_epsilon));
     CurveBoundedDomain loop_dom(loop);
 
     loop_dom.findPcurveInsideSegments(normal_curve, int_tol2, params_interval);
@@ -197,17 +197,17 @@ bool LoopUtils::paramIsCCW(const vector< shared_ptr<CurveOnSurface> >& loop,
 {
     if (loop.empty())
 	return true;
-    vector< shared_ptr<SplineCurve> > sc;
+    vector< shared_ptr<ParamCurve> > sc;
     for (size_t i = 0; i < loop.size(); ++i) {
       loop[i]->ensureParCrvExistence(int_tol);
 	ParamCurve* pcptr = loop[i]->parameterCurve().get();
 	ALWAYS_ERROR_IF(pcptr == 0, "Parameter curve not found");
 	shared_ptr<ParamCurve> pc(loop[i]->parameterCurve());
-	shared_ptr<SplineCurve>
-	    spc(dynamic_pointer_cast<SplineCurve, ParamCurve>(pc));
-	if (!spc.get())
-	  spc = shared_ptr<SplineCurve>(pc->geometryCurve());
-	sc.push_back(spc);
+	// shared_ptr<SplineCurve>
+	//     spc(dynamic_pointer_cast<SplineCurve, ParamCurve>(pc));
+	if (!pc.get())
+	  pc = loop[i]->spaceCurve();
+	sc.push_back(pc);
     }
 
     return loopIsCCW(sc, space_epsilon, int_tol);
@@ -221,27 +221,29 @@ bool LoopUtils::loopIsCCW(const CurveLoop& loop, double int_tol)
     // We extract the 2D parameter curves.  Well, come to think of it,
     // what really matters is not that the curve is a 2D-spline, but
     // 2D ...
-    vector< shared_ptr<SplineCurve> > sc;
+    vector< shared_ptr<ParamCurve> > sc;
     for (int ki = 0; ki < loop.size(); ++ki) {
-	shared_ptr<SplineCurve> pcv;
-	if (loop[ki]->instanceType() == Class_SplineCurve)
+	shared_ptr<ParamCurve> pcv;
+	/*if (loop[ki]->instanceType() == Class_SplineCurve)
 	    pcv = dynamic_pointer_cast<SplineCurve, ParamCurve>(loop[ki]);
-	else if (loop[ki]->instanceType() == Class_CurveOnSurface) {
+	    else */if (loop[ki]->instanceType() == Class_CurveOnSurface) {
 	    shared_ptr<CurveOnSurface> cv_on_sf =
 		dynamic_pointer_cast<CurveOnSurface, ParamCurve>(loop[ki]);
 	    if (cv_on_sf->parameterCurve().get() == NULL)
 		THROW("Method requires parameter curve!");
-	    if (cv_on_sf->parameterCurve()->instanceType() == Class_SplineCurve)
-		pcv = dynamic_pointer_cast<SplineCurve, ParamCurve>
-		    (cv_on_sf->parameterCurve());
-	    else {
-		pcv = shared_ptr<SplineCurve>
-		    (cv_on_sf->parameterCurve()->geometryCurve());
-		if (pcv.get() == NULL)
-		    THROW("Unexpected incident.");
-	    }
-	} else
-	    THROW("Unexpected incident.");
+	    pcv = cv_on_sf->parameterCurve();
+	    // if (cv_on_sf->parameterCurve()->instanceType() == Class_SplineCurve)
+	    // 	pcv = dynamic_pointer_cast<SplineCurve, ParamCurve>
+	    // 	    (cv_on_sf->parameterCurve());
+	    // else {
+	    // 	pcv = shared_ptr<SplineCurve>
+	    // 	    (cv_on_sf->parameterCurve()->geometryCurve());
+	    // 	if (pcv.get() == NULL)
+	    // 	    THROW("Unexpected incident.");
+	}
+        else
+	    pcv = loop[ki];
+	    //THROW("Unexpected incident.");
 
 	sc.push_back(pcv);
     }
