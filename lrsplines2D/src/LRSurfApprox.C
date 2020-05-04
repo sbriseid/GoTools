@@ -3075,7 +3075,7 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold)
   av_wgt /= (double)el_out;
 
   double fac = (max_wgt > 2.0*min_wgt) ? 0.5 : 1.0;;
-  double thresh2 = min_wgt; //fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
+  double thresh2 = fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
   std::cout << "min_wgt = " << min_wgt << ", av_wgt = " << av_wgt << ", max_wgt = " << max_wgt << std::endl;
   std::cout << "thresh2 = " << thresh2 << std::endl;
 
@@ -3084,8 +3084,8 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold)
   double outel_fac = (double)el_out/(double)num_elem;
   std::cout << "outel_fac: " << outel_fac << std::endl;
   int dir2 = dir;//(outel_fac > choose_fac2 && outel_fac < choose_fac1) ? dir : 3;
-  if (iter == 1)
-    dir2 = 3;
+  // if (iter == 1)
+  //   dir2 = 3;
   if (dir2 == dir && dir2 != 3)
     dir = 3 - dir;
   
@@ -3323,8 +3323,8 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   double outel_fac = (double)el_out/(double)num_elem;
   std::cout << "outel_fac: " << outel_fac << std::endl;
   int dir2 = dir; //(outel_fac > choose_fac2 && outel_fac < choose_fac1) ? dir : 3;
-  if (iter == 1)
-    dir2 = 3;
+  // if (iter == 1)
+  //   dir2 = 3;
   if (dir2 == dir && dir2 != 3)
     dir = 3 - dir;
   std::cout << "Dir: " << dir2 << std::endl;
@@ -3436,7 +3436,7 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   int nmb_fixed = 0;
   //nmb_split = nmb_perm;
   min_nmb_pts = 0;
-  double average_threshold = std::max(0.01*average_nmb, average_nmb_out);
+  double average_threshold = 0.0; //std::max(0.01*average_nmb, average_nmb_out);
   for (kr=0; kr<nmb_perm; ++kr)
     {
       //if (max_error[bspl_perm[kr]] < aepsge_)
@@ -3485,7 +3485,7 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   std::cout << "Remaining elements with outside points: " << elem_out.size() << std::endl;
 #endif
 
-  bool elemref = true;
+  bool elemref = false;
   if (elemref)
     {
       // Removing affected elements

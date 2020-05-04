@@ -41,6 +41,7 @@
 #define  _CUTCELLQUAL_H_
 
 #include "GoTools/utils/Point.h"
+#include "GoTools/utils/BoundingBox.h"
 #include "GoTools/geometry/ParamCurve.h"
 #include "GoTools/geometry/CurveLoop.h"
 #include "GoTools/geometry/CurveBoundedDomain.h"
@@ -118,17 +119,21 @@ namespace Go
     void defineSplits1(const std::vector<Point>& corner,
 		       shared_ptr<CurveBoundedDomain> cvdom,
 		       const RectDomain& domain,
+		       const BoundingBox& cvbox,
+		       int preferdir,
 		       std::vector<double>& splitpar, int& dir,
 		       std::vector<double>& candpar);
 
-    void defineSplits2(const std::vector<Point>& turnpts,
+    void defineSplits2(const std::vector<Point>& turnpts1,
+		       const std::vector<Point>& turnpts2,
 		       shared_ptr<CurveBoundedDomain> cvdom,
 		       const RectDomain& domain,
 		       std::vector<double>& splitpar, int& dir,
 		       std::vector<double>& candpar);
 
     void fetchTurningPoints(shared_ptr<ParamCurve> cv,
-			    std::vector<Point>& turnpts);
+			    std::vector<Point>& turnpts1,
+			    std::vector<Point>& turnpts2);
 
     bool checkSplits(std::vector<double>& splitpar);
 

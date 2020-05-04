@@ -600,6 +600,7 @@ int CutCellQuad::heightDirection(shared_ptr<CurveLoop> cell_loop,
   int basedir = -1;
   int nmbcvs = cell_loop->size();
   double umaxlen = 0.0, vmaxlen = 0.0;
+  BoundingBox cvbox;
   for (int ka=0; ka<nmbcvs; ++ka)
     {
       shared_ptr<ParamCurve> cv = (*cell_loop)[ka];
@@ -630,10 +631,37 @@ int CutCellQuad::heightDirection(shared_ptr<CurveLoop> cell_loop,
   	      // 	  break;
   	      // 	}
   	    }
+	  else
+	    {
+	      BoundingBox bb = cv->boundingBox();
+	      if (cvbox.dimension() == 0)
+		cvbox = bb;
+	      else
+		cvbox.addUnionWith(bb);
+	    }
   	}
+      else
+	{
+	  BoundingBox bb = cv->boundingBox();
+	  if (cvbox.dimension() == 0)
+	    cvbox = bb;
+	  else
+	    cvbox.addUnionWith(bb);
+	}
     }
-
-  basedir = (umaxlen >= vmaxlen) ? 1 : 2;
+  
+  if (cvbox.dimension() == 2)
+    {
+      double uboxlen = cvbox.high()[0] - cvbox.low()[0];
+      double vboxlen = cvbox.high()[1] - cvbox.low()[1];
+      double boxfraclim = 0.9;
+      if (std::min(uboxlen,vboxlen)/std::max(uboxlen,vboxlen) < boxfraclim)
+	basedir = (uboxlen < vboxlen) ? 2 : 1;
+      else
+	basedir = (umaxlen >= vmaxlen) ? 1 : 2;
+    }
+  else
+    basedir = (umaxlen >= vmaxlen) ? 1 : 2;
   if (basedir < 0)
     {
       // For the time being
@@ -735,13 +763,50 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
     {
       std::ofstream cp("corner.g2");
       cp << "400 1 0 4 255 0 0 255" << std::endl;
-      cp << corner.size() << std::endl;
+      cp << corner.size()/3 << std::endl;
       for (size_t ki=0; ki<corner.size(); ki+=3)
 	cp << corner[ki] << "  0.0" << std::endl;
     }
 
+  // Search for non-monotone parameter direction of trimming curves
+  // Fetch also the bounding box containing the curves that are not parallel with
+  // the parameter axis
+  vector<Point> turnpts1, turnpts2;
+  BoundingBox cvbox;
+  for (size_t ki=0; ki<cell_loops.size(); ++ki)
+    {
+      int nmb = cell_loops[ki]->size();
+      for (int ka=0; ka<nmb; ++ka)
+	{
+	  shared_ptr<ParamCurve> cv = (*cell_loops[ki])[ka];
+	  Point dir;
+	  int bd_ix = -1;
+	  if (cv->isLinear(dir, tol_))
+	    {
+	      Point pt1 = cv->point(cv->startparam());
+	      Point pt2 = cv->point(cv->endparam());
+	      bd_ix = domain.whichBoundary(Vector2D(pt1[0],pt1[1]),
+					   Vector2D(pt2[0],pt2[1]), tol_);
+	    }
+	  else
+	    {
+	      fetchTurningPoints(cv, turnpts1, turnpts2);
+	    }
+	  if (bd_ix < 0)
+	    {
+	      BoundingBox bb = cv->boundingBox();
+	      if (cvbox.dimension() == 0)
+		cvbox = bb;
+	      else
+		cvbox.addUnionWith(bb);
+	    }
+	}
+    }
+
   vector<double> candpar;
-  defineSplits1(corner, cvdom, domain, splitpar, dir, candpar);
+  int preferdir = (turnpts1.size() > 0 && turnpts2.size() == 0) ? 2 :
+    ((turnpts2.size() > 0 && turnpts1.size() == 0) ? 1 : 0);
+  defineSplits1(corner, cvdom, domain, cvbox, preferdir, splitpar, dir, candpar);
 
   if (splitpar.size() == 0)
     {
@@ -800,25 +865,9 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
 	}
     }
 
-  if (splitpar.size() == 0)
+  if (splitpar.size() == 0 && turnpts1.size() + turnpts2.size() > 0)
     {
-      // Search for non-monotone parameter direction of trimming curves
-      vector<Point> turnpts;
-      for (size_t ki=0; ki<cell_loops.size(); ++ki)
-	{
-	  int nmb = cell_loops[ki]->size();
-	  for (int ka=0; ka<nmb; ++ka)
-	    {
-	      shared_ptr<ParamCurve> cv = (*cell_loops[ki])[ka];
-	      Point dir;
-	      if (!cv->isLinear(dir, tol_))
-		{
-		  fetchTurningPoints(cv, turnpts);
-		}
-	    }
-	}
-      if (turnpts.size() > 0)
-	defineSplits2(turnpts, cvdom, domain, splitpar, dir, candpar);
+      defineSplits2(turnpts1, turnpts2, cvdom, domain, splitpar, dir, candpar);
     }
   int stop_break = 1;
 }
@@ -827,6 +876,8 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
 void CutCellQuad::defineSplits1(const vector<Point>& corner,
 				shared_ptr<CurveBoundedDomain> cvdom,
 				const RectDomain& domain,
+				const BoundingBox& cvbox,
+				int preferdir,
 				vector<double>& splitpar, int& dir,
 				vector<double>& candpar)
 //==============================================================================
@@ -886,10 +937,18 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 
   size_t num_u = split_u1.size() + split_u2.size() + split_uin.size();
   size_t num_v = split_v1.size() + split_v2.size() + split_vin.size();
+  if (cvbox.dimension() == 2)
+    {
+      double uboxlen = cvbox.high()[0] - cvbox.low()[0];
+      double vboxlen = cvbox.high()[1] - cvbox.low()[1];
+      double boxfraclim = 0.9;
+      if (preferdir == 0 && std::min(uboxlen,vboxlen)/std::max(uboxlen,vboxlen) < boxfraclim)
+	preferdir = (uboxlen < vboxlen) ? 2 : 1;
+    }
   if (num_u == 0 && num_v > 0)
     {
-      if (split_v1.size() < 2 && split_v2.size() < 2 && split_vin.size() == 0 &&
-	  split_vout.size() == 0)
+      if (((split_v1.size() < 2 && split_v2.size() < 2) || split_v1.size() == split_v2.size()) &&
+	  split_vin.size() == 0 && split_vout.size() == 0)
 	{
 	  dir = 1;
 	  candpar.insert(candpar.end(), split_v1.begin(), split_v1.end());
@@ -899,8 +958,10 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
       else 
 	{
 	  dir = 2;
-	  splitpar.insert(splitpar.end(), split_v1.begin(), split_v1.end());
-	  splitpar.insert(splitpar.end(), split_v2.begin(), split_v2.end());
+	  if (split_v1.size() > split_v2.size())
+	    splitpar.insert(splitpar.end(), split_v1.begin(), split_v1.end());
+	  else
+	    splitpar.insert(splitpar.end(), split_v2.begin(), split_v2.end());
 	  if (split_uin.size() > 0)
 	    splitpar.insert(splitpar.end(), split_vin.begin(), split_vin.end());
 	  std::sort(splitpar.begin(), splitpar.end());
@@ -917,8 +978,8 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
     }
   else if (num_v == 0 && num_u > 0)
     {
-      if (split_u1.size() < 2 && split_u2.size() < 2 && split_uin.size() == 0 &&
-	  split_vout.size() == 0)
+      if (((split_u1.size() < 2 && split_u2.size() < 2) || split_u1.size() == split_u2.size()) &&
+	  split_uin.size() == 0 && split_vout.size() == 0)
 	{
 	  dir = 2;
 	  candpar.insert(candpar.end(), split_u1.begin(), split_u1.end());
@@ -928,8 +989,10 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
       else 
 	{
 	  dir = 1;
-	  splitpar.insert(splitpar.end(), split_u1.begin(), split_u1.end());
-	  splitpar.insert(splitpar.end(), split_u2.begin(), split_u2.end());
+	  if (split_u1.size() > split_u2.size())
+	    splitpar.insert(splitpar.end(), split_u1.begin(), split_u1.end());
+	  else
+	    splitpar.insert(splitpar.end(), split_u2.begin(), split_u2.end());
 	  if (split_uin.size() > 0)
 	    splitpar.insert(splitpar.end(), split_uin.begin(), split_uin.end());
 	  std::sort(splitpar.begin(), splitpar.end());
@@ -946,83 +1009,198 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
     }
   else if (num_u > 0 && num_v > 0)
     {
-      vector<double> tmpsplit1, tmpsplit2;
-      tmpsplit1.insert(tmpsplit1.end(), split_u1.begin(), split_u1.end());
-      tmpsplit1.insert(tmpsplit1.end(), split_u2.begin(), split_u2.end());
       if (split_uin.size() > 0)
-	tmpsplit1.insert(tmpsplit1.end(), split_uin.begin(), split_uin.end());
-      std::sort(tmpsplit1.begin(), tmpsplit1.end());
-      tmpsplit2.insert(tmpsplit2.end(), split_v1.begin(), split_v1.end());
-      tmpsplit2.insert(tmpsplit2.end(), split_v2.begin(), split_v2.end());
-      if (split_vin.size() > 0)
-	tmpsplit2.insert(tmpsplit2.end(), split_vin.begin(), split_vin.end());
-      std::sort(tmpsplit2.begin(), tmpsplit2.end());
-
-      double u1 = umin;
-      double minu = umax - umin;
-      for (size_t ki=0; ki<tmpsplit1.size(); ++ki)
-	{
-	  minu = std::min(minu, tmpsplit1[ki]-u1);
-	  u1 = tmpsplit1[ki];
-	}
-      minu = std::min(minu, umax-u1);
-			  
-      double v1 = vmin;
-      double minv = vmax - vmin;
-      for (size_t ki=0; ki<tmpsplit2.size(); ++ki)
-	{
-	  minv = std::min(minv, tmpsplit2[ki]-v1);
-	  v1 = tmpsplit2[ki];
-	}
-      minv = std::min(minv, vmax-v1);
-      double ufrac = minu/(umax - umin);
-      double vfrac = minv/(vmax - vmin);
-      if (fabs(ufrac-vfrac) < 0.1)
-	ufrac = (umax-umin > vmax-vmin) ? 2*vfrac : 0.5*vfrac;
-      
-      if (split_uin.size() > 0 ||
-	  ((num_u > num_v || (num_u == num_v && ufrac > vfrac)) && split_vin.size() == 0))
 	{
 	  dir = 1;
-	  splitpar = tmpsplit1;
-
-	  // Check for close split parameters
-	  bool OK = checkSplits(splitpar);
-	  if (!OK)
+	  splitpar = split_uin;
+	}
+      else if (split_vin.size() > 0)
+	{
+	  dir = 2;
+	  splitpar = split_vin;
+	}
+      else if (split_u1.size() == 0 && split_u2.size() > std::max(split_v1.size(), split_v2.size()))
+	{
+	  dir = 1;
+	  splitpar = split_u2;
+	}
+      else if (split_u2.size() == 0 && split_u1.size() > std::max(split_v1.size(), split_v2.size()))
+	{
+	  dir = 1;
+	  splitpar = split_u1;
+	}
+      else if (split_v1.size() == 0 && split_v2.size() > std::max(split_u1.size(), split_u2.size()))
+	{
+	  dir = 2;
+	  splitpar = split_v2;
+	}
+      else if (split_v2.size() == 0 && split_v1.size() > std::max(split_u1.size(), split_u2.size()))
+	{
+	  dir = 2;
+	  splitpar = split_v1;
+	}
+      else if (num_u == 1 && num_v > 1)
+	{
+	  vector<double> tmpsplit = split_v1;
+	  tmpsplit.insert(tmpsplit.end(), split_v2.begin(), split_v2.end());
+	  std::sort(tmpsplit.begin(), tmpsplit.end());
+	  dir = 2;
+	  if (split_u1.size() == 1)
+	    splitpar.push_back(tmpsplit[0]);
+	  else
+	    splitpar.push_back(tmpsplit[tmpsplit.size()-1]);
+	}
+      else if (num_u == 0 && num_v == 1)
+	{
+	  vector<double> tmpsplit = split_u1;
+	  tmpsplit.insert(tmpsplit.end(), split_u2.begin(), split_u2.end());
+	  std::sort(tmpsplit.begin(), tmpsplit.end());
+	  dir = 1;
+	  if (split_v1.size() == 1)
+	    splitpar.push_back(tmpsplit[0]);
+	  else
+	    splitpar.push_back(tmpsplit[tmpsplit.size()-1]);
+	}
+      else if (num_u == 1 && num_v == 1)
+	{
+	  if (preferdir == 1 || (preferdir == 0 && umax-umin > vmax-vmin))
 	    {
-	      // Try the other direction
+	      dir = 1;
+	      splitpar.insert(splitpar.begin(), split_u1.begin(), split_u1.end());
+	      splitpar.insert(splitpar.begin(), split_u2.begin(), split_u2.end());
+	    }
+	    else
+	    {
 	      dir = 2;
-	      splitpar = tmpsplit2;
-
-	      // Check for close split parameters
-	      bool OK2 = checkSplits(splitpar);
-	      if (!OK2)
-		{
-		  std::cout << "Must select a good split parameter" << std::endl;
-		}
+	      splitpar.insert(splitpar.begin(), split_v1.begin(), split_v1.end());
+	      splitpar.insert(splitpar.begin(), split_v2.begin(), split_v2.end());
 	    }
 	}
       else
 	{
-	  dir = 2;
-	  splitpar = tmpsplit2;
-
-	  // Check for close split parameters
-	  bool OK = checkSplits(splitpar);
-	  if (!OK)
+	  if (preferdir == 1 || (preferdir == 0 && umax-umin > vmax-vmin))
 	    {
-	      // Try the other direction
 	      dir = 1;
-	      splitpar = tmpsplit1;
-
-	      // Check for close split parameters
-	      bool OK2 = checkSplits(splitpar);
-	      if (!OK2)
+	      vector<double> tmpsplit = split_u1;
+	      tmpsplit.insert(tmpsplit.end(), split_u2.begin(), split_u2.end());
+	      double mid = 0.5*(domain.umin()+domain.umax());
+	      size_t ix = 0;
+	      double len = fabs(tmpsplit[0]-mid);
+	      for (size_t ki=1; ki<tmpsplit.size(); ++ki)
 		{
-		  std::cout << "Must select a good split parameter" << std::endl;
+		  double len2 = fabs(tmpsplit[ki]-mid);
+		  if (len2 < len)
+		    {
+		      ix = ki;
+		      len = len2;
+		    }
 		}
+	      splitpar.push_back(tmpsplit[ix]);
+	    }
+	  else
+	    {
+	      dir = 2;
+	      vector<double> tmpsplit = split_v1;
+	      tmpsplit.insert(tmpsplit.end(), split_v2.begin(), split_v2.end());
+	      double mid = 0.5*(domain.vmin()+domain.vmax());
+	      size_t ix = 0;
+	      double len = fabs(tmpsplit[0]-mid);
+	      for (size_t ki=1; ki<tmpsplit.size(); ++ki)
+		{
+		  double len2 = fabs(tmpsplit[ki]-mid);
+		  if (len2 < len)
+		    {
+		      ix = ki;
+		      len = len2;
+		    }
+		}
+	      splitpar.push_back(tmpsplit[ix]);
 	    }
 	}
+      
+      //  vector<double> tmpsplit1, tmpsplit2;
+      // tmpsplit1.insert(tmpsplit1.end(), split_u1.begin(), split_u1.end());
+      // tmpsplit1.insert(tmpsplit1.end(), split_u2.begin(), split_u2.end());
+      // if (split_uin.size() > 0)
+      // 	tmpsplit1.insert(tmpsplit1.end(), split_uin.begin(), split_uin.end());
+      // std::sort(tmpsplit1.begin(), tmpsplit1.end());
+      // tmpsplit2.insert(tmpsplit2.end(), split_v1.begin(), split_v1.end());
+      // tmpsplit2.insert(tmpsplit2.end(), split_v2.begin(), split_v2.end());
+      // if (split_vin.size() > 0)
+      // 	tmpsplit2.insert(tmpsplit2.end(), split_vin.begin(), split_vin.end());
+      // std::sort(tmpsplit2.begin(), tmpsplit2.end());
+
+      // double u1 = umin;
+      // double minu = umax - umin;
+      // for (size_t ki=0; ki<tmpsplit1.size(); ++ki)
+      // 	{
+      // 	  minu = std::min(minu, tmpsplit1[ki]-u1);
+      // 	  u1 = tmpsplit1[ki];
+      // 	}
+      // minu = std::min(minu, umax-u1);
+			  
+      // double v1 = vmin;
+      // double minv = vmax - vmin;
+      // for (size_t ki=0; ki<tmpsplit2.size(); ++ki)
+      // 	{
+      // 	  minv = std::min(minv, tmpsplit2[ki]-v1);
+      // 	  v1 = tmpsplit2[ki];
+      // 	}
+      // minv = std::min(minv, vmax-v1);
+      // double ufrac = minu/(umax - umin);
+      // double vfrac = minv/(vmax - vmin);
+      // if (fabs(ufrac-vfrac) < 0.1)
+      // 	ufrac = (umax-umin > vmax-vmin) ? 2*vfrac : 0.5*vfrac;
+
+      // double uboxlen = cvbox.high()[0] - cvbox.low()[0];
+      // double vboxlen = cvbox.high()[1] - cvbox.low()[1];
+      // double boxfraclim = 0.9;
+      // if (preferdir == 0 && std::min(uboxlen,vboxlen)/std::max(uboxlen,vboxlen) < boxfraclim)
+      // 	preferdir = (uboxlen < vboxlen) ? 2 : 1;
+      
+      // if (preferdir == 1 || split_uin.size() > 0 ||
+      // 	  ((num_u > num_v || (num_u == num_v && ufrac > vfrac)) && split_vin.size() == 0))
+      // 	{
+      // 	  dir = 1;
+      // 	  splitpar = tmpsplit1;
+
+      // 	  // Check for close split parameters
+      // 	  bool OK = checkSplits(splitpar);
+      // 	  if (!OK)
+      // 	    {
+      // 	      // Try the other direction
+      // 	      dir = 2;
+      // 	      splitpar = tmpsplit2;
+
+      // 	      // Check for close split parameters
+      // 	      bool OK2 = checkSplits(splitpar);
+      // 	      if (!OK2)
+      // 		{
+      // 		  std::cout << "Must select a good split parameter" << std::endl;
+      // 		}
+      // 	    }
+      // 	}
+      // else
+      // 	{
+      // 	  dir = 2;
+      // 	  splitpar = tmpsplit2;
+
+      // 	  // Check for close split parameters
+      // 	  bool OK = checkSplits(splitpar);
+      // 	  if (!OK)
+      // 	    {
+      // 	      // Try the other direction
+      // 	      dir = 1;
+      // 	      splitpar = tmpsplit1;
+
+      // 	      // Check for close split parameters
+      // 	      bool OK2 = checkSplits(splitpar);
+      // 	      if (!OK2)
+      // 		{
+      // 		  std::cout << "Must select a good split parameter" << std::endl;
+      // 		}
+      // 	    }
+      // 	}
     }
   else if (split_uout.size() > 0 || split_vout.size() > 0)
     {
@@ -1038,6 +1216,19 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	}
     }
 
+  if (splitpar.size() > 1)
+    {
+      std::sort(splitpar.begin(), splitpar.end());
+      double minp = (dir == 1)  ? domain.umin() : domain.vmin();
+      double maxp = (dir == 1)  ? domain.umax() : domain.vmax();
+      double lim = 0.1*(maxp - minp);
+      if (splitpar[0] - minp < lim && maxp - splitpar[splitpar.size()-1] >= lim)
+	splitpar.erase(splitpar.begin(), splitpar.begin()+1);
+      else if (maxp - splitpar[splitpar.size()-1] < lim)
+	splitpar.pop_back();
+    }
+      
+  
   // Check candidate parameters
   bool OKcand = checkSplits(candpar);
   if (!OKcand)
@@ -1045,13 +1236,93 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 }
 
 //==============================================================================
-void CutCellQuad::defineSplits2(const vector<Point>& turnpts,
+void CutCellQuad::defineSplits2(const vector<Point>& turnpts1,
+				const vector<Point>& turnpts2,
 				shared_ptr<CurveBoundedDomain> cvdom,
 				const RectDomain& domain,
 				vector<double>& splitpar, int& dir,
 				vector<double>& candpar)
 //==============================================================================
 {
+  if (turnpts1.size() == 0)
+    {
+      dir = 1;
+    }
+  else if (turnpts2.size() == 0)
+    {
+      dir = 2;
+    }
+  else
+    {
+      if (dir == 1 && candpar.size() > 0)
+	{
+	  dir = 2;
+
+	  // Find the candidate parameter closest to a turning point
+	  size_t ix = 0;
+	  double len = fabs(candpar[0] - turnpts1[0][0]);
+	  for (size_t ki=0; ki<turnpts1.size(); ++ki)
+	    for (size_t kj=0; kj<candpar.size(); ++kj)
+	      {
+		double len2 = fabs(candpar[kj] - turnpts1[ki][0]);
+		if (len2 < len)
+		  {
+		    len = len2;
+		    ix = kj;
+		  }
+	      }
+	  splitpar.push_back(candpar[ix]);
+	}
+      else if (dir == 2 && candpar.size() > 0)
+	{
+	  dir = 1;
+
+	  // Find the candidate parameter closest to a turning point
+	  size_t ix = 0;
+	  double len = fabs(candpar[0] - turnpts2[0][1]);
+	  for (size_t ki=0; ki<turnpts2.size(); ++ki)
+	    for (size_t kj=0; kj<candpar.size(); ++kj)
+	      {
+		double len2 = fabs(candpar[kj] - turnpts2[ki][1]);
+		if (len2 < len)
+		  {
+		    len = len2;
+		    ix = kj;
+		  }
+	      }
+	  splitpar.push_back(candpar[ix]);
+	}
+      else
+	{
+	  double umid = 0.5*(domain.umin() + domain.umax());
+	  double vmid = 0.5*(domain.vmin() + domain.vmax());
+	  dir = 1;
+	  size_t ix = 0;
+	  double len = fabs(turnpts1[0][0] - umid);
+	  for (size_t ki=1; ki<turnpts1.size(); ++ki)
+	    {
+	      double len2 = fabs(turnpts1[ki][0] - umid);
+	      if (len2 < len)
+		{
+		  len = len2;
+		  ix = ki;
+		}
+	    }
+	  
+	  for (size_t ki=0; ki<turnpts2.size(); ++ki)
+	    {
+	      double len2 = fabs(turnpts2[ki][1] - vmid);
+	      if (len2 < len)
+		{
+		  dir = 2;
+		  len = len2;
+		  ix = ki;
+		}
+	    }
+
+	  splitpar.push_back((dir == 1) ? turnpts1[ix][0] : turnpts2[ix][1]);
+	}
+    }
 }
  
 //==============================================================================
@@ -1076,9 +1347,10 @@ bool CutCellQuad::checkSplits(vector<double>& splitpar)
 }
 //==============================================================================
 void CutCellQuad::fetchTurningPoints(shared_ptr<ParamCurve> cv,
-				     vector<Point>& turnpts)
+				     vector<Point>& turnpts1, vector<Point>& turnpts2)
 //==============================================================================
 {
+  double eps = 1.0e-12;
   shared_ptr<SplineCurve> splcv(cv->geometryCurve());
   for (int pardir=0; pardir<2; ++pardir)
     {
@@ -1090,14 +1362,19 @@ void CutCellQuad::fetchTurningPoints(shared_ptr<ParamCurve> cv,
       for (int ki=1; ki<numcf; ++ki, c1+=2, c2+=2)
 	{
 	  double dd = *(c2+pardir) - *(c1+pardir);
-	  sgn = (dd < 0) ? -1 : 1;
+	  sgn = (fabs(dd) < eps) ? 0 : ((dd < 0) ? -1 : 1);
 	  if (sgn*prev_sgn < 0)
 	    {
 	      double t1 = splcv->basis().grevilleParameter(ki-1);
 	      double t2 = splcv->basis().grevilleParameter(ki);
 	      Point pos = splcv->ParamCurve::point(0.5*(t1+t2));
-	      turnpts.push_back(pos);
+	      if (pardir == 0)
+		turnpts1.push_back(pos);
+	      else
+		turnpts2.push_back(pos);
 	    }
+	  if (sgn != 0)
+	    prev_sgn = sgn;
 	}
     }
 }
