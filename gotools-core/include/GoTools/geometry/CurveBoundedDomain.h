@@ -123,6 +123,15 @@ public:
     virtual bool isOnBoundary(const Array<double, 2>& point, 
 			      double tolerance) const;
 
+    bool isOnSameBdCrv(const Array<double, 2>& point1, 
+		       const Array<double, 2>& point2, 
+		       double tolerance) const;
+
+    bool onSmoothBdSeg(const Array<double, 2>& point1,
+		       const Array<double, 2>& point2,
+		       double tolerance,
+		       double angtol) const;
+    
     /// Check if the given parameter pair is located on the endpoint of some
     /// curve in the curve loop
     bool isOnCorner(const Array<double, 2>& point, 

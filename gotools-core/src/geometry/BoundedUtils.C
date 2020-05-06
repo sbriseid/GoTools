@@ -4486,6 +4486,15 @@ bool BoundedUtils::loopIsDegenerate(vector<shared_ptr<CurveOnSurface> >& loop,
 				    double epsgeo)
 //===========================================================================
 {
+  vector<shared_ptr<ParamCurve> > loop2(loop.begin(), loop.end());
+  return loopIsDegenerate(loop2, epsgeo);
+}
+
+//===========================================================================
+bool BoundedUtils::loopIsDegenerate(vector<shared_ptr<ParamCurve> >& loop,
+				    double epsgeo)
+//===========================================================================
+{
   // Assumes that no curve in the loop intersect itself
   // For each curve in the loop, compute a number of sampling points in
   // the inner and try to project these points onto the other loop curves
@@ -4497,11 +4506,13 @@ bool BoundedUtils::loopIsDegenerate(vector<shared_ptr<CurveOnSurface> >& loop,
   if (loop.size() == 0)
     return true;
 
-  int dim = loop[0]->underlyingSurface()->dimension();
+  int dim = loop[0]->dimension();
   for (size_t ki=0; ki<loop.size(); ++ki)
     {
-      double cv_len = (dim == 1) ?
-	loop[ki]->parameterCurve()->estimatedCurveLength() :
+      shared_ptr<CurveOnSurface> sfcv =
+	dynamic_pointer_cast<CurveOnSurface,ParamCurve>(loop[ki]);
+      double cv_len = (dim == 1 && sfcv.get()) ?
+	sfcv->parameterCurve()->estimatedCurveLength() :
 	loop[ki]->estimatedCurveLength();
       int nmb_sample = (int)(0.05*cv_len/epsgeo);
       nmb_sample = std::min(std::max(nmb_sample, min_nmb_sample), max_nmb_sample);
@@ -4514,8 +4525,8 @@ bool BoundedUtils::loopIsDegenerate(vector<shared_ptr<CurveOnSurface> >& loop,
 	{
 	  // Evaluate sampling point
 	  Point pos;
-	  if (dim == 1)
-	    pos = loop[ki]->faceParameter(tpar);
+	  if (dim == 1 && sfcv.get())
+	    pos = sfcv->faceParameter(tpar);
 	  else
 	    loop[ki]->point(pos, tpar);
 
@@ -4531,8 +4542,10 @@ bool BoundedUtils::loopIsDegenerate(vector<shared_ptr<CurveOnSurface> >& loop,
 
 	      double tpar2, dist;
 	      Point pos2;
-	      if (dim == 1)
-		loop[kr]->parameterCurve()->closestPoint(pos, 
+	      shared_ptr<CurveOnSurface> sfcv2 =
+		dynamic_pointer_cast<CurveOnSurface,ParamCurve>(loop[kr]);
+	      if (dim == 1 && sfcv2.get())
+		sfcv2->parameterCurve()->closestPoint(pos, 
 							 loop[kr]->startparam(),
 							 loop[kr]->endparam(), 
 							 tpar2, pos2, dist);

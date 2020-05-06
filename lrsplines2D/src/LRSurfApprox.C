@@ -416,7 +416,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   FILE *fp = fopen("acc_stat.txt","w");
   fprintf(fp, "Max iterations = %d, tolerance = %4.2f, no pts: %d \n",max_iter, aepsge_,nmb_pts_);
   fprintf(fp,"iter, maxdist, average dist, no. pts. out, no. coefs, rel. improvement, no. pts.in, diff no pts out, diff no coefs, added elements, diff maxdist, diff avdist, average out  \n");
-  bool alter = false;
+  bool alter = true;
   int div = 1; //(alter) ? 2 : 1;
   int currdiv = (alter) ? 1 : 3;
 
@@ -602,11 +602,11 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  if (threshold_prev > 0.0 && threshold/threshold_prev > 0.9)
 	    threshold = 0.9*threshold_prev;
 	  threshold = std::max(aepsge_, threshold);
-	  //threshold = aepsge_;
+	  threshold = aepsge_;
 	  std::cout << "Threshold: " << threshold << std::endl;
-	  //int nmb_refs = refineSurf3(ki+1, currdiv, threshold);
+	  int nmb_refs = refineSurf3(ki+1, currdiv, threshold);
 	  //int nmb_refs = refineSurf4(currdiv, threshold);
-	  int nmb_refs = refineSurf(ki+1, currdiv, threshold);
+	  //int nmb_refs = refineSurf(ki+1, currdiv, threshold);
 	  if (nmb_refs == 0)
 	    {
 	      std::cout << "No refinements performed" << std::endl;
@@ -3075,7 +3075,7 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold)
   av_wgt /= (double)el_out;
 
   double fac = (max_wgt > 2.0*min_wgt) ? 0.5 : 1.0;;
-  double thresh2 = fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
+  double thresh2 = min_wgt; //fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
   std::cout << "min_wgt = " << min_wgt << ", av_wgt = " << av_wgt << ", max_wgt = " << max_wgt << std::endl;
   std::cout << "thresh2 = " << thresh2 << std::endl;
 
@@ -3090,7 +3090,7 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold)
     dir = 3 - dir;
   
   // Extension strategy: 1=all, 2=largest, 3="best"
-  int extstrategy = 4; //(outel_fac > choose_fac2) ? 3 : 1;
+  int extstrategy = 2; //(outel_fac > choose_fac2) ? 3 : 1;
   std::cout << "Dir: " << dir2 << ", extstrategy: " << extstrategy << std::endl;
   vector<LRSplineSurface::Refinement2D> refs_x, refs_y;
   for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
@@ -3436,7 +3436,7 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   int nmb_fixed = 0;
   //nmb_split = nmb_perm;
   min_nmb_pts = 0;
-  double average_threshold = 0.0; //std::max(0.01*average_nmb, average_nmb_out);
+  double average_threshold = std::max(0.01*average_nmb, average_nmb_out);
   for (kr=0; kr<nmb_perm; ++kr)
     {
       //if (max_error[bspl_perm[kr]] < aepsge_)

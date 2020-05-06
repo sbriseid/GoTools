@@ -197,6 +197,7 @@ bool CurveBoundedDomain::isOnBoundary(const Array<double, 2>& point,
 //===========================================================================
 {
   // Intersect the point with the curves bounding the domain (2D)
+  Point pnt(point[0],point[1]);
   for (int ki=0; ki<(int)loops_.size(); ++ki)
     {
       int nmb_crvs = loops_[ki]->size();
@@ -213,7 +214,6 @@ bool CurveBoundedDomain::isOnBoundary(const Array<double, 2>& point,
 
 	  vector<double> int_pars;
 	  vector<pair<double,double> > int_crvs;
-	  Point pnt(point[0],point[1]);
 	  intersectCurvePoint(crv.get(), pnt, tolerance, 
 			      int_pars, int_crvs);
 	  if (int_pars.size() > 0 || int_crvs.size() > 0)
@@ -222,6 +222,159 @@ bool CurveBoundedDomain::isOnBoundary(const Array<double, 2>& point,
     }
 
   // Not at boundary
+  return false;
+} 
+
+
+//===========================================================================
+bool CurveBoundedDomain::isOnSameBdCrv(const Array<double, 2>& point1,
+				       const Array<double, 2>& point2,
+				       double tolerance) const
+//===========================================================================
+{
+  // Intersect the point with the curves bounding the domain (2D)
+  Point pnt1(point1[0],point1[1]);
+  Point pnt2(point2[0],point2[1]);
+  for (int ki=0; ki<(int)loops_.size(); ++ki)
+    {
+      int nmb_crvs = loops_[ki]->size();
+      for (int kj=0; kj<nmb_crvs; ++kj)
+	{
+	  shared_ptr<ParamCurve> crv;
+	  try {
+	    crv = getParameterCurve(ki, kj);
+	  }
+	  catch (...)
+	    {
+	      continue;  // Cannot check this curve
+	    }
+
+	  vector<double> int_pars1, int_pars2;
+	  vector<pair<double,double> > int_crvs1, int_crvs2;
+	  intersectCurvePoint(crv.get(), pnt1, tolerance, 
+			      int_pars1, int_crvs1);
+	  intersectCurvePoint(crv.get(), pnt2, tolerance, 
+			      int_pars2, int_crvs2);
+	  if ((int_pars1.size() > 0 || int_crvs1.size() > 0) &&
+	      (int_pars2.size() > 0 || int_crvs2.size() > 0))
+	    return true;  // Intersection with boundary curve found
+	}
+    }
+
+  // Not at the same boundary curve
+  return false;
+} 
+
+
+//===========================================================================
+bool CurveBoundedDomain::onSmoothBdSeg(const Array<double, 2>& point1,
+				       const Array<double, 2>& point2,
+				       double tolerance,
+				       double angtol) const
+//===========================================================================
+{
+  // Intersect the point with the curves bounding the domain (2D)
+  Point pnt1(point1[0],point1[1]);
+  Point pnt2(point2[0],point2[1]);
+  for (int ki=0; ki<(int)loops_.size(); ++ki)
+    {
+      int nmb_crvs = loops_[ki]->size();
+      int ix1_1 = -1, ix1_2 = -1, ix2_1 = -1, ix2_2 = -1;
+      for (int kj=0; kj<nmb_crvs; ++kj)
+	{
+	  shared_ptr<ParamCurve> crv;
+	  try {
+	    crv = getParameterCurve(ki, kj);
+	  }
+	  catch (...)
+	    {
+	      continue;  // Cannot check this curve
+	    }
+
+	  vector<double> int_pars1, int_pars2;
+	  vector<pair<double,double> > int_crvs1, int_crvs2;
+	  intersectCurvePoint(crv.get(), pnt1, tolerance, 
+			      int_pars1, int_crvs1);
+	  intersectCurvePoint(crv.get(), pnt2, tolerance, 
+			      int_pars2, int_crvs2);
+	  if ((int_pars1.size() > 0 || int_crvs1.size() > 0) &&
+	      (int_pars2.size() > 0 || int_crvs2.size() > 0))
+	    return true;  // Intersection with same boundary curve found
+	  if (int_pars1.size() > 0 || int_crvs1.size() > 0)
+	    {
+	      if (ix1_1 < 0)
+		ix1_1 = kj;
+	      else
+		ix1_2 = kj;
+	    }
+	  if (int_pars2.size() > 0 || int_crvs2.size() > 0)
+	    {
+	      if (ix2_1 < 0)
+		ix2_1 = kj;
+	      else
+		ix2_2 = kj;
+	    }
+	}
+      if ((ix1_1 >= 0 || ix1_2 >= 0) && (ix2_1 >= 0 || ix2_2 >= 0))
+	{
+	  // Both points belongs to the boundaries of the same loop
+	  // Check if it is a smooth transition between them
+	  int ix1, ix2;
+	  if (ix1_1 < ix2_1)
+	    {
+	      ix1 = (ix1_2 >= 0) ? ix1_2 : ix1_1;
+	      ix2 = ix2_1;
+	    }
+	  else
+	    {
+	      ix1 = (ix2_2 > 0) ? ix2_2 : ix2_1;
+	      ix2 = ix1_1;
+	    }
+
+	  int kr;
+	  shared_ptr<ParamCurve> crv1 = getParameterCurve(ki, ix1);
+	  for (kr=ix1+1; kr<=ix2; ++kr)
+	    {
+	      vector<Point> der1(2), der2(2);
+	      shared_ptr<ParamCurve> crv2 = getParameterCurve(ki, kr);
+	      crv1->point(der1, crv1->endparam(), 1);
+	      crv2->point(der2, crv2->startparam(), 1);
+	      if (der1[1].angle(der2[1]) > angtol)
+		break;
+	      crv1 = crv2;
+	    }
+	  if (kr > ix2)
+	    return true;
+
+	  // Try the opposite direction
+	  crv1 = getParameterCurve(ki, ix2);
+	  if (ix1_1 < ix2_1)
+	    {
+	      ix1 = ix1_1;
+	      ix2 = (ix2_2 >= 0 ) ? ix2_2 : ix2_1;
+	    }
+	  else
+	    {
+	      ix1 = ix2_1;
+	      ix2 = (ix1_2 >= 0) ? ix1_2 : ix1_1;
+	    }
+	  for (kr=ix2; kr!=ix1; kr=(kr+1)%nmb_crvs)
+	    {
+	      int kh = (kr+1)%nmb_crvs;
+	      vector<Point> der1(2), der2(2);
+	      shared_ptr<ParamCurve> crv2 = getParameterCurve(ki, kh);
+	      crv1->point(der1, crv1->endparam(), 1);
+	      crv2->point(der2, crv2->startparam(), 1);
+	      if (der1[1].angle(der2[1]) > angtol)
+		break;
+	      crv1 = crv2;
+	    }
+	  if (kr == ix1)
+	    return true;
+	}
+    }
+
+  // Not at a smooth boundary segment
   return false;
 } 
 

@@ -53,9 +53,9 @@ using std::pair;
 
 int main(int argc, char** argv)
 {
-  if (argc != 10)
+  if (argc != 11)
     {
-      std::cout << "Input parameters: curve file, out file, tolerance, ll[0], ll[1], ur[0], ur[1], num1, num2" << std::endl;
+      std::cout << "Input parameters: curve file, out file, tolerance, ll[0], ll[1], ur[0], ur[1], num1, num2, min_cell_size" << std::endl;
       exit(1);
     }
 
@@ -69,7 +69,8 @@ int main(int argc, char** argv)
   double ur1 = atof(argv[7]);
   int num1 = atoi(argv[8]);
   int num2 = atoi(argv[9]);
-  
+  double min_cell_size = atof(argv[10]);
+   
   GoTools::init();
 
   vector<shared_ptr<ParamCurve> > curves;
@@ -93,7 +94,6 @@ int main(int argc, char** argv)
   quadval[1] = 0.375;
   quadval[2] = 0.625;
   quadval[3] = 0.875;
-  double min_cell_size = 0.01;
   CutCellQuad quad(curves, tol);
   quad.setQuadratureInfo(quadval, min_cell_size);
   

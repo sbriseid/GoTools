@@ -52,7 +52,7 @@ using namespace Go;
 CutCellQuad::CutCellQuad(vector<shared_ptr<ParamCurve> >& bd_curves,
 			 double tol)
 //==============================================================================
-  : tol_(tol), angtol_(1.0e-3)
+  : tol_(tol), angtol_(1.0e-2)
 {
   //vector<shared_ptr<CurveLoop> > loops;
   sortBoundary(bd_curves, loops_);
@@ -365,11 +365,23 @@ CutCellQuad::createCutCell(vector<shared_ptr<CurveLoop> >& bd_loops,
   for (size_t ki=0; ki<cell_bd.size(); ++ki)
     {
       vector<double> par_start_end;
-      domain->findPcurveInsideSegments(*cell_bd[ki], tol_, par_start_end, true, true);
+      domain->findPcurveInsideSegments(*cell_bd[ki], tol_, par_start_end, false, true);
       for (size_t kj=0; kj<par_start_end.size(); kj+=2)
 	split_cvs.push_back(shared_ptr<ParamCurve>(cell_bd[ki]->subCurve(par_start_end[kj],
 									 par_start_end[kj+1])));
     }
+
+  // Sort curves according to decreasing length to avoid starting the boundary loop
+  // recognition from a short curve
+  for (size_t ki=0; ki<split_cvs.size(); ++ki)
+    for (size_t kj=ki+1; kj<split_cvs.size(); ++kj)
+      {
+	double len1 = split_cvs[ki]->estimatedCurveLength(2);
+	double len2 = split_cvs[kj]->estimatedCurveLength(2);
+	if (len2 > len1)
+	  std::swap(split_cvs[ki], split_cvs[kj]);
+      }
+  
   std::ofstream ofcv("split_cvs.g2");
   for (size_t ki=0; ki<split_cvs.size(); ++ki)
     {
@@ -457,6 +469,11 @@ CutCellQuad::sortLoops(vector<vector<shared_ptr<ParamCurve> > >& loop_cvs,
   vector<shared_ptr<CurveLoop> > in_loops_cw;
   for (size_t ki=0; ki<loop_cvs.size(); ++ki)
     {
+      // Check for degeneracy
+      bool degen = BoundedUtils::loopIsDegenerate(loop_cvs[ki], tol_);
+      if (degen)
+	continue;
+      
       shared_ptr<CurveLoop> curr_loop(new CurveLoop(loop_cvs[ki], tol_));
       bool inside = true;
       if (test_inside)
@@ -528,6 +545,17 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
 			      vector<vector<shared_ptr<ParamCurve> > >& unresolved_cells)
 //==============================================================================
 {
+  std::ofstream of2("cell_curr.g2");
+  for (size_t ki=0; ki<cell_loops.size(); ++ki)
+    {
+      int nmb = cell_loops[ki]->size();
+      for (int ka=0; ka<nmb; ++ka)
+	{
+	  (*cell_loops[ki])[ka]->writeStandardHeader(of2);
+	  (*cell_loops[ki])[ka]->write(of2);
+	}
+    }
+
   // Cell domain
   shared_ptr<CurveBoundedDomain> cvdom(new CurveBoundedDomain(cell_loops));
   RectDomain domain = cvdom->containingDomain();
@@ -537,10 +565,11 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
       vector<shared_ptr<ParamCurve> > unresolved_cvs;
       for (size_t ki=0; ki<cell_loops.size(); ++ki)
 	{
-	  int nmb;
+	  int nmb = cell_loops[ki]->size();
 	  for (int ka=0; ka<nmb; ++ka)
 	    unresolved_cvs.push_back((*cell_loops[ki])[ka]);
 	}
+      unresolved_cells.push_back(unresolved_cvs);
       return;   // Cell not handled
     }
 
@@ -572,6 +601,18 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
 
       vector<vector<shared_ptr<CurveLoop> > > trim_loops;
       createCutCell(cell_loops, div_lines, trim_loops, false);
+      if (trim_loops.size() <= 1)
+	{
+	  vector<shared_ptr<ParamCurve> > unresolved_cvs;
+	  for (size_t ki=0; ki<cell_loops.size(); ++ki)
+	    {
+	      int nmb = cell_loops[ki]->size();
+	      for (int ka=0; ka<nmb; ++ka)
+		unresolved_cvs.push_back((*cell_loops[ki])[ka]);
+	    }
+	  unresolved_cells.push_back(unresolved_cvs);
+	  return;   // Cell not handled
+	}
       for (size_t ki=0; ki<trim_loops.size(); ++ki)
 	{
 	  quadraturePoints(trim_loops[ki], quadraturepoints, unresolved_cells);
@@ -587,7 +628,21 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
  
       // Compute quadrature points
       vector<double> quadpts;
+      try {
       computeQuadraturePoints(cvdom, domain, basedir, quadpts);
+      }
+      catch (...)
+	{
+	  vector<shared_ptr<ParamCurve> > unresolved_cvs;
+	  for (size_t ki=0; ki<cell_loops.size(); ++ki)
+	    {
+	      int nmb = cell_loops[ki]->size();
+	      for (int ka=0; ka<nmb; ++ka)
+		unresolved_cvs.push_back((*cell_loops[ki])[ka]);
+	    }
+	  unresolved_cells.push_back(unresolved_cvs);
+	  return;   // Cell not handled
+ 	}
       quadraturepoints.push_back(quadpts);
     }
 }
@@ -708,7 +763,9 @@ CutCellQuad::computeQuadraturePoints(shared_ptr<CurveBoundedDomain> cvdom,
       vector<double> inside;
       cvdom->findPcurveInsideSegments(*crv, tol_, inside, true, true);
       if (inside.size() != 2)
-	THROW("Height function not properly defined");
+	{
+	  THROW("Height function not properly defined");
+	}
 
       // Compute quadrature
       Point pt3 = crv->ParamCurve::point(inside[0]);
@@ -741,8 +798,10 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
 {
   // Fetch loop corners including derivatives
   vector<Point> corner;
+  int nmb_outer_corner;
   for (size_t ki=0; ki<cell_loops.size(); ++ki)
     {
+      int nmb_corner = 0;
       int nmb = cell_loops[ki]->size();
       int kj, kk;
       for (kj=0, kk=1; kj<nmb; ++kj, kk=(kk+1)%nmb)
@@ -751,12 +810,18 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
 	  (*cell_loops[ki])[kj]->point(der1, (*cell_loops[ki])[kj]->endparam(), 1);
 	  (*cell_loops[ki])[kk]->point(der2, (*cell_loops[ki])[kk]->startparam(), 1);
 	  bool incorner = domain.isOnCorner(Vector2D(der1[0][0],der1[0][1]), tol_);
-	  if ((!incorner) && der1[1].angle(der2[1]) > angtol_)
+	  if (der1[1].angle(der2[1]) > angtol_)
 	    {
-	      corner.insert(corner.end(), der1.begin(), der1.end());
-	      corner.push_back(der2[1]);
+	      if (!incorner)
+		{
+		  corner.insert(corner.end(), der1.begin(), der1.end());
+		  corner.push_back(der2[1]);
+		}
+	      nmb_corner++;
 	    }
 	}
+      if (ki == 0)
+	nmb_outer_corner = nmb_corner;
     }
 
   if (corner.size() > 0)
@@ -806,7 +871,8 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
   vector<double> candpar;
   int preferdir = (turnpts1.size() > 0 && turnpts2.size() == 0) ? 2 :
     ((turnpts2.size() > 0 && turnpts1.size() == 0) ? 1 : 0);
-  defineSplits1(corner, cvdom, domain, cvbox, preferdir, splitpar, dir, candpar);
+  defineSplits1(corner, cvdom, nmb_outer_corner, domain, cvbox,
+		preferdir, splitpar, dir, candpar);
 
   if (splitpar.size() == 0)
     {
@@ -840,7 +906,7 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
 		  break;
 		}
 	    }
-	  if (kj = candpar.size())
+	  if (kj == candpar.size())
 	    {
 	      double upar, vpar;
 	      hole_domain->getInternalPoint(upar, vpar);
@@ -863,6 +929,12 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
 	  splitpar = cell_split1;
 	  dir = cell_dir;
 	}
+      else if (cell_split2.size() > 0)
+	{
+	  splitpar = cell_split2;
+	  if (dir <= 0)
+	    dir = cell_dir;
+	}
     }
 
   if (splitpar.size() == 0 && turnpts1.size() + turnpts2.size() > 0)
@@ -875,6 +947,7 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
 //==============================================================================
 void CutCellQuad::defineSplits1(const vector<Point>& corner,
 				shared_ptr<CurveBoundedDomain> cvdom,
+				int nmb_outer_corner,
 				const RectDomain& domain,
 				const BoundingBox& cvbox,
 				int preferdir,
@@ -947,13 +1020,37 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
     }
   if (num_u == 0 && num_v > 0)
     {
-      if (((split_v1.size() < 2 && split_v2.size() < 2) || split_v1.size() == split_v2.size()) &&
+      bool samecv = false;
+      if (split_v1.size() == 1 && split_v2.size() == 1)
+	{
+	  Vector2D pt1(umin, split_v1[0]);
+	  Vector2D pt2(umax, split_v2[0]);
+	  samecv = cvdom->onSmoothBdSeg(pt1, pt2, tol_, angtol_);
+	}
+      if (((split_v1.size() == 1 && split_v2.size() == 1 && samecv) ||
+	   (split_v1.size()+split_v2.size() == 1 && nmb_outer_corner <= 4)) &&
 	  split_vin.size() == 0 && split_vout.size() == 0)
 	{
 	  dir = 1;
 	  candpar.insert(candpar.end(), split_v1.begin(), split_v1.end());
 	  candpar.insert(candpar.end(), split_v2.begin(), split_v2.end());
 	  std::sort(candpar.begin(), candpar.end());
+	}
+      else if (split_v1.size() > 0 && split_v2.size() > 0)
+	{
+	  dir = 2;
+	  splitpar.insert(splitpar.end(), split_v1.begin(), split_v1.end());
+	  splitpar.insert(splitpar.end(), split_v2.begin(), split_v2.end());
+	  if (split_uin.size() > 0)
+	    splitpar.insert(splitpar.end(), split_vin.begin(), split_vin.end());
+	  std::sort(splitpar.begin(), splitpar.end());
+	  bool OK = checkSplits(splitpar, 0.2*(vmax-vmin));
+	  if (!OK)
+	    {
+	      splitpar.clear();
+	      splitpar.push_back(0.5*(umin+umax));
+	      dir = 1;
+	    }
 	}
       else 
 	{
@@ -965,20 +1062,19 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	  if (split_uin.size() > 0)
 	    splitpar.insert(splitpar.end(), split_vin.begin(), split_vin.end());
 	  std::sort(splitpar.begin(), splitpar.end());
-
-	  // Check for close split parameters
-	  bool OK = checkSplits(splitpar);
-	  if (!OK)
-	    {
-	      splitpar.clear();
-	      splitpar.push_back(0.5*(umin+umax));
-	      dir = 1;
-	    }
 	}
     }
   else if (num_v == 0 && num_u > 0)
     {
-      if (((split_u1.size() < 2 && split_u2.size() < 2) || split_u1.size() == split_u2.size()) &&
+      bool samecv = false;
+      if (split_u1.size() == 1 && split_u2.size() == 1)
+	{
+	  Vector2D pt1(split_u1[0], vmin);
+	  Vector2D pt2(split_u2[0], vmax);
+	  samecv = cvdom->isOnSameBdCrv(pt1, pt2, tol_);
+	}
+      if (((split_u1.size() == 1 && split_u2.size() == 1 && samecv) ||
+	   (split_u1.size()+split_u2.size() == 1 && nmb_outer_corner <= 4)) &&
 	  split_uin.size() == 0 && split_vout.size() == 0)
 	{
 	  dir = 2;
@@ -986,7 +1082,25 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	  candpar.insert(candpar.end(), split_u2.begin(), split_u2.end());
 	  std::sort(candpar.begin(), candpar.end());
 	}
-      else 
+      else if (split_u1.size() > 0 && split_u2.size() > 0)
+	{
+	  dir = 1;
+	  splitpar.insert(splitpar.end(), split_u1.begin(), split_u1.end());
+	  splitpar.insert(splitpar.end(), split_u2.begin(), split_u2.end());
+	  if (split_uin.size() > 0)
+	    splitpar.insert(splitpar.end(), split_uin.begin(), split_uin.end());
+	  std::sort(splitpar.begin(), splitpar.end());
+	  
+	  // Check for close split parameters
+	  bool OK = checkSplits(splitpar, 0.2*(umax-umin));
+	  if (!OK)
+	    {
+	      splitpar.clear();
+	      splitpar.push_back(0.5*(vmin+vmax));
+	      dir = 2;
+	    }
+	}
+     else 
 	{
 	  dir = 1;
 	  if (split_u1.size() > split_u2.size())
@@ -997,19 +1111,19 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	    splitpar.insert(splitpar.end(), split_uin.begin(), split_uin.end());
 	  std::sort(splitpar.begin(), splitpar.end());
 
-	  // Check for close split parameters
-	  bool OK = checkSplits(splitpar);
-	  if (!OK)
-	    {
-	      splitpar.clear();
-	      splitpar.push_back(0.5*(vmin+vmax));
-	      dir = 2;
-	    }
+	  // // Check for close split parameters
+	  // bool OK = checkSplits(splitpar);
+	  // if (!OK)
+	  //   {
+	  //     splitpar.clear();
+	  //     splitpar.push_back(0.5*(vmin+vmax));
+	  //     dir = 2;
+	  //   }
 	}
     }
   else if (num_u > 0 && num_v > 0)
     {
-      if (split_uin.size() > 0)
+      if (split_uin.size() > 0 && !(split_vin.size() > 0 && preferdir == 2))
 	{
 	  dir = 1;
 	  splitpar = split_uin;
@@ -1117,7 +1231,42 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	      splitpar.push_back(tmpsplit[ix]);
 	    }
 	}
-      
+
+      std::sort(splitpar.begin(), splitpar.end());
+      if (split_uin.size() == 0 && split_vin.size() == 0 && preferdir == 0)
+	{
+	  // Check split parameters
+	  vector<double> tmpsplit(splitpar.begin(), splitpar.end());
+	  double minp = (dir == 1)  ? domain.umin() : domain.vmin();
+	  double maxp = (dir == 1)  ? domain.umax() : domain.vmax();
+	  double lim = std::max(min_cell_size_, 0.1*(maxp - minp));
+	  checkSplits2(tmpsplit, minp, maxp, lim);
+	  if (tmpsplit.size() == 0)
+	    {
+	      // Try the other parameter direction
+	      if (dir == 1)
+		{
+		  if (split_v1.size() > split_v2.size())
+		    tmpsplit.insert(tmpsplit.begin(), split_v1.begin(), split_v1.end());
+		  else
+		    tmpsplit.insert(tmpsplit.begin(), split_v2.begin(), split_v2.end());
+		}
+	      else
+		{
+		  if (split_u1.size() > split_u2.size())
+		    tmpsplit.insert(tmpsplit.begin(), split_u1.begin(), split_u1.end());
+		  else
+		    tmpsplit.insert(tmpsplit.begin(), split_u2.begin(), split_u2.end());
+		}
+	      checkSplits2(tmpsplit, minp, maxp, lim);
+	      if (tmpsplit.size() > 0)
+		{
+		  splitpar = tmpsplit;
+		  dir = 3 - dir;
+		}
+	    }
+	}
+ 
       //  vector<double> tmpsplit1, tmpsplit2;
       // tmpsplit1.insert(tmpsplit1.end(), split_u1.begin(), split_u1.end());
       // tmpsplit1.insert(tmpsplit1.end(), split_u2.begin(), split_u2.end());
@@ -1221,11 +1370,22 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
       std::sort(splitpar.begin(), splitpar.end());
       double minp = (dir == 1)  ? domain.umin() : domain.vmin();
       double maxp = (dir == 1)  ? domain.umax() : domain.vmax();
-      double lim = 0.1*(maxp - minp);
+      double midp = 0.5*(minp + maxp);
+      double lim = std::max(min_cell_size_, 0.1*(maxp - minp));
       if (splitpar[0] - minp < lim && maxp - splitpar[splitpar.size()-1] >= lim)
 	splitpar.erase(splitpar.begin(), splitpar.begin()+1);
-      else if (maxp - splitpar[splitpar.size()-1] < lim)
+      else if (maxp - splitpar[splitpar.size()-1] < lim && splitpar[0] - minp >= lim)
 	splitpar.pop_back();
+      for (size_t ki=1; ki<splitpar.size(); )
+	{
+	  if (splitpar[ki] - splitpar[ki-1] < lim)
+	    {
+	      size_t ix = (fabs(midp - splitpar[ki-1]) < fabs(midp - splitpar[ki])) ? ki : ki-1;
+	      splitpar.erase(splitpar.begin()+ix);
+	    }
+	  else
+	    ++ki;
+	}
     }
       
   
@@ -1326,11 +1486,12 @@ void CutCellQuad::defineSplits2(const vector<Point>& turnpts1,
 }
  
 //==============================================================================
-bool CutCellQuad::checkSplits(vector<double>& splitpar)
+bool CutCellQuad::checkSplits(vector<double>& splitpar, double del)
 //==============================================================================
 {
   double eps = 1.0e-10;
   size_t kj;
+  double del2 = (del > 0) ? del : min_cell_size_;
   for (kj=1; kj<splitpar.size();)
     {
       if (splitpar[kj] - splitpar[kj-1] <= eps)
@@ -1338,13 +1499,36 @@ bool CutCellQuad::checkSplits(vector<double>& splitpar)
 	  splitpar[kj-1] = 0.5*(splitpar[kj-1]+splitpar[kj]);
 	  splitpar.erase(splitpar.begin()+kj);
 	}
-      else if (splitpar[kj] - splitpar[kj-1] < min_cell_size_)
+      else if (splitpar[kj] - splitpar[kj-1] < del2)
 	break;
       else
 	++kj;
     }
   return (kj < splitpar.size()) ? false : true;
 }
+
+//==============================================================================
+void CutCellQuad::checkSplits2(vector<double>& splitpar, double minp, double maxp,
+			       double lim)
+//==============================================================================
+{
+  double midp = 0.5*(minp + maxp);
+   if (splitpar[0] - minp < lim)
+    splitpar.erase(splitpar.begin(), splitpar.begin()+1);
+  if (splitpar.size() > 0 && maxp - splitpar[splitpar.size()-1] < lim)
+    splitpar.pop_back();
+  for (size_t ki=1; ki<splitpar.size(); )
+    {
+      if (splitpar[ki] - splitpar[ki-1] < lim)
+	{
+	  size_t ix = (fabs(midp - splitpar[ki-1]) < fabs(midp - splitpar[ki])) ? ki : ki-1;
+	  splitpar.erase(splitpar.begin()+ix);
+	}
+      else
+	++ki;
+    }
+}
+
 //==============================================================================
 void CutCellQuad::fetchTurningPoints(shared_ptr<ParamCurve> cv,
 				     vector<Point>& turnpts1, vector<Point>& turnpts2)

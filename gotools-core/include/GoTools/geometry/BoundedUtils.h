@@ -398,7 +398,10 @@ namespace BoundedUtils {
     bool loopIsDegenerate(std::vector<shared_ptr<CurveOnSurface> >& loop,
 			  double epsgeo);
 
-    bool createMissingParCvs(BoundedSurface& bd_sf);
+    bool loopIsDegenerate(std::vector<shared_ptr<ParamCurve> >& loop,
+			  double epsgeo);
+
+     bool createMissingParCvs(BoundedSurface& bd_sf);
 
     bool createMissingParCvs(std::vector<CurveLoop>& bd_loops);
 

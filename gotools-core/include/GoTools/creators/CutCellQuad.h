@@ -118,6 +118,7 @@ namespace Go
     
     void defineSplits1(const std::vector<Point>& corner,
 		       shared_ptr<CurveBoundedDomain> cvdom,
+		       int nmb_outer_corner,
 		       const RectDomain& domain,
 		       const BoundingBox& cvbox,
 		       int preferdir,
@@ -135,7 +136,10 @@ namespace Go
 			    std::vector<Point>& turnpts1,
 			    std::vector<Point>& turnpts2);
 
-    bool checkSplits(std::vector<double>& splitpar);
+    bool checkSplits(std::vector<double>& splitpar, double del=-1);
+
+    void checkSplits2(std::vector<double>& splitpar, double minp,
+		      double maxp, double lim);
 
   };
 } // end namespace Go
