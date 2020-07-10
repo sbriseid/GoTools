@@ -565,6 +565,17 @@ public:
       return false;
     }
 
+    /// Access to application specific flag coded into an integer
+    void setFlagCode(int code)
+    {
+      flagcode_ = code;
+    }
+
+    int getFlagCode()
+    {
+      return flagcode_;
+    }
+
  protected:
     /// Degeneracy information regarding one boundary surface of the current surface
     struct degenerate_info
@@ -587,11 +598,14 @@ public:
     mutable double est_sf_size_u_, est_sf_size_v_;
     mutable int nmb_size_u_, nmb_size_v_;
 
+    // Application specific code to use as flag during computations
+    mutable int flagcode_;
+    
     IteratorType iterator_;
 
     ParamSurface()
       : est_sf_size_u_(0.0), est_sf_size_v_(0.0), nmb_size_u_(-1), 
-      nmb_size_v_(-1), iterator_(Iterator_parametric)
+      nmb_size_v_(-1), flagcode_(-1), iterator_(Iterator_parametric)
 	{
 	}
 

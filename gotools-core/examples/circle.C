@@ -92,6 +92,15 @@ int main(int argc, char** argv)
     cout << "Circle length   = " << circle1.length(epsilon) << endl;
     cout << "Bounding box    = " << circle1.boundingBox() << endl;
 
+    // Spline representation of a full circle.
+    SplineCurve* spline_circle = circle1.geometryCurve();
+   // Write subcurve to file
+    ofstream fout0("spline_circle.g2");
+     // Class_SplineCurve=100 MAJOR_VERSION=1 MINOR_VERSION=1 auxillary_data=0
+    spline_circle->writeStandardHeader(fout0); // write header.
+    fout0 << *spline_circle;    // write spline curve data.
+    fout0.close();
+
     // Closest point(). Full circle. Parameter search from 0 to 2*PI 
     // double tmin, tmax, clo_t, clo_u, clo_v, clo_dist;
     double tmin, tmax, clo_t, clo_dist;
@@ -146,6 +155,7 @@ int main(int argc, char** argv)
     // cout << "Open the file 'spline_circle_segm.g2' in 'goview' to look at the results"
     //      << endl;
     delete spline_circle_segm;
+    delete spline_circle;
 }
 
 

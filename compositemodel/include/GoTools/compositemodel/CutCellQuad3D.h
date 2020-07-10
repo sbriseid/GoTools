@@ -37,79 +37,59 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#ifndef _LRSPLINE3DBEZIERCOEFS_H
-#define _LRSPLINE3DBEZIERCOEFS_H
+#ifndef _CUTCELLQUAL3D_H_
+#define  _CUTCELLQUAL3D_H_
 
-#include "GoTools/lrsplines3D/LRSplineVolume.h"
-#include "GoTools/lrsplines3D/Element3D.h"
-#include "GoTools/lrsplines3D/Mesh3D.h"
+#include "GoTools/utils/Point.h"
 #include "GoTools/utils/BoundingBox.h"
+#include "GoTools/compositemodel/SurfaceModel.h"
+#include "GoTools/compositemodel/Body.h"
 
-
-#include <vector>
-#include <string>
-#include <fstream>
-
-namespace Go 
+namespace Go
 {
-
-// =============================================================================
-class LRSpline3DBezierCoefs 
-// =============================================================================
-{
-public:
+  class Body;
   
-  LRSpline3DBezierCoefs();
-
-  LRSpline3DBezierCoefs(LRSplineVolume& lr_spline);
-
-  void getBezierCoefs(int ind=-1);
-
-  void writeToStream(std::ostream& os);
-
-  void writeToFile(const std::string& filename);
-
-private:
-  
-  void computeCoefsFromPts(const double *points, double *coefs, int ind);
-
-  void calcMinMaxCoefficientsValue();
-
-  LRSplineVolume lr_spline_; // TODO: remove the need for this
- 
-  int order_u_;
-  int order_v_;
-  int order_w_;
-  int dim_;
-  int dim2_;
-  int num_elements_;
-  
-  Array<double,6> orig_dom_;
-  std::vector<double> bezier_coefs_; 
-  std::vector<double> min_coef_value_;
-  std::vector<double> max_coef_value_;
-  std::vector<Go::BoundingBox> boxes_;
-
-  double min_box_diagonal_;
-  double max_box_diagonal_;
-
-  static constexpr double M3_[9] = // interpolation matrix for quadratic splines
+  class CutCellQuad3D
   {
-    1,   0,   0,
-    -.5,   2, -.5,
-    0,   0,   1
-  };
-  static constexpr double M4_[16] = // interpolation matrix for cubic splines
-  {
-         1,        0,      0,      0,
-    -5/6.0,   18/6.0, -9/6.0,  2/6.0,
-     2/6.0,   -9/6.0, 18/6.0, -5/6.0,
-         0,        0,      0,      1
-  };
+  public:
+    // Constructor
+    CutCellQuad3D(shared_ptr<SurfaceModel> sf_model, double tol);
 
-};
+    // Define quadrature information
+    void setQuadratureInfo(std::vector<double>& quadpar,
+			   std::vector<double> weights,
+			   double min_cell_size)
+    {
+      quadpar_ = quadpar;
+      weights_ = weights;
+      min_cell_size_ = min_cell_size;
+    }
+    
+    // Check cell status
+    int cellStat(const Point& ll, const Point& ur, int& coinc);
 
+    // Compute quadrature points and weights
+    void quadrature(const Point& ll, const Point& ur,
+		    std::vector<std::vector<double> >& quadraturepoints,
+		    std::vector<std::vector<double> >& pointsweights,
+		    std::vector<std::vector<shared_ptr<ParamSurface> > >& unresolved_cells,
+		    std::vector<std::vector<double> >& surfquads,
+		    std::vector<std::vector<double> >& sfptweights,
+		    std::vector<std::vector<shared_ptr<ParamSurface> > >& small_sfs,
+		    int stat = -1, int coinc = -1);
+
+ private:
+    double tol_;
+    shared_ptr<Body> body_;
+    std::vector<double> quadpar_;
+    std::vector<double> weights_;
+    double min_cell_size_;
+
+    void createCutCell(const Point& ll, const Point& ur, shared_ptr<Body>& cutcell);
+
+    void createCellSfs(const Point& ll, const Point& ur,
+		       std::vector<shared_ptr<SplineSurface> >& cell_sfs);
+   };
 } // end namespace Go
 
-#endif // _LRSPLINE3DBEZIERCOEFS_H
-
+#endif

@@ -23,6 +23,7 @@ void print_help_text()
   std::cout << "The first line in the point file reports on the number of points.\n";
    std::cout << "The points follow and is to be given as x, y, z and w.\n";
   std::cout << "Optional input parameters: \n";
+  std::cout << "-par <dim>: Dimension of geometry space, used for parameterized data (default 1) \n";
   std::cout << "-dist <filename (.txt)> : Write distance field to file (x, y, z, distance) \n";
   std::cout << "-info <filename> : Write accuracy information to file \n";
   std::cout << "-initmba <0/1>: 0 = initiate with least squares method \n";
@@ -114,6 +115,7 @@ int main (int argc, char *argv[]) {
   int ncell1=0, ncell2=0, ncell3=0;
   bool features = false;
   vector<int> feature_levels;
+  int dim = 1;
 
   int ki, kj;
   vector<bool> par_read(argc-1, false);
@@ -150,6 +152,13 @@ int main (int argc, char *argv[]) {
       else if (arg == "-initmba")
 	{
 	  int stat = fetchIntParameter(argc, argv, ki, initMBA, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+      else if (arg == "-par")
+	{
+	  int stat = fetchIntParameter(argc, argv, ki, dim, 
 				       nmb_par, par_read);
 	  if (stat < 0)
 	    return 1;
@@ -263,17 +272,16 @@ int main (int argc, char *argv[]) {
   double domain[6];
   domain[0] = domain[2] = domain[4] = 1.0e8;
   domain[1] = domain[3] = domain[5] = -1.0e8;
-  double mba_level = 0.0; //0.5*(minval+maxval); //0.0;
-  double minval = std::numeric_limits<double>::max();
-  double maxval = std::numeric_limits<double>::lowest();
+  vector<double> mba_level(dim,0.0); //0.5*(minval+maxval); //0.0;
+  vector<double> minval(dim, std::numeric_limits<double>::max());
+  vector<double> maxval(dim, std::numeric_limits<double>::lowest());
   for (int ix=0; ix!=nmb_pts; ++ix)
     {
       double p0, p1, p2, q0;
-      ifs >> p0 >> p1 >> p2 >> q0;
+      ifs >> p0 >> p1 >> p2;
       pc4d.push_back(p0);
       pc4d.push_back(p1);
       pc4d.push_back(p2);
-      pc4d.push_back(q0);
       
       domain[0] = std::min(domain[0], p0);
       domain[1] = std::max(domain[1], p0);
@@ -282,9 +290,15 @@ int main (int argc, char *argv[]) {
       domain[4] = std::min(domain[4], p2);
       domain[5] = std::max(domain[5], p2);
 
-      mba_level += q0/(double)nmb_pts;
-      minval = std::min(minval, q0);
-      maxval = std::max(maxval, q0);
+      for (int ka=0; ka<dim; ++ka)
+	{
+	  ifs >> q0;
+	  pc4d.push_back(q0);
+
+	  mba_level[ka] += q0/(double)nmb_pts;
+	  minval[ka] = std::min(minval[ka], q0);
+	  maxval[ka] = std::max(maxval[ka], q0);
+	}
     }
 
  
@@ -318,14 +332,16 @@ int main (int argc, char *argv[]) {
     }
   if (epsge < 0.0)
     use_stdd = true;
-	  
+
+  double mba_level2 = (dim > 1) ? 0.0 : mba_level[0];
+  
   if (use_stdd)
     {
       double stdd = 0.0;
       for (ki=0; ki<nmb_pts; ++ki)
 	{
 	  double q1 = pc4d[del*ki+del-1];
-	  stdd += (pow(mba_level-q1,2)/(double)nmb_pts);
+	  stdd += (pow(mba_level2-q1,2)/(double)nmb_pts);
 	}
       stdd = sqrt(stdd);
       for (size_t kj=0; kj<tolerances.size(); ++kj)
@@ -342,8 +358,8 @@ int main (int argc, char *argv[]) {
      
   std::cout << "Domain: [" << domain[0] << "," << domain[1] << "]x[" << domain[2];
   std::cout << "," << domain[3] << "]x[" << domain[4] << "," << domain[5] << "]" << std::endl;
-  std::cout << "Range: [" << minval << "," << maxval << "]" << std::endl;
-  int dim = 1;
+  for (int ka=0; ka<dim; ++ka)
+    std::cout << "Range(" << ka << "): [" << minval[ka] << "," << maxval[ka] << "]" << std::endl;
   int ncoef = 6; //6; //8; //6
   int order = degree+1; //5; //3
   int nm = ncoef*ncoef*ncoef;
@@ -359,10 +375,10 @@ int main (int argc, char *argv[]) {
       nc[kj] = std::max(nc[kj], order);
     }
   std::cout << "Number of coefficients: " << nc[0] << ", " << nc[1] << ", " << nc[2] << std::endl;
-  // LRVolApprox vol_approx(nc[0], order, nc[1], order, nc[2], order,
-  // 			 pc4d, dim, domain, epsge, mba_level);
-  LRVolApprox vol_approx(ncoef, order, ncoef, order, ncoef, order,
-  			 pc4d, dim, domain, epsge, mba_level);
+  LRVolApprox vol_approx(nc[0], order, nc[1], order, nc[2], order,
+  			 pc4d, dim, domain, epsge, mba_level2);
+  // LRVolApprox vol_approx(ncoef, order, ncoef, order, ncoef, order,
+  // 			 pc4d, dim, domain, epsge, mba_level2);
   vol_approx.setInitMBA(initMBA);
   if (tolerances.size() > 0)
     vol_approx.setVarTolBox(tolerances);

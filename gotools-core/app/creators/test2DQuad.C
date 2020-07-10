@@ -92,16 +92,26 @@ int main(int argc, char** argv)
   std::cout << "Cell status: " << stat << std::endl;
 
   vector<double> quadval(4);
-  quadval[0] = 0.125;
-  quadval[1] = 0.375;
-  quadval[2] = 0.625;
-  quadval[3] = 0.875;
+  quadval[0] = 0.069431844202973712388026755553595247452;
+  quadval[1] = 0.33000947820757186759866712044837765640;
+  quadval[2] = 0.66999052179242813240133287955162234360;
+  quadval[3] = 0.93056815579702628761197324444640475255;
+  vector<double> weights(4);
+  weights[0] = 0.173927422568726928686531974610999703618;
+  weights[1] = 0.326072577431273071313468025389000296382;
+  weights[2] = 0.326072577431273071313468025389000296382;
+  weights[3] = 0.173927422568726928686531974610999703618;
   vector<vector<double> > quadpt;
+  vector<vector<double> > bdquad;
   double min_cell_size = 0.01;
-  quad.setQuadratureInfo(quadval, min_cell_size);
+  quad.setQuadratureInfo(quadval, weights, min_cell_size);
 
   vector<vector<shared_ptr<ParamCurve> > > unresolved_cells;
-  quad.quadrature(ll, ur, quadpt, unresolved_cells, stat);
+  vector<vector<shared_ptr<ParamCurve> > > short_cvs;
+  vector<vector<double> > ptweights;
+  vector<vector<double> > bdweights;
+  quad.quadrature(ll, ur, quadpt, ptweights, unresolved_cells,
+		  bdquad, bdweights, short_cvs, stat);
   
   int stop_break = 1;
 }

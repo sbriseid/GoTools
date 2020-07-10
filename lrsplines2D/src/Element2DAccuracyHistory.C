@@ -48,7 +48,9 @@ using namespace Go;
 using std::vector;
 
 void Element2DAccuracyHistory::checkAccuracyChange(int level, char* filename,
-						   char* filename2, double frac)
+						   char* filename2, double frac,
+						   int& nmb_div_el, int& nmb_none,
+						   int& nmb_under)
 {
   if (level >= elementhist_.size()-1)
     return;   // No comparisement possible
@@ -59,7 +61,7 @@ void Element2DAccuracyHistory::checkAccuracyChange(int level, char* filename,
   vector<double> elem_out;
   double eps = 1.0e-6;
 
-  int nmb_none = 0, nmb_under = 0, nmb_div = 0;;
+  nmb_div_el = nmb_none = nmb_under = 0;
   std::ofstream os(filename);
   for (size_t ki=0; ki<elementhist_[level].size(); ++ki)
     {
@@ -83,7 +85,7 @@ void Element2DAccuracyHistory::checkAccuracyChange(int level, char* filename,
 	elem_out.insert(elem_out.end(), mid.begin(), mid.end());
 
       if (next.size() > 1)
-	nmb_div++;
+	nmb_div_el++;
       if (nmb_pts == 0 && next.size() > 1)
 	nmb_none++;
       if (nmb_pts > 0 && next.size() > 1 && nmb_out == 0)
@@ -176,7 +178,7 @@ void Element2DAccuracyHistory::checkAccuracyChange(int level, char* filename,
   int nmb2 = (level+1 < (int)elementhist_.size()) ? elementhist_[level+1].size() : 0;
   std::cout << "Number of elements: " << elementhist_[level].size();
   std::cout << ", " << nmb2 << std::endl;
-  std::cout << "Number of elements divided: " << nmb_div << std::endl;
+  std::cout << "Number of elements divided: " << nmb_div_el << std::endl;
   std::cout << "Divided elements without points: " << nmb_none << std::endl;
   std::cout << "Divided elements inside tolerance: " << nmb_under << std::endl;
   

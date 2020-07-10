@@ -5908,6 +5908,10 @@ namespace {
     Point vec = Point(vec0[1], -vec0[0]); //Point(curr_val[1][1], -curr_val[1][0]);
     Point vec1 = pos1_2 - pos1_1;
     Point vec2 = pos2_2 - pos2_1;
+    vec0.normalize();
+    vec1.normalize();
+    vec2.normalize();
+    vec.normalize();
     ang1 = vec0.angle(vec1); //curr_val[1].angle(vec1);
     if (vec*vec1 < -ang_tol)
       ang1 *= -1;

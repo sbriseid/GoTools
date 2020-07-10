@@ -541,6 +541,9 @@ private:
     double vsize_min_;  // Minimum element size in v direction, negative 
     // if not set
 
+    double prev_el_out_;
+    double prev_thresh_;
+    
     bool fix_boundary_;
     bool make_ghost_points_;
     bool outlier_detection_;
@@ -590,7 +593,7 @@ private:
     //int refineSurf(int iter);
     int refineSurf(int iter, int& dir, double threshold);
     int refineSurf2();
-    int refineSurf3(int iter, int& dir, double threshold);
+    int refineSurf3(int iter, int& dir, double threshold, int refstrat);
     int refineSurf4(int& dir, double threshold);
     void getRefineExtension(Element2D *elem, Direction2D fixdir,
 			    int strategy, double& pmin, double& pmax);

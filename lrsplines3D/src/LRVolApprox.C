@@ -437,7 +437,7 @@ shared_ptr<LRSplineVolume> LRVolApprox::getApproxVol(double& maxdist,
   FILE *fp = fopen("acc_stat2.txt","w");
   fprintf(fp, "Max iterations = %d, tolerance = %4.2f, no pts: %d \n",iterations, aepsge_, nmb_pts_);
   fprintf(fp,"iter, maxdist, average dist, no. pts. out, no. coefs, rel. improvement, no. pts.in, diff no pts out, diff no coefs, added elements, diff maxdist, diff avdist, average out  \n");
-  bool alter = false;
+  bool alter = true; //false;
   int div = 1; 
   int currdiv = (alter) ? 1 : 4;
 
@@ -660,8 +660,8 @@ shared_ptr<LRSplineVolume> LRVolApprox::getApproxVol(double& maxdist,
 	    threshold = std::max(mineps, threshold);
 	    //threshold = aepsge_;
 	    std::cout << "Level " << level+1 << ", threshold = " << threshold << std::endl;
-	    //int nmb_refs = refineVol3(level+1, currdiv, threshold);
-	    int nmb_refs = refineVol(level+1, currdiv, threshold);
+	    int nmb_refs = refineVol3(level+1, currdiv, threshold);
+	    //int nmb_refs = refineVol(level+1, currdiv, threshold);
 	    if (nmb_refs == 0)
 	      {
 		std::cout << "No refinements performed" << std::endl;
@@ -1633,7 +1633,11 @@ void LRVolApprox::computeAccuracy_omp(vector<Element3D*>& ghost_elems)
 	}
       else
 	{
-	  MESSAGE("3D NOT SUPPORTED YET...");
+	  Point pos;
+	  Point curr_pt = Point(curr+3, curr+6);
+	  vol_->point(pos, curr[0], curr[1], curr[2], elem3);
+	  dist = pos.dist(curr_pt);
+	  Point vec = curr_pt - pos;
 	}
       curr[del-1] = dist;
       // curr_pt = Point(curr+(dim==3)*3, curr+del-1);
@@ -1998,7 +2002,7 @@ int LRVolApprox::refineVol3(int iter, int& dir, double threshold)
   av_wgt /= (double)el_out;
 
   double fac = (max_wgt > 2.0*min_wgt) ? 0.5 : 1.0;;
-  double thresh2 = fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
+  double thresh2 = min_wgt; //fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
   std::cout << "min_wgt = " << min_wgt << ", av_wgt = " << av_wgt << ", max_wgt = " << max_wgt << std::endl;
   std::cout << "thresh2 = " << thresh2 << std::endl;
 
@@ -2009,11 +2013,12 @@ int LRVolApprox::refineVol3(int iter, int& dir, double threshold)
   int dir2 = (outel_fac > choose_fac2 && outel_fac < choose_fac1) ? dir : 4;
   if (iter == 1)
     dir2 = 4;
+  dir2 = dir;
   if (dir2 == dir && dir2 != 4)
     dir = (dir%3) + 1;
   
   // Extension strategy: 1=all, 2=largest, 3="best"
-  int extstrategy = 2; //(outel_fac > choose_fac2) ? 3 : 1;
+  int extstrategy = 1; //(outel_fac > choose_fac2) ? 3 : 1;
   std::cout << "Dir: " << dir2 << ", extstrategy: " << extstrategy << std::endl;
   vector<LRSplineVolume::Refinement3D> refs_x, refs_y, refs_z;
   for (LRSplineVolume::ElementMap::const_iterator it=vol_->elementsBegin();

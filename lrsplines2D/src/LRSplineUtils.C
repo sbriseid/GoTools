@@ -1838,7 +1838,40 @@ void LRSplineUtils::distributeDataPoints(LRSplineSurface* srf,
 	  it->second->eraseSignificantPoints();
 	}
     }
-
+#if 0
+  for (size_t ix=0; ix!=nmb; ix++) {
+    // Fetch associated element
+    Element2D* elem = srf->coveringElement(points[del*ix],points[del*ix+1]);
+    if (type <= REGULAR_POINTS)
+      {
+	if (add_distance_field)
+	  elem->addDataPoints(points.begin()+del*ix, points.begin()+del*(ix+1),
+			      del, false, outlier_flag);
+	else
+	  elem->addDataPoints(points.begin()+del*ix, points.begin()+del*(ix+1),
+			      false);
+      }
+    if (type <= SIGNIFICANT_POINTS)
+      {
+	if (add_distance_field)
+	  elem->addSignificantPoints(points.begin()+del*ix, points.begin()+del*(ix+1),
+			      del, false, outlier_flag);
+	else
+	  elem->addSignificantPoints(points.begin()+del*ix, points.begin()+del*(ix+1),
+			      false);
+      }
+    else
+      {
+	if (add_distance_field)
+	  elem->addGhostPoints(points.begin()+del*ix, points.begin()+del*(ix+1),
+			      del, false, outlier_flag);
+	else
+	  elem->addGhostPoints(points.begin()+del*ix, points.begin()+del*(ix+1),
+			      false);
+      }
+  }
+#endif
+#if 1
   // Sort the points according to the u-parameter
   qsort(&points[0], nmb, del*sizeof(double), compare_u_par);
 
@@ -1920,6 +1953,7 @@ void LRSplineUtils::distributeDataPoints(LRSplineSurface* srf,
 	}
       pp0 = pp1;
     }
+  #endif
   int stop_break = 1;
 }
 

@@ -104,6 +104,49 @@ int main(int argc, char** argv)
   vector<vector<double> > bdquad;
   quad.setQuadratureInfo(quadval, weights, min_cell_size);
 
+  Point pt1(0.0, 0.0);
+  Point pt2(1.0, 0.0);
+  shared_ptr<SplineCurve> lincv(new SplineCurve(pt1, 0.0, pt2, 2.0));
+  double ta = lincv->startparam();
+  double tb = lincv->endparam();
+  double del = tb - ta;  
+  double len0 = 0.0;
+  for (int kb=0; kb<4; kb++)
+    {
+      vector<Point> der(2);
+      lincv->point(der, ta + quadval[kb]*del, 1);
+      double tmp = weights[kb]*del*der[1].length();
+      len0 += tmp;
+    }
+  std::cout << "len0 : " << len0 << std::endl;
+
+  vector<double> knots(6);
+  knots[0] =  knots[1] = knots[2] = 0.0;
+  knots[3] = knots[4] = knots[5] = 0.5*M_PI;
+  vector<double> cfs(9);
+  cfs[0] = 1;
+  cfs[1] = 0;
+  cfs[2] = 1;
+  cfs[3] = 0.707106781186547;
+  cfs[4] = 0.707106781186547;
+  cfs[5] = 0.707106781186547;
+  cfs[6] = 0;
+  cfs[7] = 1;
+  cfs[8] = 1;
+  shared_ptr<SplineCurve> circseg(new SplineCurve(3, 3, &knots[0], &cfs[0], 2, true));
+  double ta1 = circseg->startparam();
+  double tb1 = circseg->endparam();
+  del = tb1 - ta1;  
+  double len1 = 0.0;
+  for (int kb=0; kb<4; kb++)
+    {
+      vector<Point> der(2);
+      circseg->point(der, ta1 + quadval[kb]*del, 1);
+      double tmp = weights[kb]*del*der[1].length();
+      len1 += tmp;
+    }
+  std::cout << "len1 : " << len1 << std::endl;
+
   
   int ki, kj;
   double del1 = (ur0 - ll0)/(double)num1;
@@ -128,7 +171,9 @@ int main(int argc, char** argv)
 
   std::ofstream uncv("unresolved.g2");
   std::ofstream uncv2("shortcurves.g2");
-  
+
+  double area = 0.0;
+  double ferenc = 0.0;
   for (kj=0, v1=ll1, v2=v1+del2; kj<num2; ++kj, v1=v2, v2+=del2)
     for (ki=0, u1=ll0, u2=u1+del1; ki<num1; ++ki, u1=u2, u2+=del1)
       {
@@ -157,6 +202,8 @@ int main(int argc, char** argv)
 		  {
 		    Point pt(quadpt[kk][kr], quadpt[kk][kr+1], 0.0);
 		    outfile << pt << std::endl;
+		    
+		    area += ptweights[kk][kr/2];
 		  }
 	      }
 
@@ -173,11 +220,15 @@ int main(int argc, char** argv)
 		  {
 		    outfile << "400 1 0 4 155 0 100 255" << std::endl;
 		    outfile << bdquad[kk].size()/2 << std::endl;
+		    double tmp = 0.0;
 		    for (size_t kr=0; kr<bdquad[kk].size(); kr+=2)
 		      {
 			Point pt(bdquad[kk][kr], bdquad[kk][kr+1], 0.0);
 			outfile << pt << std::endl;
+			
+			tmp += bdweights[kk][kr/2];
 		      }
+		    ferenc += tmp;
 		  }
 
 		for (size_t kk=0; kk<short_cvs.size(); ++kk)
@@ -191,6 +242,7 @@ int main(int argc, char** argv)
 	  }
 	int stop_break = 1;
       }
+  printf("Pi: %7.13f, 2Pi: %7.13f \n Area: %7.13f \n Circumference: %7.13f \n",M_PI, 2*M_PI, area, ferenc);
 }
 
   

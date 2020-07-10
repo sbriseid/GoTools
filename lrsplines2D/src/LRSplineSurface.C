@@ -3650,7 +3650,8 @@ LRSplineSurface::updateElementAccuracyHistory(int curr_iter)
 
 //===========================================================================
 void
-LRSplineSurface::writeElementAccuracy(int level)
+LRSplineSurface::writeElementAccuracy(int level, int& nmb_div_el, int& nmb_none,
+				      int& nmb_under)
 //===========================================================================
 {
   if (!element_accuracy_)
@@ -3667,7 +3668,8 @@ LRSplineSurface::writeElementAccuracy(int level)
   strncat(filename2, tmp, 3);
   strncat(filename2, ".g2", 3);
   double frac = 0.995;
-  element_accuracy_->checkAccuracyChange(level, filename, filename2, frac);
+  element_accuracy_->checkAccuracyChange(level, filename, filename2, frac,
+					 nmb_div_el, nmb_none, nmb_under);
 }
 
 //===========================================================================

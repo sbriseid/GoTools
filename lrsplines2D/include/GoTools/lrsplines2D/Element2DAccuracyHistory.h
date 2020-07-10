@@ -97,7 +97,7 @@ namespace Go
 
     //DEBUG
     void checkAccuracyChange(int level, char* outfile, char* outfile2,
-			     double frac);
+			     double frac, int& nmb_div_el, int& nmb_none, int& nmb_under);
 
   private:
     // Contains accuracy information distributed with regard to

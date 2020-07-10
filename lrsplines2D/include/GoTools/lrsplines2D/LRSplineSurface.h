@@ -689,7 +689,7 @@ namespace Go
 
   LineCloud getElementPar() const;
 
-  void writeElementAccuracy(int level);
+  void writeElementAccuracy(int level, int& nmb_div_el, int& nmb_none, int& nmb_under);
 
   // Constructor given mesh and a collection of LR B-splines. Only internal use
   // Updates mesh pointers in B-splines

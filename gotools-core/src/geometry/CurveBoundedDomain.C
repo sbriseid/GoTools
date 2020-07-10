@@ -470,49 +470,66 @@ void CurveBoundedDomain::getInternalPoint(double& upar, double& vpar) const
   RectDomain dom = containingDomain();
   upar = 0.5*(dom.umin() + dom.umax());
   vpar = 0.5*(dom.vmin() + dom.vmax());
+  double udel = 0.25*(dom.umax() - dom.umin());
+  double vdel = 0.25*(dom.vmax() - dom.vmin());
 
   // Adjust
   double tolerance = 1.0e-4; 
-  for (int ki=1; ki<3; ++ki)
+  bool succeeded = true;
+  for (int kr=0; kr<4; ++kr)
     {
-      bool succeeded = true;
-      vector<pair<double, double> > inside;
-      try {
-	getInsideIntervals(ki, upar, vpar, tolerance, inside, false);
-      }
-      catch(...)
+      int ki;
+      for (ki=1; ki<=3; ++ki)
 	{
-	  succeeded = false;
-	}
-
-      if (succeeded)
-	{
-	  if (inside.size() > 0)
+	  succeeded = true;
+	  vector<pair<double, double> > inside;
+	  try {
+	    getInsideIntervals(ki, upar, vpar, tolerance, inside, false);
+	  }
+	  catch(...)
 	    {
-	      // Find the largest interval
-	      double max_len = inside[0].second - inside[0].first;
-	      size_t max_ix = 0;
-	      for (size_t kj=0; kj<inside.size(); ++kj)
-		{
-		  double len = inside[kj].second - inside[kj].first;
-		  if (len > max_len)
-		    {
-		      max_len = len;
-		      max_ix = kj;
-		    }
-		}
-	      if (ki == 1) 
-		upar = 0.5*(inside[max_ix].first + inside[max_ix].second);
-	      else
-		vpar = 0.5*(inside[max_ix].first + inside[max_ix].second);
+	      succeeded = false;
+	    }
 
-	      // Check if we have found a boundary point
-	      Vector2D ppnt(upar, vpar);
-	      bool is_boundary = isOnBoundary(ppnt, tolerance);
-	      if (!is_boundary)
-		break;
+	  if (succeeded)
+	    {
+	      if (inside.size() > 0)
+		{
+		  // Find the largest interval
+		  double max_len = inside[0].second - inside[0].first;
+		  size_t max_ix = 0;
+		  for (size_t kj=0; kj<inside.size(); ++kj)
+		    {
+		      double len = inside[kj].second - inside[kj].first;
+		      if (len > max_len)
+			{
+			  max_len = len;
+			  max_ix = kj;
+			}
+		    }
+		  if (ki == 1) 
+		    upar = 0.5*(inside[max_ix].first + inside[max_ix].second);
+		  else
+		    vpar = 0.5*(inside[max_ix].first + inside[max_ix].second);
+
+		  // Check if we have found a boundary point
+		  Vector2D ppnt(upar, vpar);
+		  bool is_boundary = isOnBoundary(ppnt, tolerance);
+		  if (!is_boundary)
+		    break;
+		}
 	    }
 	}
+      if (succeeded)
+	break;
+      
+      upar = 0.5*(dom.umin() + dom.umax());
+      vpar = 0.5*(dom.vmin() + dom.vmax());
+      int sgn = (kr % 2 == 0) ? 1 : -1;
+      if (kr < 2)
+	upar += sgn*udel;
+      else
+	vpar += sgn*vdel;
     }
   return;
 }
