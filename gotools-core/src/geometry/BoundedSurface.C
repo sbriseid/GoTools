@@ -774,6 +774,52 @@ DirectionCone BoundedSurface::normalCone() const
     surface_->normalCone();
 }
 
+//===========================================================================
+void BoundedSurface::normalCones(shared_ptr<DirectionCone> orth_cone[],
+			     shared_ptr<DirectionCone> along_cone[]) const
+//===========================================================================
+{
+  RectDomain dom = containingDomain();
+  vector<shared_ptr<ParamSurface> > sub_sfs;
+  try {
+    sub_sfs = surface_->subSurfaces(dom.umin(), dom.vmin(), 
+				    dom.umax(), dom.vmax());
+  }
+  catch (...)
+    {
+      surface_->normalCones(orth_cone, along_cone);
+    }
+
+  if (sub_sfs.size() == 1) 
+    sub_sfs[0]->normalCones(orth_cone, along_cone);
+  else
+    surface_->normalCones(orth_cone, along_cone);
+}
+
+#if 0
+//===========================================================================
+void BoundedSurface::normalCones(DirectionCone& cone_orthx,
+				DirectionCone& cone_orthy,
+				DirectionCone& cone_orthz) const
+//===========================================================================
+{
+  RectDomain dom = containingDomain();
+  vector<shared_ptr<ParamSurface> > sub_sfs;
+  try {
+    sub_sfs = surface_->subSurfaces(dom.umin(), dom.vmin(), 
+				    dom.umax(), dom.vmax());
+  }
+  catch (...)
+    {
+      surface_->normalCones(cone_orthx, cone_orthy, cone_orthz);
+    }
+
+  if (sub_sfs.size() == 1) 
+    sub_sfs[0]->normalCones(cone_orthx, cone_orthy, cone_orthz);
+  else
+    surface_->normalCones(cone_orthx, cone_orthy, cone_orthz);
+}
+#endif
 
 //===========================================================================
 DirectionCone BoundedSurface::tangentCone(bool pardir_is_u) const

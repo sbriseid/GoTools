@@ -499,12 +499,19 @@ class GO_API SplineSurface : public ParamSurface
     DirectionCone normalCone(NormalConeMethod method) const;
 
     /// Function that calls normalCone(NormalConeMethod) with method =
-    /// SederbergMeyers. Needed because normalCone() is virtual! 
+    /// sislbased. Needed because normalCone() is virtual! 
     /// (Inherited from ParamSurface).
     /// \return a DirectionCone (not necessarily the smallest) containing all normals 
     ///         to this surface.
     virtual DirectionCone normalCone() const;
 
+    virtual void normalCones(shared_ptr<DirectionCone> orth_cone[],
+			     shared_ptr<DirectionCone> along_cone[]) const;
+    
+    /* virtual void normalCones(DirectionCone& cone_orthx, */
+    /* 			     DirectionCone& cone_orthy, */
+    /* 			     DirectionCone& cone_orthz) const; */
+    
     // inherited from ParamSurface
     virtual DirectionCone tangentCone(bool pardir_is_u) const;
 

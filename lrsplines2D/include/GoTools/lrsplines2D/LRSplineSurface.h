@@ -610,6 +610,7 @@ namespace Go
   // Insert a batch of refinements simultaneously.  The 'absolute' argument works as in the two 
   // preceding refine() methods.
   void refine(const std::vector<Refinement2D>& refs, bool absolute=false);
+  void refine2(const std::vector<Refinement2D>& refs, bool absolute=false);
 
   // @@@ VSK. Index or iterator? Must define how the elements or bsplines 
   // are refined and call one of the other functions (refine one or refine

@@ -39,6 +39,7 @@
 
 #include "GoTools/lrsplines2D/LRSplineUtils.h"
 #include "GoTools/lrsplines2D/BSplineUniUtils.h"
+#include "GoTools/lrsplines2D/Mesh2DUtils.h"
 #include "GoTools/lrsplines2D/LRSplineSurface.h"
 #include "GoTools/lrsplines2D/LRBSpline2DUtils.h"
 #include "GoTools/utils/checks.h"
@@ -823,7 +824,7 @@ void LRSplineUtils::iteratively_split2 (vector<LRBSpline2D*>& bsplines,
 				       double domain[])->bool
     {
       auto it = tmp_set.find(b);
-      bool overlap = b->overlaps(domain);
+      bool overlap = (domain == NULL) ? false : b->overlaps(domain);
       LRBSpline2D* other = NULL;
       if (it != tmp_set.end())
 	{
@@ -1209,7 +1210,8 @@ LRSplineUtils::refine_mesh(Direction2D d, double fixed_val, double start,
 			   double end, int mult, int generation, 
 			   bool absolute, int spline_degree, 
 			   double knot_tol, Mesh2D& mesh,  
-			   vector<unique_ptr<BSplineUniLR> >& bsplines)
+			   vector<unique_ptr<BSplineUniLR> >& bsplines,
+			   bool& refined)
 
 //------------------------------------------------------------------------------
 {
@@ -1229,6 +1231,7 @@ LRSplineUtils::refine_mesh(Direction2D d, double fixed_val, double start,
 
   // Fetch the last nonlarger knot value index in the fixed direction
   int prev_ix = Mesh2DUtils::last_nonlarger_knotvalue_ix(mesh, d, fixed_val);
+  refined = true;
   if (prev_ix < mesh.numDistinctKnots(d)-1 && 
       fabs(mesh.kval(d, prev_ix+1) - fixed_val) < knot_tol)
     ++prev_ix;
@@ -1255,8 +1258,9 @@ LRSplineUtils::refine_mesh(Direction2D d, double fixed_val, double start,
 	  THROW("Cannot increase multiplicity.");
       }
       // set or increment multiplicity
-      absolute ? 
-	mesh.setMult(d, fixed_ix, start_ix, end_ix, mult, generation) :
+      if (absolute)
+	refined = mesh.setMult(d, fixed_ix, start_ix, end_ix, mult, generation);
+      else
 	mesh.incrementMult(d, fixed_ix, start_ix, end_ix, mult, generation);
 
     } else { 
@@ -2029,6 +2033,50 @@ void LRSplineUtils::evalAllBSplinePos(const vector<LRBSpline2D*>& bsplines,
     }
  }
 
+
+//==============================================================================
+void
+LRSplineUtils::get_affected_bsplines(const vector<LRSplineSurface::Refinement2D>& refs, 
+				     const LRSplineSurface::ElementMap& emap,
+				     double knot_tol, const Mesh2D& mesh,
+				     vector<LRBSpline2D*>& affected)
+//==============================================================================
+{
+  std::set<LRBSpline2D*> all_bsplines;
+  for (size_t ki=0; ki<refs.size(); ++ki)
+    {
+      const LRSplineSurface::Refinement2D& r = refs[ki];
+     const int start_ix = locate_interval(mesh, flip(r.d),
+					    r.start + fabs(r.start) * knot_tol,
+					    r.kval,
+					    false);
+      const int   end_ix = locate_interval(mesh, flip(r.d),
+					    r.end   - fabs(r.end)   * knot_tol,
+					    r.kval,
+					    true);
+      int prev_ix = Mesh2DUtils::last_nonlarger_knotvalue_ix(mesh, r.d, r.kval);
+
+      for (int i = start_ix; i != end_ix; ++i)
+	{
+	  int prev_ix_curr =
+	    Mesh2DUtils::search_downwards_for_nonzero_multiplicity(mesh, r.d,
+								   prev_ix, i);
+	      // Check if the specified element exists in 'emap'
+	  int u_ix = (r.d == XFIXED) ? prev_ix_curr : i;
+	  int v_ix = (r.d == YFIXED) ? prev_ix_curr : i;
+	  LRSplineSurface::ElementMap::key_type key = {mesh.kval(XFIXED, u_ix),
+							  mesh.kval(YFIXED, v_ix)};
+	  auto it = emap.find(key);
+	  if (it != emap.end())
+	    {
+	      // The element exists. Collect bsplines
+	      Element2D* curr_el = (*it).second.get();
+	      all_bsplines.insert(curr_el->supportBegin(), curr_el->supportEnd());
+	    }
+	}
+    }
+  affected.insert(affected.end(), all_bsplines.begin(), all_bsplines.end());
+}
 
 
 }; // end namespace Go

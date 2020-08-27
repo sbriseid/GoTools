@@ -42,42 +42,66 @@ int main (int argc, char *argv[]) {
 
   shared_ptr<LRSplineVolume> vol(new LRSplineVolume());
   vol->read(ifs2);
+  int dim = vol->dimension();
 
-  double minh = 1.0e8, maxh = -1.0e8;
+  vector<double> minh(dim, std::numeric_limits<double>::max());
+  vector<double> maxh(dim, std::numeric_limits<double>::lowest());
   double mind = 1.0e8, maxd = -1.0e8;
   double avd = 0.0;
   for (int ix=0; ix!=num_pts; ++ix)
     {
       double p0, p1, p2, q0;
-      ifs1 >> p0 >> p1 >> p2 >> q0;
+      ifs1 >> p0 >> p1 >> p2;
       pc4d.push_back(p0);
       pc4d.push_back(p1);
       pc4d.push_back(p2);
-      pc4d.push_back(q0);
-      minh = std::min(minh, q0);
-      maxh = std::max(maxh, q0);
 
+      Point ptval(dim);
+      for (int ka=0; ka<dim; ++ka)
+	{
+	  ifs1 >> q0;
+	  pc4d.push_back(q0);
+	  ptval[ka] = q0;
+
+	  minh[ka] = std::min(minh[ka], q0);
+	  maxh[ka] = std::max(maxh[ka], q0);
+	}
       Point pos;
       vol->point(pos, p0, p1, p2);
-      double dist = q0 - pos[0];
+      double dist;
+      if (dim == 1)
+	dist = q0 - pos[0];
+      else
+	dist = pos.dist(ptval);
+      
       mind = std::min(mind, dist);
       maxd = std::max(maxd, dist);
       avd += fabs(dist)/(double)num_pts;
     }
   //avd /= (double)num_pts;
-  std::cout << "Min height: " << minh << ", max height: " << maxh << std::endl;
+  std::cout << "Min height: ";
+  for (int ka=0; ka<dim; ++ka)
+    std::cout << minh[ka] << "  ";
+  std::cout << std::endl <<"Max height: ";
+  for (int ka=0; ka<dim; ++ka)
+    std::cout << maxh[ka] << "  ";
+  std::cout <<  std::endl;
+
   std::cout << "Max d: " << maxd << ", mind: " << mind << ", average: " << avd << std::endl;
 
   int ki;
   vector<double> limits_h(level+1);
   vector<vector<double> > level_h(level+2);
 
-  // Set hight and distance levels 
-  double delh = (maxh-minh)/(double)level;
-  limits_h[0] = minh;
-  for (ki=1; ki<=level; ++ki)
+  // Set hight and distance levels
+  if (dim == 1)
     {
-      limits_h[ki] = ki*delh;
+      double delh = (maxh[0]-minh[0])/(double)level;
+      limits_h[0] = minh[0];
+      for (ki=1; ki<=level; ++ki)
+	{
+	  limits_h[ki] = ki*delh;
+	}
     }
 
   vector<double> limits_d(2*level+1);
@@ -94,11 +118,18 @@ int main (int argc, char *argv[]) {
 
   int kj;
   double *curr = &pc4d[0];
-  for (int ix=0; ix!=num_pts; ++ix, curr+=4)
+  for (int ix=0; ix!=num_pts; ++ix, curr+=3+dim)
     {
       Point pos;
       vol->point(pos, curr[0], curr[1], curr[2]);
-      double dist = curr[3] - pos[0];
+      double dist;
+      if (dim == 1)
+	dist = curr[3] - pos[0];
+      else
+	{
+	  Point ptval(curr[3], curr[4], curr[5]);
+	  dist = pos.dist(ptval);
+	}
  
      // Find classifications
       for (kj=0; kj<limits_d.size(); ++kj)
@@ -116,19 +147,22 @@ int main (int argc, char *argv[]) {
 	  level_d[kj].push_back(curr[2]);
 	}
 
-      for (kj=0; kj<limits_h.size(); ++kj)
-	if (curr[3] < limits_h[kj])
-	  {
-	    level_h[kj].push_back(curr[0]);
-	    level_h[kj].push_back(curr[1]);
-	    level_h[kj].push_back(curr[2]);
-	    break;
-	  }
-      if (kj == limits_h.size())
+      if (dim == 1)
 	{
-	  level_h[kj].push_back(curr[0]);
-	  level_h[kj].push_back(curr[1]);
-	  level_h[kj].push_back(curr[2]);
+	  for (kj=0; kj<limits_h.size(); ++kj)
+	    if (curr[3] < limits_h[kj])
+	      {
+		level_h[kj].push_back(curr[0]);
+		level_h[kj].push_back(curr[1]);
+		level_h[kj].push_back(curr[2]);
+		break;
+	      }
+	  if (kj == limits_h.size())
+	    {
+	      level_h[kj].push_back(curr[0]);
+	      level_h[kj].push_back(curr[1]);
+	      level_h[kj].push_back(curr[2]);
+	    }
 	}
 
     }
@@ -174,22 +208,25 @@ int main (int argc, char *argv[]) {
       level_cloud.write(ofs2);
     }
 
-  for (ki=0; ki<level_h.size(); ++ki)
+  if (dim == 1)
     {
-      if (level_h[ki].size() == 0)
-	continue;
+      for (ki=0; ki<level_h.size(); ++ki)
+	{
+	  if (level_h[ki].size() == 0)
+	    continue;
 
-      // Make point cloud
-      PointCloud3D level_cloud(level_h[ki].begin(), level_h[ki].size()/3);
+	  // Make point cloud
+	  PointCloud3D level_cloud(level_h[ki].begin(), level_h[ki].size()/3);
 
-      double cc[3];
-      cc[0] = (ki*colors[2][0] + (level-ki)*colors[1][0])/level;
-      cc[1] = (ki*colors[2][1] + (level-ki)*colors[1][1])/level;
-      cc[2] = (ki*colors[2][2] + (level-ki)*colors[1][2])/level;
+	  double cc[3];
+	  cc[0] = (ki*colors[2][0] + (level-ki)*colors[1][0])/level;
+	  cc[1] = (ki*colors[2][1] + (level-ki)*colors[1][1])/level;
+	  cc[2] = (ki*colors[2][2] + (level-ki)*colors[1][2])/level;
 
-      ofs1 << "400 1 0 4 " << cc[0] << " " << cc[1];
-      ofs1 << " " << cc[2] << " 255" << std::endl;
-      level_cloud.write(ofs1);
+	  ofs1 << "400 1 0 4 " << cc[0] << " " << cc[1];
+	  ofs1 << " " << cc[2] << " 255" << std::endl;
+	  level_cloud.write(ofs1);
+	}
     }
 
 }

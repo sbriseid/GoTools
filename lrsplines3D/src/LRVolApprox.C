@@ -130,41 +130,36 @@ LRVolApprox::LRVolApprox(shared_ptr<SplineSurface>& srf,
   // Create an LR B-spline surface based on the given spline surface
   makeInitSurf(srf);
 }
-
+*/
 //==============================================================================
-LRVolApprox::LRVolApprox(shared_ptr<LRSplineSurface>& srf,
-			   vector<double>& points, 
-			   double epsge, bool closest_dist,
-			   bool repar, bool check_init_accuracy)
+LRVolApprox::LRVolApprox(shared_ptr<LRSplineVolume>& vol,
+			 vector<double>& points, 
+			 double epsge, bool closest_dist, bool repar,
+			 bool check_init_accuracy)
 //==============================================================================
-  : points_(points), useMBA_(false), toMBA_(4), initMBA_(false), 
-    initMBA_coef_(0.0),
+  : points_(points), useMBA_(false), 
     maxdist_(-10000.0), maxdist_prev_(-10000.0), avdist_(0.0), 
-    avdist_all_(0.0), avdist_all_prev_(0), 
-    outsideeps_(0), aepsge_(epsge), smoothweight_(1.0e-3), 
-    smoothbd_(false), repar_(repar), check_close_(closest_dist), 
+    avdist_all_(0.0), avdist_all_prev_(0), outsideeps_(0), outsideeps_prev_(0),
+    maxout_(-10000.0), avout_(0.0), aepsge_(epsge), smoothweight_(0.0),
+    repar_(repar), check_close_(closest_dist), 
     fix_corner_(false), to3D_(-1), check_init_accuracy_(check_init_accuracy), 
-    grid_(false), initial_surface_(true), has_min_constraint_(false), 
-    has_max_constraint_(false), has_local_constraint_(false), verbose_(false)
+    grid_(false), has_min_constraint_(false), 
+    has_max_constraint_(false), has_local_constraint_(false),
+    outfrac_(0.0), write_feature_(false), verbose_(false)
 {
-  nmb_pts_ = (int)points.size()/(2+srf->dimension());
   face_derivs_[0] = face_derivs_[1] = face_derivs_[2] = face_derivs_[3] = 0;
-  grid_start_[0] = grid_start_[1] = 0.0;
-  cell_size_[0] = cell_size_[1] = 1.0;
-  fix_boundary_ = false; //true;
-  make_ghost_points_ = false;
-  srf_ = srf;
-  coef_known_.assign(srf_->numBasisFunctions(), 0.0);  // Initially nothing is fixed
-  usize_min_ = vsize_min_ = -1;
+  face_derivs_[4] = face_derivs_[5] = 0;
+  grid_start_[0] = grid_start_[1] = grid_start_[2] =0.0;
+  cell_size_[0] = cell_size_[1] = cell_size_[2] = 1.0;
+  usize_min_ = vsize_min_ = wsize_min_ = -1;
 
-  // if (srf->dimension() > 1)
-  //   {
-  //     initMBA_ = false;
-  //     useMBA_ = false;
-  //     toMBA_ = 10e4;  // A large number
-  //   }
+  vol_ = vol;
+  nmb_pts_ = (int)points.size()/(3+vol->dimension());
+  coef_known_.assign(vol_->numBasisFunctions(), 0.0);  // Initially nothing is fixed
 }
 
+
+/*
 //==============================================================================
 LRVolApprox::LRVolApprox(int ncoef_u, int order_u, int ncoef_v, int order_v,
 			   vector<double>& points, 
@@ -437,7 +432,7 @@ shared_ptr<LRSplineVolume> LRVolApprox::getApproxVol(double& maxdist,
   FILE *fp = fopen("acc_stat2.txt","w");
   fprintf(fp, "Max iterations = %d, tolerance = %4.2f, no pts: %d \n",iterations, aepsge_, nmb_pts_);
   fprintf(fp,"iter, maxdist, average dist, no. pts. out, no. coefs, rel. improvement, no. pts.in, diff no pts out, diff no coefs, added elements, diff maxdist, diff avdist, average out  \n");
-  bool alter = true; //false;
+  bool alter = false;
   int div = 1; 
   int currdiv = (alter) ? 1 : 4;
 
@@ -489,7 +484,7 @@ shared_ptr<LRSplineVolume> LRVolApprox::getApproxVol(double& maxdist,
   //  {
   //    adaptSurfaceToConstraints();
   //  }
-  int m_itermax = 4; //3; //2;
+  int m_itermax = 2; //4; //3; //2;
   for (int m_iter=1; m_iter<m_itermax; ++m_iter)
     {
   cout << "Running MBA a second time... " << endl;
@@ -658,10 +653,10 @@ shared_ptr<LRSplineVolume> LRVolApprox::getApproxVol(double& maxdist,
 	    if (threshold_prev > 0.0 && threshold/threshold_prev > 0.9)
 	      threshold = 0.9*threshold_prev;
 	    threshold = std::max(mineps, threshold);
-	    //threshold = aepsge_;
+	    threshold = aepsge_;
 	    std::cout << "Level " << level+1 << ", threshold = " << threshold << std::endl;
-	    int nmb_refs = refineVol3(level+1, currdiv, threshold);
-	    //int nmb_refs = refineVol(level+1, currdiv, threshold);
+	    //int nmb_refs = refineVol3(level+1, currdiv, threshold);
+	    int nmb_refs = refineVol(level+1, currdiv, threshold);
 	    if (nmb_refs == 0)
 	      {
 		std::cout << "No refinements performed" << std::endl;
@@ -2002,7 +1997,8 @@ int LRVolApprox::refineVol3(int iter, int& dir, double threshold)
   av_wgt /= (double)el_out;
 
   double fac = (max_wgt > 2.0*min_wgt) ? 0.5 : 1.0;;
-  double thresh2 = min_wgt; //fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
+  double thresh2 = fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt;
+  thresh2 = min_wgt;
   std::cout << "min_wgt = " << min_wgt << ", av_wgt = " << av_wgt << ", max_wgt = " << max_wgt << std::endl;
   std::cout << "thresh2 = " << thresh2 << std::endl;
 

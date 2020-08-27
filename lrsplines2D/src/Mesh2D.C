@@ -332,13 +332,14 @@ int Mesh2D::extent(Direction2D d, int ix, int start, int mult) const
     int cur_mult, cur_gen;
     nugen(d, ix, i, i+1, cur_mult, cur_gen);
     // set the new multiplicity to the old one plus 'mult'
-    setMult(d, ix, i, i+1, cur_mult + mult, 
-	    (generation<0) ? cur_gen : generation);
+    bool refined = 
+      setMult(d, ix, i, i+1, cur_mult + mult, 
+	      (generation<0) ? cur_gen : generation);
   }
 }
 
 // =============================================================================
-  void Mesh2D::setMult(Direction2D d, int ix, int start, int end, int mult,
+  bool Mesh2D::setMult(Direction2D d, int ix, int start, int end, int mult,
 		       int generation)
 // =============================================================================
 {
@@ -369,10 +370,14 @@ int Mesh2D::extent(Direction2D d, int ix, int start, int mult) const
   p = find_if(p, mr.end(), [end](GPos& g) {return g.ix > end;});
   result.insert(result.end(), p, mr.end());
 
+  // if (result.size() <= mr.size())
+  //   return false;
   mr.swap(result);
 
   // verify that end contract of this function is fulfilled
   assert(mrvec_is_correct(mr));
+  return
+    true;
 }
 
 // =============================================================================

@@ -124,10 +124,10 @@ class LRVolApprox
   ///                     parameter value
   /// \param repar Perform reparameterization during iterations
   LRVolApprox(shared_ptr<LRSplineVolume>& vol, std::vector<double>& points, 
-	       double epsge, 
-               bool closest_dist=true,
-	       bool repar=false, 
-               bool check_init_accuracy=false);
+	      double epsge, 
+	      bool closest_dist=true,
+              bool repar=false,
+              bool check_init_accuracy=false);
 
   /// Constructor given a parameterized point set and the size of an initial
   /// spline space

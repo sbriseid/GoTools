@@ -440,7 +440,7 @@ vector<ftCurveSegment> SurfaceModel::intersect(const ftPlane& plane,
     //    std::ofstream debug("data/debug.g2");
     for (int i = 0; i < numintcr; ++i) {
 	// March out the intersection curves
-	intcurves[i]->ipoint = 1;
+	//intcurves[i]->ipoint = 1;
 	s1314(sislsf, pnt.begin(), nrm.begin(), dim, epsco, epsge,
 	      maxstep, intcurves[i], makecurv, graphic, &stat);
 	SISLCurve* sc = intcurves[i]->pgeom;

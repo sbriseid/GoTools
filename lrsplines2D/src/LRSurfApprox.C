@@ -568,7 +568,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 #endif
 
   ghost_elems.clear();
-  points_.clear();  // Not used anymore TESTING
+  //points_.clear();  // Not used anymore TESTING
   double threshold_prev = -1.0;
   int prevcoef = srf_->numBasisFunctions();
   int prevelem = srf_->numElements();
@@ -620,14 +620,14 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	      break;  // No refinements performed
 	    }
 	  
-	  // if (points_.size() > 0)
-	  //   LRSplineUtils::distributeDataPoints(srf_.get(), points_, true, 
-	  // 					LRSplineUtils::REGULAR_POINTS, 
-	  // 					outlier_detection_);
-	  // if (sign_points_.size() > 0)
-	  //   LRSplineUtils::distributeDataPoints(srf_.get(), sign_points_, true, 
-	  // 					LRSplineUtils::SIGNIFICANT_POINTS, 
-	  // 					outlier_detection_);
+	  if (points_.size() > 0)
+	    LRSplineUtils::distributeDataPoints(srf_.get(), points_, true, 
+	  					LRSplineUtils::REGULAR_POINTS, 
+	  					outlier_detection_);
+	  if (sign_points_.size() > 0)
+	    LRSplineUtils::distributeDataPoints(srf_.get(), sign_points_, true, 
+	  					LRSplineUtils::SIGNIFICANT_POINTS, 
+	  					outlier_detection_);
 
 	  threshold_prev = threshold;
 	}
@@ -3225,17 +3225,17 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold, int refstrat
 	}
     }
 
-  // srf_->refine(refs_x, true);
-  // srf_->refine(refs_y, true);
-  for (kr=0; kr<refs_x.size(); ++kr)
-    {
-      srf_->refine(refs_x[kr], true /*false*/);
-    }
+  srf_->refine2(refs_x, true);
+  srf_->refine2(refs_y, true);
+  // for (kr=0; kr<refs_x.size(); ++kr)
+  //   {
+  //     srf_->refine(refs_x[kr], true /*false*/);
+  //   }
 
-  for (size_t kr=0; kr<refs_y.size(); ++kr)
-    {
-      srf_->refine(refs_y[kr], true /*false*/);
-    }
+  // for (size_t kr=0; kr<refs_y.size(); ++kr)
+  //   {
+  //     srf_->refine(refs_y[kr], true /*false*/);
+  //   }
   return (int)refs_x.size() + (int)refs_y.size();
  }
 

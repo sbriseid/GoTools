@@ -242,7 +242,7 @@ public:
   // ix - the index of the row/column of the meshrectangles
   // start - the index to the start of the first consecutive meshrectangle along the line
   // end   - the index to the one-past-end of the last consecutive meshrectangle along the line
-  void setMult(Direction2D d, int ix, int start, int end, int mult,
+  bool setMult(Direction2D d, int ix, int start, int end, int mult,
 	       int generation=0);
 
   // increment multiplicity of a consecutive set of meshrectangles by 'mult'

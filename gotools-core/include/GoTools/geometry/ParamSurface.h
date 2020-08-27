@@ -169,6 +169,18 @@ public:
     ///         to this surface.
     virtual DirectionCone normalCone() const = 0;
     
+    virtual void normalCones(shared_ptr<DirectionCone> orth_cone[],
+			     shared_ptr<DirectionCone> along_cone[]) const
+    {
+      MESSAGE("Coordinate direction separated normal cones are not implemente for this surface type");
+    }
+    /* virtual void normalCones(DirectionCone& cone_orthx, */
+    /* 			     DirectionCone& cone_orthy, */
+    /* 			     DirectionCone& cone_orthz) const */
+    /* { */
+    /*   MESSAGE("Coordinate direction separated normal cones are not implemente for this surface type"); */
+    /* } */
+    
     /// Creates a DirectionCone covering all tangents to 
     /// this surface along a given parameter direction.
     /// \param pardir_is_u if 'true', then the DirectionCone will be defined on basis 

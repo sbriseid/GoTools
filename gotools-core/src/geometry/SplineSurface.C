@@ -558,7 +558,6 @@ DirectionCone SplineSurface::normalCone(NormalConeMethod method) const
 
 }
 
-
 //===========================================================================
 DirectionCone SplineSurface::normalCone() const
 //===========================================================================
@@ -566,6 +565,469 @@ DirectionCone SplineSurface::normalCone() const
   return normalCone(sislBased);
 }
 
+//===========================================================================
+void SplineSurface::normalCones(shared_ptr<DirectionCone> orth_cone[],
+				shared_ptr<DirectionCone> along_cone[]) const
+//===========================================================================
+{
+  // We are making a cones surrounding the orientating surface on the
+  // unit sphere. The cone is representated with centre coordinates
+  // and an angle. The orientation is computed from aproximation of
+  // the normal to the surface projected onto each coordinate plane.
+  // Based on the sisl function s1990.
+  if (dim_ != 3)
+    THROW("Normal only defined in 3D");
+
+  double tol = 0.1;
+  double eps = 1.0e-10;
+  Point null(0.0, 0.0, 0.0);
+  Point axis(dim_);
+  Point orthaxis[3];
+  Point alongaxis[3];
+  double orthangle[3] = {0.0, 0.0, 0.0};
+  double alongangle[3] = {0.0, 0.0, 0.0};
+  bool orthfirst[3] = {true, true, true};
+  bool alongfirst[3] = {true, true, true};
+  int in1 = numCoefs_u();
+  int in2 = numCoefs_v();
+  int ki, kj, kr;
+  for (kr=0; kr<3; ++kr)
+    {
+      orthaxis[kr] = Point(0.0, 0.0, 0.0);
+      alongaxis[kr] = Point(0.0, 0.0, 0.0);
+    }
+  
+  Point corner[4];  // The coefficients making the corner of each patch
+  Point diff[4];    // Difference vector between corner coefficients
+  Point norm[4];    // Estimated surface normal (cross product between difference vectors)
+  int kver, khor;   // The index to the vertice in the upper
+  // left corner to the patch to treat.
+  vector<double>::const_iterator it1;
+  
+  // Here we are treating each patch in the control polygon separately.
+  for (it1=coefs_begin(), kver=0; kver < (in2-1); kver++, it1+=dim_)
+    for (khor=0; khor < (in1-1); khor++, it1+=dim_)
+      {
+	// Here we make the tangents in each corner of the
+	// patch, and in direction with the clock. The first
+	// and the last vector contains both the first
+	// tangent.
+	corner[0].resize(dim_);
+	corner[0].setValue(&it1[0]);
+	corner[1].resize(dim_);
+	corner[1].setValue(&it1[dim_]);
+	corner[2].resize(dim_);
+	corner[2].setValue(&it1[(in1+1)*dim_]);
+	corner[3].resize(dim_);
+	corner[3].setValue(&it1[in1*dim_]);
+	for (ki=0; ki<4; ki++)
+	  {
+	    kj = ((ki+1) % 4);
+	    diff[ki] = corner[kj] - corner[ki];
+	  }
+	  
+	// Here we makes the normales in each corner of the
+	// patch.  We are using a cross product between two
+	// tangents.  The normals ar also normalized.
+	int count = 0;
+	for (ki=0; ki<4; ki++)
+	  {
+	    kj = (ki == 0) ? 3 : ki-1;
+	    norm[ki] = diff[kj].cross(diff[ki]);
+	    double len = norm[ki].normalize_checked();
+	    if (len == 0.0)
+	      count++;
+	  }
+	
+	if (count == 4)
+	  continue;  // Degenerate control polygon patch. No contribution to the cone
+
+	for (kr=0; kr<3; ++kr)
+	  {
+	    Point dir(0.0, 0.0, 0.0);
+	    dir[kr] = 1;
+	    
+	    if (orthfirst[kr] || alongfirst[kr])
+	      {
+		// Computing the center coordinate of the cone
+		for (kj=0; kj<dim_; ++kj)
+		  {
+		    double tmin = 1.0;
+		    double tmax = -1.0;
+		    for (ki=0; ki<4; ++ki)
+		      {
+			tmin = std::min(tmin, norm[ki][kj]);
+			tmax = std::max(tmax, norm[ki][kj]);
+		      }
+		    axis[kj] = 0.5*(tmin + tmax);
+		  }
+	      }
+
+	    double len0 = axis.normalize_checked();
+	    if (orthfirst[kr])
+	      {
+		orthaxis[kr] = axis - (axis*dir)*dir;
+		double len = orthaxis[kr].normalize_checked();
+	    
+		if (len > eps)
+		  {
+		    // Computing the angle of the cone
+		    for (ki=0; ki<4; ++ki)
+		      {
+			Point norm1 = norm[ki] - (norm[ki]*dir)*dir;
+			double ang = orthaxis[kr].angle(norm1);
+			orthangle[kr] = std::max(orthangle[kr], ang);
+		      }
+		    orthfirst[kr] = false;
+		  }
+		else
+		  orthaxis[kr] = null;
+	      }
+	    else if (!orth_cone[kr].get())
+	      {
+		// Computing the new center and orthangle of the cone
+		for (ki=0; ki<4; ++ki)
+		  {
+		    Point norm1 = norm[ki] - (norm[ki]*dir)*dir;
+		    double len = norm1.length();
+		    double ang = (len < eps) ? 0.0 : orthaxis[kr].angle(norm1);
+		    if (orthangle[kr] + ang > M_PI+tol)
+		      {
+			// The angle is too large
+			orth_cone[kr] = shared_ptr<DirectionCone>(new DirectionCone(null, 4.0));
+		      }
+		    else if (ang > orthangle[kr])
+		      {
+			// The normal is not inside the cone. We have to 
+			// compute a new cone
+			double sin_tang = sin(ang);      
+			double delta    = (ang - orthangle[kr])/2.0;
+
+			double t1 = sin(delta)/sin_tang;                   
+			double t2 = sin(ang - delta)/sin_tang;  
+			orthaxis[kr]  *= t2;
+			orthaxis[kr] += norm1*t1;
+
+			orthangle[kr] = 0.5*(orthangle[kr] + ang);
+		      }
+		  }
+	      }
+	    
+	    if (alongfirst[kr])
+	      {
+		alongaxis[kr] = (axis*dir)*dir;
+		double len = alongaxis[kr].normalize_checked();
+	    
+		if (len > eps)
+		  {
+		    // Computing the angle of the cone
+		    for (ki=0; ki<4; ++ki)
+		      {
+			Point norm1 = (norm[ki]*dir)*dir;
+			double ang = alongaxis[kr].angle(norm1);
+			alongangle[kr] = std::max(alongangle[kr], ang);
+		      }
+		    alongfirst[kr] = false;
+		  }
+		else
+		  alongaxis[kr] = null;
+	      }
+	    else if (!along_cone[kr].get())
+	      {
+		// Computing the new center and orthangle of the cone
+		for (ki=0; ki<4; ++ki)
+		  {
+		    Point norm1 = (norm[ki]*dir)*dir;
+		    double len = norm1.length();
+		    double ang = (len < eps) ? 0.0 : alongaxis[kr].angle(norm1);
+		    if (alongangle[kr] + ang > M_PI+tol)
+		      {
+			// The angle is too large
+			along_cone[kr] = shared_ptr<DirectionCone>(new DirectionCone(null, 4.0));
+		      }
+		    else if (ang > alongangle[kr])
+		      {
+			// The normal is not inside the cone. We have to 
+			// compute a new cone
+			double sin_tang = sin(ang);      
+			double delta    = (ang - alongangle[kr])/2.0;
+
+			double t1 = sin(delta)/sin_tang;                   
+			double t2 = sin(ang - delta)/sin_tang;  
+			alongaxis[kr]  *= t2;
+			alongaxis[kr] += norm1*t1;
+
+			alongangle[kr] = 0.5*(alongangle[kr] + ang);
+		      }
+		  }
+	      }
+	  }
+      }
+
+  for (kr=0; kr<3; ++kr)
+    {
+      orth_cone[kr] = shared_ptr<DirectionCone>(new DirectionCone(orthaxis[kr], orthangle[kr]));
+      along_cone[kr] = shared_ptr<DirectionCone>(new DirectionCone(alongaxis[kr], alongangle[kr]));
+    }
+}
+
+#if 0
+//===========================================================================
+void SplineSurface::normalCones(DirectionCone& cone_orthx,
+				DirectionCone& cone_orthy,
+				DirectionCone& cone_orthz) const
+//===========================================================================
+{
+  // We are making a cones surrounding the orientating surface on the
+  // unit sphere. The cone is representated with centre coordinates
+  // and an angle. The orientation is computed from aproximation of
+  // the normal to the surface projected onto each coordinate plane.
+  // Based on the sisl function s1990.
+  if (dim_ != 3)
+    THROW("Normal only defined in 3D");
+
+  double tol = 0.1;
+  double eps = 1.0e-10;
+  Point null(0.0, 0.0, 0.0);
+  Point xvec(1.0, 0.0, 0.0);
+  Point yvec(0.0, 1.0, 0.0);
+  Point zvec(0.0, 0.0, 1.0);
+  Point axis(dim_), axis1(dim_), axis2(dim_), axis3(dim_);
+  double angle1 = 0.0, angle2 = 0.0, angle3 = 0.0;
+  int in1 = numCoefs_u();
+  int in2 = numCoefs_v();
+
+  Point corner[4];  // The coefficients making the corner of each patch
+  Point diff[4];    // Difference vector between corner coefficients
+  Point norm[4];    // Estimated surface normal (cross product between difference vectors)
+  int kver, khor;   // The index to the vertice in the upper
+  // left corner to the patch to treat.
+  vector<double>::const_iterator it1;
+  int ki, kj;
+  
+  // Here we are treating each patch in the control polygon separately.
+  bool first1 = true, first2 = true, first3 = true;
+  for (it1=coefs_begin(), kver=0; kver < (in2-1); kver++, it1+=dim_)
+    for (khor=0; khor < (in1-1); khor++, it1+=dim_)
+      {
+	// Here we make the tangents in each corner of the
+	// patch, and in direction with the clock. The first
+	// and the last vector contains both the first
+	// tangent.
+	corner[0].resize(dim_);
+	corner[0].setValue(&it1[0]);
+	corner[1].resize(dim_);
+	corner[1].setValue(&it1[dim_]);
+	corner[2].resize(dim_);
+	corner[2].setValue(&it1[(in1+1)*dim_]);
+	corner[3].resize(dim_);
+	corner[3].setValue(&it1[in1*dim_]);
+	for (ki=0; ki<4; ki++)
+	  {
+	    kj = ((ki+1) % 4);
+	    diff[ki] = corner[kj] - corner[ki];
+	  }
+	  
+	// Here we makes the normales in each corner of the
+	// patch.  We are using a cross product between two
+	// tangents.  The normals ar also normalized.
+	int count = 0;
+	for (ki=0; ki<4; ki++)
+	  {
+	    kj = (ki == 0) ? 3 : ki-1;
+	    norm[ki] = diff[kj].cross(diff[ki]);
+	    double len = norm[ki].normalize_checked();
+	    if (len == 0.0)
+	      count++;
+	  }
+	
+	if (count == 4)
+	  continue;  // Degenerate control polygon patch. No contribution to the cone
+	
+	if (first1)
+	  {
+	    // Computing the center coordinate of the cone
+	    for (kj=0; kj<dim_; ++kj)
+	      {
+		double tmin = 1.0;
+		double tmax = -1.0;
+		for (ki=0; ki<4; ++ki)
+		  {
+		    tmin = std::min(tmin, norm[ki][kj]);
+		    tmax = std::max(tmax, norm[ki][kj]);
+		  }
+		axis[kj] = 0.5*(tmin + tmax);
+	      }
+
+	    axis1 = axis - (axis*xvec)*xvec;
+	    double len1 = axis1.normalize_checked();
+	    
+	    if (len1 > eps)
+	      {
+		// Computing the angle of the cone
+		for (ki=0; ki<4; ++ki)
+		  {
+		    Point norm1 = norm[ki] - (norm[ki]*xvec)*xvec;
+		    double ang = axis1.angle(norm1);
+		    angle1 = std::max(angle1, ang);
+		  }
+		first1 = false;
+	      }
+	  }
+	else if (cone_orthx.greaterThanPi() != 1)
+	  {
+	    // Computing the new center and angle of the cone
+	    for (ki=0; ki<4; ++ki)
+	      {
+		Point norm1 = norm[ki] - (norm[ki]*xvec)*xvec;
+		double len1 = norm1.length();
+		double ang = (len1 < eps) ? 0.0 : axis1.angle(norm1);
+		if (angle1 + ang > M_PI+tol)
+		  {
+		    // The angle is too large
+		    cone_orthx = DirectionCone(null, 4.0);
+		  }
+		else if (ang > angle1)
+		  {
+		    // The normal is not inside the cone. We have to 
+		    // compute a new cone
+		    double sin_tang = sin(ang);      
+		    double delta    = (ang - angle1)/2.0;
+
+		    double t1 = sin(delta)/sin_tang;                   
+		    double t2 = sin(ang - delta)/sin_tang;  
+		    axis1  *= t2;
+		    axis1 += norm1*t1;
+
+		    angle1 = 0.5*(angle1 + ang);
+		  }
+	      }
+	  }
+
+	if (first2)
+	  {
+	    // Computing the center coordinate of the cone
+	    for (kj=0; kj<dim_; ++kj)
+	      {
+		double tmin = 1.0;
+		double tmax = -1.0;
+		for (ki=0; ki<4; ++ki)
+		  {
+		    tmin = std::min(tmin, norm[ki][kj]);
+		    tmax = std::max(tmax, norm[ki][kj]);
+		  }
+		axis[kj] = 0.5*(tmin + tmax);
+	      }
+	    axis2 = axis - (axis*yvec)*yvec;
+	    double len2 = axis2.normalize_checked();
+
+	    if (len2 > 0)
+	      {
+		// Computing the angle of the cone
+		for (ki=0; ki<4; ++ki)
+		  {
+		    Point norm2 = norm[ki] - (norm[ki]*yvec)*yvec;
+		    double ang = axis2.angle(norm2);
+		    angle2 = std::max(angle2, ang);
+		  }
+		first2 = false;
+	      }
+	  }
+	else if (cone_orthy.greaterThanPi() != 1)
+	  {
+	    // Computing the new center and angle of the cone
+	    for (ki=0; ki<4; ++ki)
+	      {
+		Point norm2 = norm[ki] - (norm[ki]*yvec)*yvec;
+		double len2 = norm2.length();
+		double ang = (len2 < eps) ? 0.0 : axis2.angle(norm2);
+		if (angle2 + ang > M_PI+tol)
+		  {
+		    // The angle is too large
+		    cone_orthy = DirectionCone(null, 4.0);
+		  }
+		else if (ang > angle2)
+		  {
+		    // The normal is not inside the cone. We have to 
+		    // compute a new cone
+		    double sin_tang = sin(ang);      
+		    double delta    = (ang - angle2)/2.0;
+
+		    double t1 = sin(delta)/sin_tang;                   
+		    double t2 = sin(ang - delta)/sin_tang;  
+		    axis2  *= t2;
+		    axis2 += norm2*t1;
+
+		    angle2 = 0.5*(angle2 + ang);
+		  }
+	      }
+	  }
+
+	if (first3)
+	  {
+	    // Computing the center coordinate of the cone
+	    for (kj=0; kj<dim_; ++kj)
+	      {
+		double tmin = 1.0;
+		double tmax = -1.0;
+		for (ki=0; ki<4; ++ki)
+		  {
+		    tmin = std::min(tmin, norm[ki][kj]);
+		    tmax = std::max(tmax, norm[ki][kj]);
+		  }
+		axis[kj] = 0.5*(tmin + tmax);
+	      }
+	    axis3 = axis - (axis*zvec)*zvec;
+	    double len3 = axis3.normalize_checked();
+
+	    if (len3 > 0)
+	      {
+		// Computing the angle of the cone
+		for (ki=0; ki<4; ++ki)
+		  {
+		    Point norm3 = norm[ki] - (norm[ki]*zvec)*zvec;
+		    double ang = axis3.angle(norm3);
+		    angle3 = std::max(angle3, ang);
+		  }
+		first3 = false;
+	      }
+	  }
+	else if (cone_orthz.greaterThanPi() != 1)
+	  {
+	    // Computing the new center and angle of the cone
+	    for (ki=0; ki<4; ++ki)
+	      {
+		Point norm3 = norm[ki] - (norm[ki]*zvec)*zvec;
+		double len3 = norm3.length();
+		double ang = (len3 < eps) ? 0.0 : axis3.angle(norm3);
+		if (angle3 + ang > M_PI+tol)
+		  {
+		    // The angle is too large
+		    cone_orthz = DirectionCone(null, 4.0);
+		  }
+		else if (ang > angle3)
+		  {
+		    // The normal is not inside the cone. We have to 
+		    // compute a new cone
+		    double sin_tang = sin(ang);      
+		    double delta    = (ang - angle3)/2.0;
+
+		    double t1 = sin(delta)/sin_tang;                   
+		    double t2 = sin(ang - delta)/sin_tang;  
+		    axis3  *= t2;
+		    axis3 += norm3*t1;
+
+		    angle3 = 0.5*(angle3 + ang);
+		  }
+	      }
+	  }
+      }
+  cone_orthx = DirectionCone(axis1, angle1);
+  cone_orthy = DirectionCone(axis2, angle2);
+  cone_orthz = DirectionCone(axis3, angle3);
+}
+
+#endif
 
 //===========================================================================
 DirectionCone SplineSurface::tangentCone(bool pardir_is_u) const

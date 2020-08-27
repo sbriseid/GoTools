@@ -719,10 +719,12 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
   // Make a copy of the initial mesh
   Mesh2D mesh2 = mesh_;
 
+  bool refined;
   const auto indices = // tuple<int, int, int, int>
     LRSplineUtils::refine_mesh(d, fixed_val, start, end, mult, generation,
 			       absolute, degree(d), knot_tol_, mesh_,
-			       (d == XFIXED) ?  bsplinesuni1_ : bsplinesuni2_);
+			       (d == XFIXED) ?  bsplinesuni1_ : bsplinesuni2_,
+			       refined);
 
 #ifdef DEBUG
   std::ofstream of2("mesh1.eps");
@@ -1126,6 +1128,21 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
 #endif
 }
 
+  struct refval
+  {
+    refval(int val, int m)
+    {
+      kval = val;
+      mult = m;
+    }
+    int kval, mult;
+  };
+
+  int compare_refs(refval r1, refval r2)
+  {
+    return (r1.kval < r2.kval);
+  }
+
 //==============================================================================
   void LRSplineSurface::refine(const vector<Refinement2D>& refs, 
 			     bool absolute)
@@ -1142,7 +1159,14 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
     int stop_break = 1;
   }
 #endif
+  // Collect B-splines affected by the refinements
+  vector<LRBSpline2D*> affected;
+  LRSplineUtils::get_affected_bsplines(refs, emap_, knot_tol_, mesh_, 
+  				       affected);
+
+  vector<refval> u_refs, v_refs;
   for (size_t i = 0; i != refs.size(); ++i) {
+    bool refined;
     const Refinement2D& r = refs[i];
     const auto indices = // tuple<int, int, int, int>
       LRSplineUtils::refine_mesh(r.d, 
@@ -1155,33 +1179,91 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
 				 degree(r.d), 
 				 knot_tol_, 
 				 mesh_, 
-				 (r.d == XFIXED) ?  bsplinesuni1_ : bsplinesuni2_);
+				 (r.d == XFIXED) ?  bsplinesuni1_ : bsplinesuni2_,
+				 refined);
 
-    // Not efficient
-    int fixed_ix = get<1>(indices); // Index of fixed_val in global knot vector.
-    int last_ix = 
-      BSplineUniUtils::last_overlapping_bsplineuni(fixed_ix,
-						   (r.d == XFIXED) ? bsplinesuni1_ : bsplinesuni2_);
-    
+    if (!refined)
+      continue;
+    refval curr(r.kval, r.multiplicity);
+    size_t kr;
     if (r.d == XFIXED)
-      LRSplineUtils::split_univariate(bsplinesuni1_, last_ix, fixed_ix, 
-				      (absolute) ? r.multiplicity : 1);
-    else
-      LRSplineUtils::split_univariate(bsplinesuni2_, last_ix, fixed_ix, 
-				      (absolute) ? r.multiplicity : 1);
+      {
+	for (kr=0; kr<u_refs.size(); ++kr)
+	  if (u_refs[kr].kval == curr.kval && 
+	      u_refs[kr].mult == curr.mult)
+	    break;
+	if (kr == u_refs.size())
+	  u_refs.push_back(curr);
+      }
+    else if (r.d == YFIXED)
+      {
+	for (kr=0; kr<v_refs.size(); ++kr)
+	  if (v_refs[kr].kval == curr.kval && 
+	      v_refs[kr].mult == curr.mult)
+	    break;
+	if (kr == v_refs.size())
+	  v_refs.push_back(curr);
+      }
   }
+
+  if (u_refs.size() + v_refs.size() == 0)
+    return; // Mesh rectangles already existing
+  
+  //std::cout << "Post refine mesh" << std::endl;
+  std::sort(u_refs.begin(), u_refs.end(), compare_refs);
+  std::sort(v_refs.begin(), v_refs.end(), compare_refs);
+
+  for (int ki=(int)u_refs.size()-1; ki>=0; --ki)
+    {
+      int kval = u_refs[ki].kval;
+      int fixed_ix = Mesh2DUtils::last_nonlarger_knotvalue_ix(mesh_, XFIXED, kval);
+
+      int last_ix = 
+	BSplineUniUtils::last_overlapping_bsplineuni(fixed_ix, bsplinesuni1_);
+    
+      LRSplineUtils::split_univariate(bsplinesuni1_, last_ix, fixed_ix, 
+				      absolute? u_refs[ki].mult : 1);
+    }
+
+   for (int ki=(int)v_refs.size()-1; ki>=0; --ki)
+    {
+      int kval = v_refs[ki].kval;
+      int fixed_ix = Mesh2DUtils::last_nonlarger_knotvalue_ix(mesh_, YFIXED, kval);
+
+      int last_ix = 
+	BSplineUniUtils::last_overlapping_bsplineuni(fixed_ix, bsplinesuni2_);
+    
+      LRSplineUtils::split_univariate(bsplinesuni2_, last_ix, fixed_ix, 
+				      absolute? v_refs[ki].mult : 1); 
+    }
+ 
+  //   // Not efficient
+  //   int fixed_ix = get<1>(indices); // Index of fixed_val in global knot vector.
+  //   int last_ix = 
+  //     BSplineUniUtils::last_overlapping_bsplineuni(fixed_ix,
+  // 						   (r.d == XFIXED) ? bsplinesuni1_ : bsplinesuni2_);
+    
+  //   if (r.d == XFIXED)
+  //     LRSplineUtils::split_univariate(bsplinesuni1_, last_ix, fixed_ix, 
+  // 				      (absolute) ? r.multiplicity : 1);
+  //   else
+  //     LRSplineUtils::split_univariate(bsplinesuni2_, last_ix, fixed_ix, 
+  // 				      (absolute) ? r.multiplicity : 1);
+  // }
 
 
   //std::wcout << "Preparing for iterative splitting." << std::endl;
-  vector<unique_ptr<LRBSpline2D> > affected;
-  affected.reserve(bsplines_.size());
-//  for_each(bsplines_.begin(), bsplines_.end(), [&](const BSplineMap::value_type& b) {
-  for (auto it = bsplines_.begin(); it!= bsplines_.end(); ++it)
-    {
-      // @@@ VSK. This is maybe the place to remove element information from the bsplines?
-      unique_ptr<LRBSpline2D> ptr = std::move(it->second);
-      affected.emplace_back(std::move(ptr));//b.second);
-    };
+  //vector<unique_ptr<LRBSpline2D> > affected;
+//   vector<LRBSpline2D*> affected;
+//   affected.reserve(bsplines_.size());
+// //  for_each(bsplines_.begin(), bsplines_.end(), [&](const BSplineMap::value_type& b) {
+//   for (auto it = bsplines_.begin(); it!= bsplines_.end(); ++it)
+//     {
+//       affected.push_back((*it).second.get());
+//       // @@@ VSK. This is maybe the place to remove element information from the bsplines?
+//       // unique_ptr<LRBSpline2D> ptr = std::move(it->second);
+//       // affected.emplace_back(std::move(ptr));//b.second);
+//     };
   
   // @@@ VSK. In this case, we should not bother about splitting elements. They will
   // be regenerated later. Thus, the bsplines should NOT be updated with elements during
@@ -1189,17 +1271,17 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
   // The bsplines should not have any pointers to elements. They will be set later
   //std::wcout << "Iteratively splitting." << std::endl;
 
-  LRSplineUtils::iteratively_split(affected, mesh_, 
-				   bsplinesuni1_, bsplinesuni2_);
-  bsplines_.clear();
+  LRSplineUtils::iteratively_split2(affected, mesh_, bsplines_, NULL, 
+				    bsplinesuni1_, bsplinesuni2_);
+  //bsplines_.clear();
 
   //std::wcout << "Splitting finished, now inserting resulting functions" << std::endl;
   // The bsplines are checked for duplicates and inserted in the global bspline map
 //  for_each(affected.begin(), affected.end(), [&](unique_ptr<LRBSpline2D> b) {
-for (auto it = affected.begin(); it != affected.end(); ++it)
-  {
-    LRSplineUtils::insert_basis_function(*it, mesh_, bsplines_);
-  };
+// for (auto it = affected.begin(); it != affected.end(); ++it)
+//   {
+//     LRSplineUtils::insert_basis_function(*it, mesh_, bsplines_);
+//   };
 
 #if 0//ndef NDEBUG
   {
@@ -1238,6 +1320,109 @@ for (auto it = affected.begin(); it != affected.end(); ++it)
 
 }
 
+//==============================================================================
+  void LRSplineSurface::refine2(const vector<Refinement2D>& refs, 
+				bool absolute)
+//==============================================================================
+{
+  for (size_t i = 0; i != refs.size(); ++i) {
+  // Make a copy of the initial mesh
+    Mesh2D mesh2 = mesh_;
+    bool refined;
+    const Refinement2D& r = refs[i];
+    const auto indices = // tuple<int, int, int, int>
+      LRSplineUtils::refine_mesh(r.d, 
+				 r.kval, 
+				 r.start, 
+				 r.end, 
+				 r.multiplicity, 
+				 r.generation,
+				 absolute,
+				 degree(r.d), 
+				 knot_tol_, 
+				 mesh_, 
+				 (r.d == XFIXED) ?  bsplinesuni1_ : bsplinesuni2_,
+				 refined);
+    
+    const int prev_ix = get<0>(indices);
+    const int fixed_ix = get<1>(indices); // Index of fixed_val in global knot vector.
+    const int start_ix = get<2>(indices); // Index of start (of segment to insert) in global knot vector.
+    const int end_ix   = get<3>(indices); // Index of end (of segment to insert) in global knot vector.
+
+    // Collect pointers to affected bsplines
+    std::set<LRBSpline2D*> all_bsplines;
+    double domain[4];  // Covers elements affected by the split
+    domain[0] = domain[2] = std::numeric_limits<double>::max();
+    domain[1] = domain[3] = std::numeric_limits<double>::lowest();
+    for (int i = start_ix; i != end_ix; ++i) {
+      // Check if the specified element exists in 'emap'
+      int u_ix = (r.d == XFIXED) ? prev_ix : i;
+      int v_ix = (r.d == YFIXED) ? prev_ix : i;
+      ElementMap::key_type key = {mesh_.kval(XFIXED, u_ix),
+				  mesh_.kval(YFIXED, v_ix)};
+      auto it = emap_.find(key);
+      if (it == emap_.end())
+	{
+	  // Element not found. The assumed start index of the element
+	  // is not correct. Recompute
+	  int u_ix2 = u_ix;
+	  int v_ix2 = v_ix;
+	  if (r.d == XFIXED)
+	    u_ix2 = 
+	      Mesh2DUtils::search_downwards_for_nonzero_multiplicity(mesh2, XFIXED,
+								     u_ix, v_ix);
+	  else
+	    v_ix2 = 
+	      Mesh2DUtils::search_downwards_for_nonzero_multiplicity(mesh2, YFIXED,
+								     v_ix, u_ix);
+	  u_ix = u_ix2;
+	  v_ix = v_ix2;
+
+	  key.u_min = mesh2.kval(XFIXED, u_ix);
+	  key.v_min = mesh2.kval(YFIXED, v_ix);
+	  it = emap_.find(key);
+	}
+
+      if (it != emap_.end())
+	{
+	  // The element exists. Collect bsplines
+	  Element2D* curr_el = (*it).second.get();
+	  all_bsplines.insert(curr_el->supportBegin(), curr_el->supportEnd());
+	  domain[0] = std::min(domain[0], curr_el->umin());
+	  domain[1] = std::max(domain[1], curr_el->umax());
+	  domain[2] = std::min(domain[2], curr_el->vmin());
+	  domain[3] = std::max(domain[3], curr_el->vmax());
+	}
+    }
+    vector<LRBSpline2D*> bsplines_affected(all_bsplines.begin(), all_bsplines.end());
+
+    int last_ix = 
+      BSplineUniUtils::last_overlapping_bsplineuni(fixed_ix,
+  						   (r.d == XFIXED) ? bsplinesuni1_ : bsplinesuni2_);
+    
+    if (r.d == XFIXED)
+      LRSplineUtils::split_univariate(bsplinesuni1_, last_ix, fixed_ix, 
+  				      (absolute) ? r.multiplicity : 1);
+    else
+      LRSplineUtils::split_univariate(bsplinesuni2_, last_ix, fixed_ix, 
+  				      (absolute) ? r.multiplicity : 1);
+    
+    LRSplineUtils::iteratively_split2(bsplines_affected, mesh_, 
+				      bsplines_, domain, 
+				      bsplinesuni1_, bsplinesuni2_);
+    
+    for (int i=(int)bsplinesuni1_.size()-1 /*last_ix*/; i>=0; --i)
+	  if (bsplinesuni1_[i]->getCount() <= 0)
+	    bsplinesuni1_.erase(bsplinesuni1_.begin()+i);
+
+    for (int i=(int)bsplinesuni2_.size()-1 /*last_ix*/; i>=0; --i)
+	  if (bsplinesuni2_[i]->getCount() <= 0)
+	    bsplinesuni2_.erase(bsplinesuni2_.begin()+i);
+  }
+  
+  emap_ = construct_element_map_(mesh_, bsplines_); // reconstructing the emap once at the end
+  curr_element_ = NULL;  // No valid any more
+}
 
 //==============================================================================
   void LRSplineSurface::addSurface(const LRSplineSurface& other_sf, double fac)

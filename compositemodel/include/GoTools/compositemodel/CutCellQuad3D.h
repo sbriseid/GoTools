@@ -85,10 +85,32 @@ namespace Go
     std::vector<double> weights_;
     double min_cell_size_;
 
-    void createCutCell(const Point& ll, const Point& ur, shared_ptr<Body>& cutcell);
+    void createCutCell(const Point& ll, const Point& ur,
+		       std::vector<shared_ptr<Body> >& cutcell);
 
     void createCellSfs(const Point& ll, const Point& ur,
 		       std::vector<shared_ptr<SplineSurface> >& cell_sfs);
+    void quadraturePoints(const Point& ll, const Point& ur,
+			  shared_ptr<Body> body,
+			  std::vector<std::vector<double> >& quadraturepoints,
+			  std::vector<std::vector<double> >& pointsweights,
+			  std::vector<std::vector<shared_ptr<ParamSurface> > >& unresolved_cells,
+			  std::vector<std::vector<double> >& surfquads,
+			  std::vector<std::vector<double> >& sfptweights,
+			  std::vector<std::vector<shared_ptr<ParamSurface> > >& small_sfs);
+
+    int selectBaseDir(Point& ll, Point& ur,
+		      shared_ptr<Body> body, int& splitdir, double& splitval);
+
+    
+    void splitCell(shared_ptr<Body> body,
+		   shared_ptr<ParamSurface> splitsf,
+		   std::vector<shared_ptr<Body> >& subcell);
+
+    void removeCoincFaces(shared_ptr<SurfaceModel>& mod1,
+			  shared_ptr<SurfaceModel>& mod2,
+			  shared_ptr<SurfaceModel>& mod3,
+			  double tol);
    };
 } // end namespace Go
 

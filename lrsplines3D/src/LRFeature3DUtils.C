@@ -339,8 +339,8 @@ void  LRFeature3DUtils::writeCellInfo(const LRSplineVolume& vol,
   // Normalize to harmonize the different entries
   double minval = 0.0;
   double maxval = 10.0;
-  vector<vector<double> > outval(17);
-  for (int kh=0; kh<17; ++kh)
+  vector<vector<double> > outval(18);
+  for (int kh=0; kh<18; ++kh)
     outval[kh].resize(nc2);
   double currmin = std::numeric_limits<double>::max();
   double currmax = std::numeric_limits<double>::lowest();
@@ -547,11 +547,23 @@ void  LRFeature3DUtils::writeCellInfo(const LRSplineVolume& vol,
     outval[16][kr] = (currmax < 1.0e-9) ? 0 : outval[16][kr]*maxval/currmax;
 
  
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      currmin = std::min((double)npt[kr], currmin);
+      currmax = std::max((double)npt[kr], currmax);
+      outval[17][kr] = (double)npt[kr];
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[17][kr] = (currmax < 1.0e-9) ? 0 : outval[17][kr]*maxval/currmax;
+
+ 
   // Write to file
   out << ncell1 << "  " << ncell2 << "  " << ncell3 << " " << "17" << std::endl;
   for (int kr=0; kr<nc2; ++kr)
     {
-      for (int kh=0; kh<17; ++kh)
+      for (int kh=0; kh<18; ++kh)
 	out << (float)outval[kh][kr] << " ";
       out << std::endl;
     }

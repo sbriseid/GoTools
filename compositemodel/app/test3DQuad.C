@@ -65,9 +65,9 @@ int compare(const char *str1, char str2[][8], int nmb)
 
 int main(int argc, char** argv)
 {
-  if (argc != 14)
+  if (!(argc == 14 || argc == 15 || argc == 16))
     {
-      std::cout << "Input parameters: model file, out file, tolerance, ll[0], ll[1], ll[2], ur[0], ur[1], ur[2], num1, num2, num3, min_cell_size" << std::endl;
+      std::cout << "Input parameters: model file, out file, tolerance, ll[0], ll[1], ll[2], ur[0], ur[1], ur[2], num1, num2, num3, min_cell_size <first cell> <last cell>" << std::endl;
       exit(1);
     }
 
@@ -84,6 +84,12 @@ int main(int argc, char** argv)
   int num2 = atoi(argv[11]);
   int num3 = atoi(argv[12]);
   double min_cell_size = atof(argv[13]);
+  int firstcell = 0;
+  int lastcell = -1;
+  if (argc >= 15)
+    firstcell = atoi(argv[14]);
+  if (argc == 16)
+    lastcell = atoi(argv[15]);
    
   // Check file type
   // Find file extension
@@ -267,11 +273,19 @@ int main(int argc, char** argv)
 
   std::ofstream uncv("unresolved.g2");
   std::ofstream uncv2("shortcurves.g2");
-  
+
+  if (lastcell < firstcell)
+    lastcell = num1*num2*num3;
+  int ncell = 0;
   for (kh=0, w1=ll2, w2=w1+del3; kh<num3; ++kh, w1=w2, w2+=del3)
     for (kj=0, v1=ll1, v2=v1+del2; kj<num2; ++kj, v1=v2, v2+=del2)
-      for (ki=0, u1=ll0, u2=u1+del1; ki<num1; ++ki, u1=u2, u2+=del1)
+      for (ki=0, u1=ll0, u2=u1+del1; ki<num1; ++ki, u1=u2, u2+=del1, ++ncell)
 	{
+	  if (ncell < firstcell)
+	    continue;
+	  if (ncell >= lastcell)
+	    break;
+	      
 	  Point ll(u1, v1, w1);
 	  Point ur(u2, v2, w2);
 	  int coinc = 0;
@@ -292,7 +306,7 @@ int main(int argc, char** argv)
 	    for (size_t kk=0; kk<quadpt.size(); ++kk)
 	      {
 		outfile << "400 1 0 4 100 100 55 255" << std::endl;
-		outfile << quadval.size()*quadval.size()*quadval.size() << std::endl;
+		outfile << quadpt[kk].size()/3 << std::endl;
 		for (size_t kr=0; kr<quadpt[kk].size(); kr+=3)
 		  {
 		    Point pt(quadpt[kk][kr], quadpt[kk][kr+1], quadpt[kk][kr+2]);

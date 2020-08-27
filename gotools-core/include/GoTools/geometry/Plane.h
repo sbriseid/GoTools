@@ -117,6 +117,8 @@ public:
     const RectDomain& parameterDomain() const;
 
     virtual DirectionCone normalCone() const;
+    virtual void normalCones(shared_ptr<DirectionCone> orth_cone[],
+			     shared_ptr<DirectionCone> along_cone[]) const;
     virtual DirectionCone tangentCone(bool pardir_is_u) const;
 
     virtual void point(Point& pt, double upar, double vpar) const;
