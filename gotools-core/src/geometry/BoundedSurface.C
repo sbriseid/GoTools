@@ -774,6 +774,52 @@ DirectionCone BoundedSurface::normalCone() const
     surface_->normalCone();
 }
 
+//===========================================================================
+void BoundedSurface::normalCones(shared_ptr<DirectionCone> orth_cone[],
+			     shared_ptr<DirectionCone> along_cone[]) const
+//===========================================================================
+{
+  RectDomain dom = containingDomain();
+  vector<shared_ptr<ParamSurface> > sub_sfs;
+  try {
+    sub_sfs = surface_->subSurfaces(dom.umin(), dom.vmin(), 
+				    dom.umax(), dom.vmax());
+  }
+  catch (...)
+    {
+      surface_->normalCones(orth_cone, along_cone);
+    }
+
+  if (sub_sfs.size() == 1) 
+    sub_sfs[0]->normalCones(orth_cone, along_cone);
+  else
+    surface_->normalCones(orth_cone, along_cone);
+}
+
+#if 0
+//===========================================================================
+void BoundedSurface::normalCones(DirectionCone& cone_orthx,
+				DirectionCone& cone_orthy,
+				DirectionCone& cone_orthz) const
+//===========================================================================
+{
+  RectDomain dom = containingDomain();
+  vector<shared_ptr<ParamSurface> > sub_sfs;
+  try {
+    sub_sfs = surface_->subSurfaces(dom.umin(), dom.vmin(), 
+				    dom.umax(), dom.vmax());
+  }
+  catch (...)
+    {
+      surface_->normalCones(cone_orthx, cone_orthy, cone_orthz);
+    }
+
+  if (sub_sfs.size() == 1) 
+    sub_sfs[0]->normalCones(cone_orthx, cone_orthy, cone_orthz);
+  else
+    surface_->normalCones(cone_orthx, cone_orthy, cone_orthz);
+}
+#endif
 
 //===========================================================================
 DirectionCone BoundedSurface::tangentCone(bool pardir_is_u) const
@@ -912,6 +958,25 @@ std::vector<CurveLoop> BoundedSurface::absolutelyAllBoundaryLoops() const
 	    curves.push_back(loop[i]);
 	}
 	clvec.push_back(CurveLoop(curves, loop_tol));
+    }
+    return clvec;
+}
+
+//===========================================================================
+std::vector<shared_ptr<CurveLoop> >
+BoundedSurface::boundaryLoops() const
+//===========================================================================
+{
+  std::vector<shared_ptr<CurveLoop> > clvec;
+    for (size_t j=0; j<boundary_loops_.size(); j++) {
+	double loop_tol = boundary_loops_[j]->getSpaceEpsilon();
+	std::vector<shared_ptr<ParamCurve> > curves;
+	CurveLoop& loop = *(boundary_loops_[j]);
+	for (int i = 0; i < loop.size(); ++i) {
+	    curves.push_back(loop[i]);
+	}
+	shared_ptr<CurveLoop> curr(new CurveLoop(curves, loop_tol));
+	clvec.push_back(curr);
     }
     return clvec;
 }

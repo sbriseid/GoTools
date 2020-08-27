@@ -36,7 +36,7 @@
  * This file may be used in accordance with the terms contained in a
  * written agreement between you and SINTEF ICT. 
  */
-//#define DEBUG
+#define DEBUG
 
 #include "GoTools/compositemodel/CellDivision.h"
 #include "GoTools/utils/Point.h"
@@ -55,6 +55,7 @@
 #include "GoTools/topology/FaceAdjacency.h"
 #include "GoTools/topology/FaceConnectivityUtils.h"
 #include "GoTools/compositemodel/SurfaceModelUtils.h"
+#include "GoTools/intersections/Identity.h"
 #include <fstream>
 
 
@@ -439,7 +440,7 @@ vector<ftCurveSegment> SurfaceModel::intersect(const ftPlane& plane,
     //    std::ofstream debug("data/debug.g2");
     for (int i = 0; i < numintcr; ++i) {
 	// March out the intersection curves
-	intcurves[i]->ipoint = 1;
+	//intcurves[i]->ipoint = 1;
 	s1314(sislsf, pnt.begin(), nrm.begin(), dim, epsco, epsge,
 	      maxstep, intcurves[i], makecurv, graphic, &stat);
 	SISLCurve* sc = intcurves[i]->pgeom;
@@ -910,10 +911,10 @@ shared_ptr<SurfaceModel> SurfaceModel::trimWithPlane(const ftPlane& plane)
 	  bool inside = isInside(pnt, normal, pt_dist);
 	  shared_ptr<ParamSurface> tmp_surf(surf->clone());
 	  shared_ptr<ftSurface> tmp_face(new ftSurface(tmp_surf, -1));
-	  if (faces_[ki]->asFtSurface()->hasBoundaryConditions())
+	  if (faces[ki]->asFtSurface()->hasBoundaryConditions())
 	    {
 	      int bd_cond_type, bd_cond;
-	      faces_[ki]->asFtSurface()->getBoundaryConditions(bd_cond_type, bd_cond);
+	      faces[ki]->asFtSurface()->getBoundaryConditions(bd_cond_type, bd_cond);
 	      tmp_face->setBoundaryConditions(bd_cond_type, bd_cond);
 	    }
 	  if (inside)
@@ -974,10 +975,10 @@ shared_ptr<SurfaceModel> SurfaceModel::trimWithPlane(const ftPlane& plane)
 	      double pt_dist;
 	      bool inside = isInside(pnt, normal, pt_dist);
 	      shared_ptr<ftSurface> tmp_face(new ftSurface(trim_sfs[kr], -1));
-	      if (faces_[ki]->asFtSurface()->hasBoundaryConditions())
+	      if (faces[ki]->asFtSurface()->hasBoundaryConditions())
 		{
 		  int bd_cond_type, bd_cond;
-		  faces_[ki]->asFtSurface()->getBoundaryConditions(bd_cond_type, bd_cond);
+		  faces[ki]->asFtSurface()->getBoundaryConditions(bd_cond_type, bd_cond);
 		  tmp_face->setBoundaryConditions(bd_cond_type, bd_cond);
 		}
 	      if (inside)
@@ -2285,7 +2286,8 @@ SurfaceModel::localExtreme(ftSurface *face, Point& dir,
 
     // Perform all intersections and store results
     int ki, kj;
-    for (ki=0; ki<nmb1; ++ki)
+   Identity identity;
+   for (ki=0; ki<nmb1; ++ki)
       {
 	shared_ptr<ParamSurface> surf1 = faces_[ki]->surface();
 	BoundingBox box1 = surf1->boundingBox();
@@ -2304,19 +2306,119 @@ SurfaceModel::localExtreme(ftSurface *face, Point& dir,
 
 	    if (box1.overlaps(box2, eps))
 	      {
-		shared_ptr<BoundedSurface> bd1, bd2;
-		vector<shared_ptr<CurveOnSurface> > int_cv1, int_cv2;
-		BoundedUtils::getSurfaceIntersections(surf1, surf2, eps,
-						      int_cv1, bd1,
-						      int_cv2, bd2);
-		bd_sfs1[ki] = bd1;
-		bd_sfs2[kj] = bd2;
-		if (int_cv1.size() > 0)
+		// Check for coincidence
+		int stat = identity.identicalSfs(surf1, surf2, eps);
+		if (stat != 0)
 		  {
+		    // Coincidence. Define boundaries of area
+		    if (!bd_sfs1[ki].get())
+		      bd_sfs1[ki] = BoundedUtils::convertToBoundedSurface(surf1, eps);
+		    if (!bd_sfs2[kj].get())
+		      bd_sfs2[kj] = BoundedUtils::convertToBoundedSurface(surf2, eps);
+
+		    vector<shared_ptr<CurveOnSurface> > int_cv1, int_cv2;
+		    if (stat == 1)
+		      {
+			// Total coincidence
+			vector<CurveLoop> bd_loops1 = bd_sfs1[ki]->allBoundaryLoops();
+			for (size_t kr=0; kr<bd_loops1.size(); ++kr)
+			  {
+			    for (auto it=bd_loops1[kr].begin(); it!=bd_loops1[kr].end(); ++it)
+			      {
+				shared_ptr<CurveOnSurface> sfcv =
+				  dynamic_pointer_cast<CurveOnSurface,ParamCurve>(*it);
+				if (sfcv.get())
+				  int_cv1.push_back(sfcv);
+			      }
+			  }
+
+			vector<CurveLoop> bd_loops2 = bd_sfs2[kj]->allBoundaryLoops();
+			for (size_t kr=0; kr<bd_loops2.size(); ++kr)
+			  {
+			    for (auto it=bd_loops2[kr].begin(); it!=bd_loops2[kr].end(); ++it)
+			      {
+				shared_ptr<CurveOnSurface> sfcv =
+				  dynamic_pointer_cast<CurveOnSurface,ParamCurve>(*it);
+				if (sfcv.get())
+				  int_cv2.push_back(sfcv);
+			      }
+			  }
+		      }
+		    else if (stat == 2)
+		      {
+			// Surface one embedded in surface two
+			vector<CurveLoop> bd_loops1 = bd_sfs1[ki]->allBoundaryLoops();
+			for (size_t kr=0; kr<bd_loops1.size(); ++kr)
+			  {
+			    for (auto it=bd_loops1[kr].begin(); it!=bd_loops1[kr].end(); ++it)
+			      {
+				shared_ptr<CurveOnSurface> sfcv =
+				  dynamic_pointer_cast<CurveOnSurface,ParamCurve>(*it);
+				if (sfcv.get())
+				  int_cv1.push_back(sfcv);
+
+				// Project curve onto surface two
+				shared_ptr<SplineCurve> spacecv, parcv;
+				shared_ptr<ParamSurface> undersf = bd_sfs2[kj]->underlyingSurface();
+				shared_ptr<ParamCurve> space = sfcv->spaceCurve();
+				CurveCreators::projectCurve(space, undersf, eps,
+							    spacecv, parcv);
+				shared_ptr<CurveOnSurface> sfcv2(new CurveOnSurface(undersf, parcv,
+										    spacecv, false));
+				int_cv2.push_back(sfcv2);
+			      }
+			  }
+		      }
+		    else if (stat == 3)
+		      {
+			// Surface two embedded in surface one
+			vector<CurveLoop> bd_loops2 = bd_sfs2[kj]->allBoundaryLoops();
+			for (size_t kr=0; kr<bd_loops2.size(); ++kr)
+			  {
+			    for (auto it=bd_loops2[kr].begin(); it!=bd_loops2[kr].end(); ++it)
+			      {
+				shared_ptr<CurveOnSurface> sfcv =
+				  dynamic_pointer_cast<CurveOnSurface,ParamCurve>(*it);
+				if (sfcv.get())
+				  int_cv2.push_back(sfcv);
+
+				// Project curve onto surface one
+				shared_ptr<SplineCurve> spacecv, parcv;
+				shared_ptr<ParamSurface> undersf = bd_sfs1[ki]->underlyingSurface();
+				shared_ptr<ParamCurve> space = sfcv->spaceCurve();
+				CurveCreators::projectCurve(space, undersf, eps,
+							    spacecv, parcv);
+				shared_ptr<CurveOnSurface> sfcv1(new CurveOnSurface(undersf, parcv,
+										    spacecv, false));
+				int_cv1.push_back(sfcv1);
+			      }
+			  }
+		      }
+		    else
+		      THROW("Unexpected result of coincidence test");
 		    all_int_cvs1[ki].insert(all_int_cvs1[ki].end(), 
 					    int_cv1.begin(), int_cv1.end());
 		    all_int_cvs2[kj].insert(all_int_cvs2[kj].end(), 
 					    int_cv2.begin(), int_cv2.end());
+		    bd_sfs1[ki]->setFlagCode(3); // Belongs to both face sets
+		    bd_sfs2[kj]->setFlagCode(3); // Belongs to both face sets
+		  }
+		else
+		  {
+		    shared_ptr<BoundedSurface> bd1, bd2;
+		    vector<shared_ptr<CurveOnSurface> > int_cv1, int_cv2;
+		    BoundedUtils::getSurfaceIntersections(surf1, surf2, eps,
+							  int_cv1, bd1,
+							  int_cv2, bd2);
+		    bd_sfs1[ki] = bd1;
+		    bd_sfs2[kj] = bd2;
+		    if (int_cv1.size() > 0)
+		      {
+			all_int_cvs1[ki].insert(all_int_cvs1[ki].end(), 
+						int_cv1.begin(), int_cv1.end());
+			all_int_cvs2[kj].insert(all_int_cvs2[kj].end(), 
+						int_cv2.begin(), int_cv2.end());
+		      }
 		  }
 	      }
 	  }

@@ -12,7 +12,7 @@
 using namespace std;
 using namespace Go;
 
-//#define DEBUG
+#define DEBUG
 
 namespace {
   enum PointStatus {REGULAR = 0, BOUNDARY=1, CYCLIC_END = 3, SINGULAR = 4, END_POINT = 5};
@@ -336,8 +336,8 @@ inline bool is_point_on_boundary(const SplineSurface& surf, const Point& uv)
            is_point_on_boundary(surf, p) ? BOUNDARY :
                                            REGULAR;
   return Array4
-    { a * ds_dv,  // u-component of tangent
-     -a * ds_du, // v-component of tangent
+    { -a * ds_dv,  // u-component of tangent
+      a * ds_du, // v-component of tangent
       da_dt * ds_dv + pow(a,2) * (d2s_dudv * ds_dv - d2s_dv2 * ds_du), // double deriv.
      -da_dt * ds_du - pow(a,2) * (d2s_du2 * ds_dv - d2s_dudv * ds_du) // ditto
     };

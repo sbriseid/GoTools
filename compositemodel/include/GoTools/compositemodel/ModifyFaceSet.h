@@ -70,14 +70,14 @@ class ModifyFaceSet
   /// Return the resulting face set as a surface model
   shared_ptr<SurfaceModel> getModifiedModel(int& nmb);
 
+  std::vector<ftEdge*> fetchSharpEdges();
+
 
  private:
   shared_ptr<SurfaceModel> model_;
 
     // Perform division
   int divide();
-
-  std::vector<ftEdge*> fetchSharpEdges();
 
   ftSurface*  fetchNextFace(ftEdge* edge, Vertex* vx, double angtol,
 			    ftEdge*& next_edge, double& angle);

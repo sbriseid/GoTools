@@ -385,6 +385,28 @@ DirectionCone Plane::normalCone() const
 
 
 //===========================================================================
+void Plane::normalCones(shared_ptr<DirectionCone> orth_cone[],
+			shared_ptr<DirectionCone> along_cone[]) const
+//===========================================================================
+{
+  Point norm = normal_;
+  if (isSwapped())
+    norm *= -1;
+
+  for (int kr=0; kr<3; ++kr)
+    {
+      Point dir(0.0, 0.0, 0.0);
+      dir[kr] = 1;
+	    
+      Point norm1 = norm - (norm*dir)*dir;
+      Point norm2 = (norm*dir)*dir;
+
+      orth_cone[kr] = shared_ptr<DirectionCone>(new DirectionCone(norm1, 0.0));
+      along_cone[kr] = shared_ptr<DirectionCone>(new DirectionCone(norm2, 0.0));
+    }
+}
+
+//===========================================================================
 DirectionCone Plane::tangentCone(bool pardir_is_u) const
 //===========================================================================
 {

@@ -464,6 +464,18 @@ class LRSurfApprox
       average_outside = avout_;
     }
 
+     /// Feature output
+    void setFeatureOut(int ncell)
+    {
+      write_feature_ = true;
+      ncell_ = ncell;
+    }
+
+    void unsetFeatureOut()
+    {
+      write_feature_ = false;
+    }
+
 private:
     shared_ptr<LRSplineSurface> srf_;
     shared_ptr<Eval1D3DSurf> evalsrf_;
@@ -476,6 +488,8 @@ private:
     std::vector<int> coef_known_;
     shared_ptr<LRSplineSurface> prev_;  // Previous surface, no point information
     // in elements
+    //  Element accuracy history information
+    std::unique_ptr<Element2DAccuracyHistory> element_accuracy_;  
 
     bool useMBA_;    // Only LR-MBA
     int toMBA_;      // Start with LR-MBA at the given iteration step
@@ -527,6 +541,9 @@ private:
     double vsize_min_;  // Minimum element size in v direction, negative 
     // if not set
 
+    double prev_el_out_;
+    double prev_thresh_;
+    
     bool fix_boundary_;
     bool make_ghost_points_;
     bool outlier_detection_;
@@ -538,6 +555,10 @@ private:
     double mintol_;
     bool has_var_tol_sign_;
     std::vector<TolBox> tolerances_;
+
+    // Features output
+    bool write_feature_;
+    int ncell_;
 
     void initDefaultParams();
 
@@ -569,8 +590,13 @@ private:
 
     //double density);
     /// Refine surface
-    int refineSurf();
+    //int refineSurf(int iter);
+    int refineSurf(int iter, int& dir, double threshold);
     int refineSurf2();
+    int refineSurf3(int iter, int& dir, double threshold, int refstrat);
+    int refineSurf4(int& dir, double threshold);
+    void getRefineExtension(Element2D *elem, Direction2D fixdir,
+			    int strategy, double& pmin, double& pmax);
 
     /// Create initial LR B-spline surface
     void makeInitSurf(int dim);
@@ -595,12 +621,13 @@ private:
     /// Parameter domain surrounding the parameter values of all data points
     void computeParDomain(int dim, double& umin, double& umax, double& vmin, double& vmax);
 
-    void defineRefs(LRBSpline2D* bspline, double average_out,
+    void defineRefs(LRBSpline2D* bspline, double average_out, int dir,
 		    std::vector<LRSplineSurface::Refinement2D>& refs_x,
 		    std::vector<LRSplineSurface::Refinement2D>& refs_y,
-		    std::vector<std::pair<Element2D*,double> >& elem_out);
+		    int choice,
+		    std::vector<Element2D*>& elem_div);
 
-    void checkFeasibleRef(Element2D* elem, 
+    void checkFeasibleRef(Element2D* elem, int dir, int iter,
 			  std::vector<LRSplineSurface::Refinement2D>& refs_x,
 			  std::vector<LRSplineSurface::Refinement2D>& refs_y,
 			  std::vector<Element2D*>& affected);

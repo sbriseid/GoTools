@@ -6,11 +6,12 @@
 #include "GoTools/geometry/CurveBoundedDomain.h"
 #include "GoTools/lrsplines2D/LRSplinePlotUtils.h" // debug
 #include "GoTools/geometry/RectDomain.h"
+#include "GoTools/geometry/SplineDebugUtils.h"
 #include "GoTools/lrsplines2D/SSurfTraceIsocontours.h"
 #include "GoTools/lrsplines2D/TrimCrvUtils.h"
 
-//#define DEBUG
-//#define DEBUG2
+#define DEBUG
+#define DEBUG2
 
 using namespace std;
 using namespace Go;
@@ -109,6 +110,9 @@ namespace Go
 	      cv->write(of);
 	    }
 	}
+
+      std::ofstream ofbd("sf_loop.g2");
+      SplineDebugUtils::writeBoundary(*bdsurf, ofbd);
 #endif
     }
 
@@ -199,6 +203,7 @@ vector<CurveVec> LRTraceIsocontours(const LRSplineSurface& lrs,
 #endif
 
 #ifdef DEBUG2
+  std::cout << "Number of surface fragments: " << surf_fragments.size() << std::endl;
   vector<shared_ptr<LRSplineSurface> > lr1(surf_fragments.size());
   vector<shared_ptr<LRSplineSurface> > lr2(surf_fragments.size());
   for (size_t ki=0; ki<surf_fragments.size(); ++ki)
@@ -379,23 +384,39 @@ IsectCurve join_isectcurves(const IsectCurve& c1, const IsectCurve& c2,
 // ----------------------------------------------------------------------------
 {
   shared_ptr<SplineCurve> pcurve1 = shared_ptr<SplineCurve>(c1.first->clone());
-  shared_ptr<SplineCurve> scurve1 = shared_ptr<SplineCurve>(c1.second->clone());
+  shared_ptr<SplineCurve> scurve1; 
   shared_ptr<SplineCurve> pcurve2 = shared_ptr<SplineCurve>(c2.first->clone());
-  shared_ptr<SplineCurve> scurve2 = shared_ptr<SplineCurve>(c2.second->clone());
+  shared_ptr<SplineCurve> scurve2; 
 
-  if (c1_at_start) {
-    pcurve1->reverseParameterDirection();
-    scurve1->reverseParameterDirection();
-  }
+  if (c1.second.get())
+    {
+      scurve1 = shared_ptr<SplineCurve>(c1.second->clone());
+      scurve2 = shared_ptr<SplineCurve>(c2.second->clone());
+      if (c1_at_start) {
+	pcurve1->reverseParameterDirection();
+	scurve1->reverseParameterDirection();
+      }
 
-  if (!c2_at_start) {
-    pcurve2->reverseParameterDirection();
-    scurve2->reverseParameterDirection();
-  }
+      if (!c2_at_start) {
+	pcurve2->reverseParameterDirection();
+	scurve2->reverseParameterDirection();
+      }
   
-  pcurve1->appendCurve(pcurve2.get());
-  scurve1->appendCurve(scurve2.get());
+      pcurve1->appendCurve(pcurve2.get());
+      scurve1->appendCurve(scurve2.get());
+    }
+  else
+    {
+      if (c1_at_start) {
+	pcurve1->reverseParameterDirection();
+      }
+
+      if (!c2_at_start) {
+	pcurve2->reverseParameterDirection();
+      }
   
+      pcurve1->appendCurve(pcurve2.get());
+    }
   return IsectCurve { pcurve1, scurve1 };
 }
 
@@ -633,7 +654,7 @@ void merge_segments(map<double, CurveVec>& mergemap, // map whose segments shoul
 	  // updating boundary curve pointers if necessary
 	  transform(bcurves.begin(), bcurves.end(), bcurves.begin(), [&](const IsectCurve& c) {
 	      return ((c.first == entry1.icurve.first) | (c.first == entry2.icurve.first)) ? new_curve : c;});
-#ifdef DEBUG2
+#ifdef DEBUG3
 	  std::ofstream of2("bcurves.g2");
 	  for (size_t ka=0; ka<bcurves.size(); ++ka)
 	    {

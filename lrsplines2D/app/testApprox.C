@@ -52,8 +52,8 @@ using std::vector;
 
 int main(int argc, char *argv[])
 {
-  if (argc != 12 && argc != 13) {
-    std::cout << "Usage: point cloud (.g2), lrspline_out.g2, tol, maxiter, grid (0/1), smoothing weight, MBA(0/1), toMBA(n), initMBA(0/1), set minsize(0/1), to3D(-1/n), optional:output distance field (x,y,z,d)" << std::endl;
+  if (argc != 11 && argc != 12) {
+    std::cout << "Usage: point cloud (.g2), lrspline_out.g2, tol, maxiter, smoothing weight, MBA(0/1), toMBA(n), initMBA(0/1), set minsize(0/1), feature output(-1/resolution), optional:output distance field (x,y,z,d)" << std::endl;
     return -1;
   }
   int ki;
@@ -62,38 +62,21 @@ int main(int argc, char *argv[])
   std::ofstream fileout(argv[2]);
   double AEPSGE = atof(argv[3]);
   int max_iter = atoi(argv[4]);
-  int grid = atoi(argv[5]);
-  double smoothwg = atof(argv[6]);//1.0e-10; //atof(argv[11]);
-  int mba = atoi(argv[7]);
-  int tomba = atoi(argv[8]);
-  int initmba = atoi(argv[9]);
-  int setmin = atoi(argv[10]);
-  int to3D = atoi(argv[11]);
+  double smoothwg = atof(argv[5]);//1.0e-10; //atof(argv[11]);
+  int mba = atoi(argv[6]);
+  int tomba = atoi(argv[7]);
+  int initmba = atoi(argv[8]);
+  int setmin = atoi(argv[9]);
+  int feature_out = atoi(argv[10]);
   char *field_out = 0;
-  if (argc == 13)
-    field_out = argv[12];
+  if (argc == 12)
+    field_out = argv[11];
 
   ObjectHeader header;
   header.read(filein);
   PointCloud3D points;
   points.read(filein);
 
-  // if (mba)
-  //   to3D = -1;
-
-  double limit[2];
-  double cell_del[2];
-  if (grid==1)
-    {
-      std::cout << "Give domain start (umin, umax): " << std::endl;
-      for (ki=0; ki<2; ++ki)
-	std::cin >> limit[ki];
-      std::cout << "Cell size (u, v): " << std::endl;
-      for (ki=0; ki<2; ++ki)
-	std::cin >> cell_del[ki];
-
-      to3D = -1;
-    }
 
   BoundingBox box = points.boundingBox();
   Point low = box.low();
@@ -101,31 +84,6 @@ int main(int argc, char *argv[])
   Point mid = 0.5*(low + high);
   Vector3D vec(-mid[0], -mid[1], 0.0);
   points.translate(vec);
-  if (grid == 1)
-    {
-      limit[0] += vec[0];
-      limit[1] += vec[1];
-    }
-  else if (grid==2)
-    {
-      bool rotate = true;
-      if (rotate)
-  	{
-  	  double tmp[3];
-  	  std::cout << "from vec:" << std::endl;
-  	  for (ki=0; ki<3; ++ki)
-  	    std::cin >> tmp[ki];
-  	  Vector3D vec1(tmp[0], tmp[1], tmp[2]);
-  	  std::cout << "to vec: " << std::endl;
-  	  for (ki=0; ki<3; ++ki)
-  	    std::cin >> tmp[ki];
-  	  Vector3D vec2(tmp[0], tmp[1], tmp[2]);
-	  vec1.normalize();
-	  vec2.normalize();
-  	  points.rotate(vec1, vec2);
-  	}
-      grid = 0;
-    }
 
   std::cout<< "x min-max: " << low[0] << " " << high[0] << std::endl;
   std::cout<< "y min-max: " << low[1] << " " << high[1] << std::endl;
@@ -151,9 +109,6 @@ int main(int argc, char *argv[])
   //LRSurfApprox approx(4, 4, 4, 4, data, 1, AEPSGE, true, true /*false*/);
   approx.setSmoothingWeight(smoothwg);
   approx.setSmoothBoundary(true);
-  approx.setTurn3D(to3D);
-  if (grid)
-    approx.setGridInfo(limit, cell_del);
   if (mba)
     approx.setUseMBA(true);
   else
@@ -183,8 +138,10 @@ int main(int argc, char *argv[])
 
       approx.setMinimumElementSize(min_el_u, min_el_v);
     }
-      
 
+  if (feature_out > 0)
+    approx.setFeatureOut(feature_out);
+  
   double maxdist, avdist, avdist_total; // will be set below
   int nmb_out_eps;        // will be set below
   shared_ptr<LRSplineSurface> surf = 

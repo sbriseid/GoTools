@@ -52,7 +52,8 @@
 
 //#define DEBUG
 //#define DEBUG_EL
-//#define DEBUG2
+#define DEBUG2
+
 
 using namespace Go;
 using std::vector;
@@ -82,7 +83,9 @@ void print_help_text()
   std::cout << "                 n = start with least squares, turn to MBA after n iterations \n";
   std::cout << "                -1 = initiate computation using MBA \n";
   std::cout << "Default setting is start with least squares, turn to MBA for the last iterations \n";
+  std::cout << "-degree <polynomial degree> : 2 or 3 recommended \n";
   std::cout << "-outlier <0/1>: Flag for removal of outliers (0=false, 1=true. Default false \n";
+  std::cout << "-minsize <size> : Minimum element size, all directions \n";
   std::cout << "-reltol <0/1>: Apply relative tolerance flag. Default false \n";
   std::cout << "-tolfac1: Factor for modification of tolerance, positive heights. Default 0.0 \n";
   std::cout << "-tolfac2: Factor for modification of tolerance, negative heights. Default 0.0 \n";
@@ -91,6 +94,7 @@ void print_help_text()
   std::cout << "-signpost: Flag for post prossessing significant points outside tolerance (0=false, 1=true). Default false \n";
   std::cout << "-tolfile: File specifying domains with specific tolerances, global tolerance apply outside domains. PointCloud2LR -tolfile for file format \n";
   std::cout << "-toldoc: Documentation on file format for tolerance domains. \n";
+  std::cout << "-feature: <resolution> : Write feature information to file according to given grid resolution \n";
   std::cout << "-h or --help : Write this text\n";
 }
 
@@ -169,12 +173,15 @@ int main(int argc, char *argv[])
   int mba = 0;      // Use least squares approximation
   int tomba = std::min(5, max_iter-1);    // Turn to the mba method at 
   // iteration level 5 or in the last iteration
+  int degree = 2;
   int outlierflag = 0;
   int reltol = 0;
   double tolfac1 = 0.0, tolfac2 = 0.0;
   char *signpointfile = 0;  // Input significant points
   double signtol = -1.0;  // Tolerance for significant points
   int signpost = 0;  // Flag for post procession of significant points
+  double minsize = -1.0;
+  int feature_out = -1;
 
   int ki, kj;
   vector<bool> par_read(argc-1, false);
@@ -240,10 +247,24 @@ int main(int argc, char *argv[])
 	  else
 	    tomba = mm;
 	}
-      else if (arg == "-outlier")
+      else if (arg == "-degree")
+	{
+	  int stat = fetchIntParameter(argc, argv, ki, degree, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+       else if (arg == "-outlier")
 	{
 	  int stat = fetchIntParameter(argc, argv, ki, outlierflag, 
 				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+      else if (arg == "-minsize")
+	{
+	  int stat = fetchDoubleParameter(argc, argv, ki, minsize, 
+					  nmb_par, par_read);
 	  if (stat < 0)
 	    return 1;
 	}
@@ -292,6 +313,13 @@ int main(int argc, char *argv[])
       else if (arg == "-tolfile")
 	{
 	  int stat = fetchCharParameter(argc, argv, ki, tolfile, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+      else if (arg == "-feature")
+	{
+	  int stat = fetchIntParameter(argc, argv, ki, feature_out, 
 				       nmb_par, par_read);
 	  if (stat < 0)
 	    return 1;
@@ -371,6 +399,9 @@ int main(int argc, char *argv[])
 	  extent[2*ki] = low[ki];
 	  extent[2*ki+1] = high[ki];
 	}
+      std::cout << "Domain: [" << extent[0] << ", " << extent[1] << "] x [" << extent[2];
+      std::cout << ", " << extent[3] << "]" << std::endl;
+      std::cout << "Range: " << extent[4] << " - " << extent[5] << std::endl;
     }
   else
     FileUtils::readTxtPointFile(pointsin, del, data, nmb_pts, extent);
@@ -470,8 +501,8 @@ int main(int argc, char *argv[])
       mintol = std::min(tol, mintol);
       maxtol = std::max(tol, maxtol);
     }
-  std::cout << "Elevation: [" << minheight << ", " << maxheight << "]" << std:;endl;
-  std::cout << "Tolerances: [" << mintol << ", " << maxtol << "]" << std:;endl;
+  std::cout << "Elevation: [" << minheight << ", " << maxheight << "]" << std::endl;
+    std::cout << "Tolerances: [" << mintol << ", " << maxtol << "]" << std::endl;
 #endif
 
   // Move point cloud to origo
@@ -491,7 +522,7 @@ int main(int argc, char *argv[])
   for (size_t kj=0; kj<tolerances.size(); ++kj)
     tolerances[kj].translateBox(-mid[0], -mid[1]);
 
-  if (use_stdd)
+  if (true)//use_stdd)
     {
       double avheight = 0.0;
       for (ki=0; ki<nmb_pts; ++ki)
@@ -506,14 +537,16 @@ int main(int argc, char *argv[])
 	  stdd += (pow(avheight-height,2)/(double)nmb_pts);
 	}
      stdd = sqrt(stdd);
-     for (size_t kj=0; kj<tolerances.size(); ++kj)
+     if (use_stdd)
        {
-	 if (tolerances[kj].tol < 0.0)
-	   tolerances[kj].setTol(fabs(tolerances[kj].tol)*stdd);
+	 for (size_t kj=0; kj<tolerances.size(); ++kj)
+	   {
+	     if (tolerances[kj].tol < 0.0)
+	       tolerances[kj].setTol(fabs(tolerances[kj].tol)*stdd);
+	   }
+	 if (AEPSGE < 0.0)
+	   AEPSGE = fabs(AEPSGE)*stdd;
        }
-     if (AEPSGE < 0.0)
-       AEPSGE = fabs(AEPSGE)*stdd;
-
      std::cout << "Standard deviation: " << stdd << std::endl;
     }
      
@@ -538,8 +571,8 @@ int main(int argc, char *argv[])
   //     initmba = 0;
   //     mba = 0;
   //   }
-  int nmb_coef = 14;
-  int order = 3; 
+  int order = degree + 1; 
+  int nmb_coef = std::max(order, 14);
   double mba_coef = 0.0;
   if (initmba)
     mba_coef = 0.5*(extent[2*(del-1)] + extent[2*(del-1)+1]);
@@ -559,8 +592,15 @@ int main(int argc, char *argv[])
     }
   if (outlierflag > 0)
     approx.setOutlierFlag(true);
+  if (minsize > 0.0)
+    approx.setMinimumElementSize(minsize, minsize);
   if (reltol > 0)
-    approx.setVarTol(tolfac1, tolfac2);
+    {
+      double tol1 = extent[4]<0.0 ? AEPSGE - tolfac2*extent[4] : AEPSGE + tolfac1*extent[4];
+      double tol2 = extent[5]<0.0 ? AEPSGE - tolfac2*extent[5] : AEPSGE + tolfac1*extent[5];
+      std::cout << "Variable tolerance: " << tol1 << " - " << tol2 << std::endl;
+      approx.setVarTol(tolfac1, tolfac2);
+    }
 
   if (sign_data.size() > 0)
     {
@@ -573,6 +613,10 @@ int main(int argc, char *argv[])
     approx.setVarTolBox(tolerances);
   
   approx.setVerbose(true);
+
+  // Feature output
+  if (feature_out > 0)
+    approx.setFeatureOut(feature_out);
 
   if (del == 3)
     {

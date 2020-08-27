@@ -66,7 +66,7 @@ namespace LoopUtils {
     ///                        a closed loop in the plane.
     /// \param int_tol (geometric) tolerance used for internal computations (intersection detections)
     /// \return 'true' if the loop was found to be oriented CCW, otherwise 'false'.
-    bool loopIsCCW(const std::vector<shared_ptr<Go::SplineCurve> >& simple_par_loop, 
+    bool loopIsCCW(const std::vector<shared_ptr<Go::ParamCurve> >& simple_par_loop, 
 		   double space_epsilon, double int_tol);
 
     /// Check if a loop defined by CurveOnSurface s is oriented counterclockwise in the surface's 
