@@ -421,8 +421,8 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   bool alter = true;
   int div = 1; //(alter) ? 2 : 1;
   int currdiv = (alter) ? 1 : 3;
-  int refstrat = 4;
-  double stratfac = 0.1; //-100.0; //0.1; //0.02;
+  int refstrat = 1;
+  double stratfac = -100.0; //0.1; //0.02;
   int ref = 1;
 
   if (srf_->dimension() == 3 && initial_surface_)
