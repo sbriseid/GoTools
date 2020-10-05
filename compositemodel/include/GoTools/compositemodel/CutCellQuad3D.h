@@ -48,7 +48,7 @@
 namespace Go
 {
   class Body;
-  
+
   class CutCellQuad3D
   {
   public:
@@ -100,7 +100,8 @@ namespace Go
 			  std::vector<std::vector<shared_ptr<ParamSurface> > >& small_sfs);
 
     int selectBaseDir(Point& ll, Point& ur,
-		      shared_ptr<Body> body, int& splitdir, double& splitval);
+		      shared_ptr<Body> body, int& splitdir, double& splitval,
+		      shared_ptr<SplineCurve>& rulecv, Point& ruledir);
 
     
     void splitCell(shared_ptr<Body> body,

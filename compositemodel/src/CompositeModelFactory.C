@@ -244,14 +244,16 @@ SurfaceModel* CompositeModelFactory::createEmpty()
 
   getAllEntities(conv, faces, curves);
 
-  // std::ofstream out("iges_sfs.g2");
-  // for (size_t ki=0; ki<faces.size(); ++ki)
-  //   {
-  //     shared_ptr<ParamSurface> tmp = faces[ki]->surface();
-  //     tmp->writeStandardHeader(out);
-  //     tmp->write(out);
-  //   }
-
+#ifdef DEBUG
+  std::ofstream out("iges_sfs.g2");
+  for (size_t ki=0; ki<faces.size(); ++ki)
+    {
+      shared_ptr<ParamSurface> tmp = faces[ki]->surface();
+      tmp->writeStandardHeader(out);
+      tmp->write(out);
+    }
+#endif
+  
   if (faces.size() > curves.size() ||
       (prefer_surfacemodel && faces.size() > 0))
     model = new SurfaceModel(approxtol_, gap_, neighbour_, kink_, bend_, faces);

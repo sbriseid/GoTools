@@ -596,7 +596,8 @@ private:
     int refineSurf3(int iter, int& dir, double threshold, int refstrat);
     int refineSurf4(int& dir, double threshold);
     void getRefineExtension(Element2D *elem, Direction2D fixdir,
-			    int strategy, double& pmin, double& pmax);
+			    int strategy, double& pmin, double& pmax,
+			    std::set<std::pair<Element2D*,std::pair<Direction2D,double> > >& unbalanced_elem);
 
     /// Create initial LR B-spline surface
     void makeInitSurf(int dim);
@@ -653,8 +654,7 @@ private:
 			 std::vector<Element2D*>& elems);
 
     void appendRef(std::vector<LRSplineSurface::Refinement2D>& refs,
-		   LRSplineSurface::Refinement2D& curr_ref, 
-		   double tol);
+		   LRSplineSurface::Refinement2D& curr_ref, double tol);
 
     // Turn function into a 3D surface
     void turnTo3D();

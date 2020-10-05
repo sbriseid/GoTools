@@ -793,6 +793,22 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
 #ifdef DEBUG
 	elems_affected.push_back(curr_el);
 #endif
+	// if (d == XFIXED)
+	//   {
+	//     double u1 = curr_el->umin();
+	//     double u2 = curr_el->umax();
+	//     if ((u2 - fixed_val > 0.55*(u2-u1) || fixed_val - u1 > 0.55*(u2-u1)) &&
+	// 	u2-fixed_val > 0.0001 && fixed_val-u1 > 0.0001)
+	//       std::cout << "Unbalanced element, 1. par: " << fixed_val << " in [" << u1 << "," << u2 << "]" << std::endl;
+	//   }
+	// else
+	//   {
+	//     double v1 = curr_el->vmin();
+	//     double v2 = curr_el->vmax();
+	//     if ((v2 - fixed_val > 0.55*(v2-v1) || fixed_val - v1 > 0.55*(v2-v1)) &&
+	// 	v2-fixed_val > 0.0001 && fixed_val-v1 > 0.0001)
+	//       std::cout << "Unbalanced element, 2. par: " << fixed_val << " in [" << v1 << "," << v2 << "]" << std::endl;
+	//   }
       }
   }
   vector<LRBSpline2D*> bsplines_affected(all_bsplines.begin(), all_bsplines.end());
@@ -1138,7 +1154,7 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
     int kval, mult;
   };
 
-  int compare_refs(refval r1, refval r2)
+  int compare_refs_sf(refval r1, refval r2)
   {
     return (r1.kval < r2.kval);
   }
@@ -1210,8 +1226,8 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
     return; // Mesh rectangles already existing
   
   //std::cout << "Post refine mesh" << std::endl;
-  std::sort(u_refs.begin(), u_refs.end(), compare_refs);
-  std::sort(v_refs.begin(), v_refs.end(), compare_refs);
+  std::sort(u_refs.begin(), u_refs.end(), compare_refs_sf);
+  std::sort(v_refs.begin(), v_refs.end(), compare_refs_sf);
 
   for (int ki=(int)u_refs.size()-1; ki>=0; --ki)
     {

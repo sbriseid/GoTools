@@ -105,7 +105,7 @@ int main (int argc, char *argv[]) {
   double av_no2 = 0.0;
   int max_no = 0;
   std::streamsize prev = ofs.precision(15);
-  ofs << nx*ny*nz + 8 << std::endl;;
+  ofs << nx*ny*nz + 8 << std::endl;
   for (int kk=0; kk<nz; ++kk)
     {
       double midz = 0.5*(lev_z[kk]+lev_z[kk+1]);
@@ -122,14 +122,23 @@ int main (int argc, char *argv[]) {
 	    }
 	}
     }
-  ofs << domain[0] << " " << domain[2] << " " << domain[4] << " " << nmbpt[0] << std::endl;
-  ofs << domain[1] << " " << domain[2] << " " << domain[4] << " " << nmbpt[nx-1] << std::endl;
-  ofs << domain[0] << " " << domain[3] << " " << domain[4] << " " << nmbpt[(ny-1)*nx] << std::endl;
-  ofs << domain[1] << " " << domain[3] << " " << domain[4] << " " << nmbpt[ny*nx-1] << std::endl;
-  ofs << domain[0] << " " << domain[2] << " " << domain[5] << " " << nmbpt[(nz-1)*nx*ny] << std::endl;
-  ofs << domain[1] << " " << domain[2] << " " << domain[5] << " " << nmbpt[(nz-1)*nx*ny+nx-1] << std::endl;
-  ofs << domain[0] << " " << domain[3] << " " << domain[5] << " " << nmbpt[(nz-1)*nx*ny+(ny-1)*nx] << std::endl;
-  ofs << domain[1] << " " << domain[3] << " " << domain[5] << " " << nmbpt[nx*ny*nz-1] << std::endl;
+
+  int currno = nmbpt[0] == 0 ? -1 : nmbpt[0];
+  ofs << domain[0] << " " << domain[2] << " " << domain[4] << " " << currno << std::endl;
+  currno = nmbpt[nx-1] == 0 ? -1 : nmbpt[nx-1];
+  ofs << domain[1] << " " << domain[2] << " " << domain[4] << " " << currno << std::endl;
+  currno = nmbpt[(ny-1)*nx] == 0 ? -1 : nmbpt[(ny-1)*nx];
+  ofs << domain[0] << " " << domain[3] << " " << domain[4] << " " << currno << std::endl;
+  currno = nmbpt[ny*nx-1] == 0 ? -1 : nmbpt[ny*nx-1];
+  ofs << domain[1] << " " << domain[3] << " " << domain[4] << " " << currno << std::endl;
+  currno = nmbpt[(nz-1)*nx*ny] == 0 ? -1 : nmbpt[(nz-1)*nx*ny];
+  ofs << domain[0] << " " << domain[2] << " " << domain[5] << " " << currno << std::endl;
+  currno = nmbpt[(nz-1)*nx*ny+nx-1] == 0 ? -1 : nmbpt[(nz-1)*nx*ny+nx-1];
+  ofs << domain[1] << " " << domain[2] << " " << domain[5] << " " << currno << std::endl;
+  currno = nmbpt[(nz-1)*nx*ny+(ny-1)*nx] == 0 ? -1 : nmbpt[(nz-1)*nx*ny+(ny-1)*nx];
+  ofs << domain[0] << " " << domain[3] << " " << domain[5] << " " << currno << std::endl;
+  currno = nmbpt[nx*ny*nz-1] == 0 ? -1 : nmbpt[nx*ny*nz-1];
+  ofs << domain[1] << " " << domain[3] << " " << domain[5] << " " << currno << std::endl;
   
   av_no2 /= (double)(nx*ny*nz);
   std::cout << "nx = " << nx << ", ny = " << ny << ", nz = " << nz << std::endl;

@@ -1256,7 +1256,14 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	  Vector2D pt2(umax, split_v2[0]);
 	  samecv = cvdom->onSmoothBdSeg(pt1, pt2, tol_, angtol_);
 	}
-      if (((split_v1.size() == 1 && split_v2.size() == 1 && samecv) ||
+      if (preferdir == 1)
+	{
+	  dir = 1;
+	  candpar.insert(candpar.end(), split_v1.begin(), split_v1.end());
+	  candpar.insert(candpar.end(), split_v2.begin(), split_v2.end());
+	  std::sort(candpar.begin(), candpar.end());
+	}
+      else if (((split_v1.size() == 1 && split_v2.size() == 1 && samecv) ||
 	   (split_v1.size()+split_v2.size() == 1 && nmb_outer_corner <= 4)) &&
 	  split_vin.size() == 0 && split_vout.size() == 0)
 	{
@@ -1302,7 +1309,14 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	  Vector2D pt2(split_u2[0], vmax);
 	  samecv = cvdom->isOnSameBdCrv(pt1, pt2, tol_);
 	}
-      if (((split_u1.size() == 1 && split_u2.size() == 1 && samecv) ||
+      if (preferdir == 2)
+      	{
+	  dir = 2;
+	  candpar.insert(candpar.end(), split_u1.begin(), split_u1.end());
+	  candpar.insert(candpar.end(), split_u2.begin(), split_u2.end());
+	  std::sort(candpar.begin(), candpar.end());
+	}
+      else if (((split_u1.size() == 1 && split_u2.size() == 1 && samecv) ||
 	   (split_u1.size()+split_u2.size() == 1 && nmb_outer_corner <= 4)) &&
 	  split_uin.size() == 0 && split_vout.size() == 0)
 	{
@@ -1381,6 +1395,16 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	{
 	  dir = 2;
 	  splitpar = split_v1;
+	}
+      else if (num_u == 1 && split_v1.size() > 0 && split_v2.size() > 0)
+	{
+	  dir = 1;
+	  splitpar = (split_u1.size() > 0) ? split_u1 : split_u2;
+	}
+      else if (num_v == 1 && split_u1.size() > 0 && split_u2.size() > 0)
+	{
+	  dir = 2;
+	  splitpar = (split_v1.size() > 0) ? split_v1 : split_v2;
 	}
       else if (num_u == 1 && num_v > 1)
 	{

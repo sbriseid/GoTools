@@ -40,6 +40,7 @@
 #include "GoTools/lrsplines3D/LRSpline3DEvalGrid.h"
 #include "GoTools/lrsplines3D/LRSpline3DBezierCoefs.h"
 
+//#define DEBUG
 
 inline int flat(int i, int j, int k, int l, int I, int J, int K)
 {
@@ -199,6 +200,7 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
   int i = 0;
   for(auto it=eval_grid.elements_begin(); it!=eval_grid.elements_end(); it++, i++) {
     
+#ifdef DEBUG
     // Print percentage
     static int printedPercentage = 0;
     int currPercentage = (int)(100 * (float)i / ((float)eval_grid.numElements() - 1));
@@ -206,6 +208,7 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
       std::cout<< currPercentage <<"\% done    \r" << std::flush;
       printedPercentage = currPercentage;
     }
+#endif
 
     // Get box
     //Go::Point low(it->umin(), it->vmin(), it->wmin()), high(it->umax(), it->vmax(), it->wmax());
@@ -237,7 +240,9 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
       bezier_coefs_.push_back(coefs[ix]);
     }
   }
-  std::cout << std::endl; 
+#ifdef DEBUG
+  std::cout << std::endl;
+#endif
   calcMinMaxCoefficientsValue();
 }
 
@@ -312,6 +317,7 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
   os.write((char*)&min_box_diagonal, sizeof(float));
   os.write((char*)&max_box_diagonal, sizeof(float));
   
+#ifdef DEBUG
   std::cout << "version " << version << std::endl;
   std::cout << "dim_dom " << dim_dom << std::endl;
   std::cout << "dim_ " << dim2_ << std::endl;
@@ -323,7 +329,7 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
   std::cout << "high " << highx << " " << highy << " " << highz << std::endl;
   std::cout << "min_box_diagonal " << min_box_diagonal << std::endl;
   std::cout << "max_box_diagonal " << max_box_diagonal << std::endl;
-
+#endif
 
 
   for (size_t ix = 0; ix < min_coef_value_.size(); ix++)

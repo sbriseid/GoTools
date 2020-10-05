@@ -13,7 +13,7 @@ using namespace Go;
 
 void print_help_text()
 {
-  std::cout << "Purpose: Approximate a point cloud by an LR B-spline surface. \n";
+  std::cout << "Purpose: Approximate a trivariate point cloud by an LR B-spline volume. \n";
   std::cout << "Mandatory parameters: input point cloud, output volume (.g2), tolerance, number of iterations. \n";
   std::cout << "An adaptive approximation procedure is applied which for the";
   std::cout << " specified number of iterations: \n";
@@ -26,6 +26,7 @@ void print_help_text()
   std::cout << "The first line in the point file reports on the number of points.\n";
    std::cout << "The points follow and is to be given as x, y, z and w.\n";
   std::cout << "Optional input parameters: \n";
+  std::cout << "-verbose <0/1>: Detailed output, default 0 \n";
   std::cout << "-par <dim>: Dimension of geometry space, used for parameterized data (default 1) \n";
   std::cout << "-magnitude  <0/1>: Approximate length of point vector \n";
   std::cout << "-dist <filename (.txt)> : Write distance field to file (x, y, z, distance) \n";
@@ -43,6 +44,7 @@ void print_help_text()
   std::cout << "-surfin <filename.g2>: LR spline volume to update \n";
   std::cout << "-spacein <filename.g2>: LR spline volume from which to fetch initial spline space \n";
   std::cout << "surfin and spacein can not be applied simultanously \n";
+  std::cout << "-combineinout <0/1>: Combine resulting volume and volume given with -spacein or -surfin in one higher-dimensional volume. Requires number of iterations = 0 \n";
   std::cout << "-h or --help : Write this text\n";
 }
 
@@ -108,7 +110,7 @@ int fetchCharParameter(int argc, char *argv[], int ki, char*& parameter,
 int main (int argc, char *argv[]) {
 
   char *pointfile = 0;     // Input point file
-  char *volfile = 0;       // Surface output file
+  char *volfile = 0;       // Volume output file
   char *infofile = 0;      // Accuracy information output file
   char *tolfile = 0;       // File specifying varying tolerances
   char *field_out = 0;     // Distance field output file
@@ -119,6 +121,7 @@ int main (int argc, char *argv[]) {
   int initMBA = 1;
   int del = 4;
   int degree = 2;
+  int verbose = 0;
   double minsize = -1.0;
   double outfrac = 0.0;
   int ncell1=0, ncell2=0, ncell3=0;
@@ -128,6 +131,7 @@ int main (int argc, char *argv[]) {
   int magnitude = 0;
   int bezout = 0;
   int initvol = 0;
+  int combine = 0;
 
   int ki, kj;
   vector<bool> par_read(argc-1, false);
@@ -164,6 +168,13 @@ int main (int argc, char *argv[]) {
       else if (arg == "-initmba")
 	{
 	  int stat = fetchIntParameter(argc, argv, ki, initMBA, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+      else if (arg == "-verbose")
+	{
+	  int stat = fetchIntParameter(argc, argv, ki, verbose, 
 				       nmb_par, par_read);
 	  if (stat < 0)
 	    return 1;
@@ -268,6 +279,13 @@ int main (int argc, char *argv[]) {
 	    return 1;
 	  initvol = 2;
        }
+     else if (arg == "-combineinout")
+       {
+	  int stat = fetchIntParameter(argc, argv, ki, combine, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+       }
     }
 
   // Read remaining parameters
@@ -302,7 +320,9 @@ int main (int argc, char *argv[]) {
 	  levels = atoi(argv[ki]);
 	}
     }
- 
+
+   if ((!invol) || levels > 0)
+     combine = 0;
 
    // Read data points
    ifstream ifs(pointfile);
@@ -417,26 +437,36 @@ int main (int argc, char *argv[]) {
   for (int ka=0; ka<dim2; ++ka)
     std::cout << "Range(" << ka << "): [" << minval[ka] << "," << maxval[ka] << "]" << std::endl;
   shared_ptr<LRVolApprox> vol_approx;
+  shared_ptr<LRSplineVolume> volin;
   if (invol && initvol > 0)
     {
       std::ifstream ifs(invol);
       GoTools::init();
       ObjectHeader oh;
       oh.read(ifs);
-      shared_ptr<LRSplineVolume> volin(new LRSplineVolume());
+      volin = shared_ptr<LRSplineVolume>(new LRSplineVolume());
       volin->read(ifs);
 
+      shared_ptr<LRSplineVolume> volspace = volin;
       if (initvol == 2)
 	{
 	  // Set coefficients to zero and weights to one. Update dimension if
 	  // necessary
+	  if (combine)
+	    {
+	      // Must keep coefficient information in input volume
+	      volspace = shared_ptr<LRSplineVolume>(volin->clone());
+	    }
 	  Point coef(dim2);
 	  coef.setValue(0.0);
-	  for (LRSplineVolume::BSplineMap::const_iterator it1 = volin->basisFunctionsBegin();
-	       it1 != volin->basisFunctionsEnd(); ++it1)
-	    volin->setCoefAndDim(coef, 1.0, it1->second.get());
+	  for (LRSplineVolume::BSplineMap::const_iterator it1 = volspace->basisFunctionsBegin();
+	       it1 != volspace->basisFunctionsEnd(); ++it1)
+	    {
+	      double gamma = it1->second->gamma();
+	      volspace->setCoefAndDim(coef, gamma, it1->second.get());
+	    }
 	}
-      vol_approx = shared_ptr<LRVolApprox>(new LRVolApprox(volin, pc4d, epsge,
+      vol_approx = shared_ptr<LRVolApprox>(new LRVolApprox(volspace, pc4d, epsge,
 							   false, false, true));
     }
   else
@@ -456,11 +486,11 @@ int main (int argc, char *argv[]) {
 	  nc[kj] = std::max(nc[kj], order);
 	}
       std::cout << "Number of coefficients: " << nc[0] << ", " << nc[1] << ", " << nc[2] << std::endl;
-  // LRVolApprox vol_approx(nc[0], order, nc[1], order, nc[2], order,
-  // 			 pc4d, dim, domain, epsge, mba_level2);
-      vol_approx = shared_ptr<LRVolApprox>(new LRVolApprox(ncoef, order, ncoef, order,
-							   ncoef, order, pc4d, dim2, domain,
-							   epsge, mba_level2));
+      vol_approx = shared_ptr<LRVolApprox>(new LRVolApprox(nc[0], order, nc[1], order, nc[2], order,
+							   pc4d, dim2, domain, epsge, mba_level2));
+      // vol_approx = shared_ptr<LRVolApprox>(new LRVolApprox(ncoef, order, ncoef, order,
+      // 							   ncoef, order, pc4d, dim2, domain,
+      // 							   epsge, mba_level2));
       vol_approx->setInitMBA(initMBA);
     }
 
@@ -470,7 +500,10 @@ int main (int argc, char *argv[]) {
     vol_approx->setMinimumElementSize(minsize, minsize, minsize);
   if (outfrac > 0.0)
     vol_approx->setOutFraction(outfrac);
-  vol_approx->setVerbose(true);
+  if (verbose)
+    vol_approx->setVerbose(true);
+  else
+    vol_approx->setVerbose(false);
 
   // Feature output
   if (features)
@@ -488,6 +521,26 @@ int main (int argc, char *argv[]) {
 
   vol_approx->fetchOutsideTolInfo(maxout, avout);
 
+  if (combine)
+    {
+      // Combine initial volume with result in one volume
+      Point coef(volin->dimension()+result->dimension());
+      LRSplineVolume::BSplineMap::const_iterator it1 = volin->basisFunctionsBegin();
+      LRSplineVolume::BSplineMap::const_iterator it2 = result->basisFunctionsBegin();
+      for (; it1 != volin->basisFunctionsEnd(); ++it1, ++it2)
+	{
+	  Point cf1 = it1->second->Coef();
+	  double gamma = it1->second->gamma();
+	  Point cf2 = it2->second->Coef();
+	  int ki, kr;
+	  for (ki=0, kr=0; ki<volin->dimension(); ++ki, ++kr)
+	    coef[kr] = cf1[ki];
+	  for (ki=0; ki<result->dimension(); ++ki, ++kr)
+	    coef[kr] = cf2[ki];
+	  result->setCoefAndDim(coef, gamma, it2->second.get());
+	}
+    }
+  
   if (infofile)
     {
       std::ofstream infoout(infofile);   // Accuracy information output stream

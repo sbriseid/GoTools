@@ -49,6 +49,9 @@
 #include <fstream>
 #include <string.h>
 #include <sys/time.h>
+#include <sys/stat.h>
+#include <boost/timer.hpp>
+#include <time.h>
 
 //#define DEBUG
 //#define DEBUG_EL
@@ -565,7 +568,16 @@ int main(int argc, char *argv[])
   cloud.write(of2);
 #endif
   
-  
+
+  time_t start = time(NULL);
+
+
+
+ boost::timer t;
+  double duration;
+
+  t.restart();
+
   // if (del > 3)
   //   {
   //     initmba = 0;
@@ -647,6 +659,17 @@ int main(int argc, char *argv[])
     }
 
   approx.fetchOutsideTolInfo(maxout, avout);
+
+
+  duration = t.elapsed();
+  std::cout << "Duration: " << duration << std::endl;
+  double min = floor(duration/60);
+  double sec = duration - 60*min;
+  std::cout << min << "m" << sec << "s" << std::endl;
+  time_t end = time(NULL);
+  std::cout<<"Execution Time: "<< (double)(end-start)<<" Seconds"<<std::endl;
+
+
 
   double maxdist_sign, avdist_sign;
   int nmb_outside_sign;

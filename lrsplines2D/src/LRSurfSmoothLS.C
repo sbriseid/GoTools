@@ -434,11 +434,11 @@ void LRSurfSmoothLS::setLeastSquares(const double weight,
  	  it->second->setLSMatrix();
 	  it->second->getLSMatrix(subLSmat, subLSright, kcond);
  
-#ifndef _OPENMP
-	  localLeastSquares(elem_data, significant_points, ghost_points, del,
-			    significant_factor, bsplines, subLSmat, 
-			    subLSright, kcond);
-#else
+// #ifndef _OPENMP
+// 	  localLeastSquares(elem_data, significant_points, ghost_points, del,
+// 			    significant_factor, bsplines, subLSmat, 
+// 			    subLSright, kcond);
+// #else
 	  // Structure of localLeastSquares does not fit well for OpenMP, better to spawn over the elements instead.
 	  bool use_omp = false;
 	  if (use_omp)
@@ -453,7 +453,7 @@ void LRSurfSmoothLS::setLeastSquares(const double weight,
 			      del, significant_factor, bsplines, 
 			      subLSmat, subLSright, kcond);
 	  }
-#endif
+	  //#endif
 	  int stop_break = 1;
 	}
 
@@ -515,6 +515,7 @@ void LRSurfSmoothLS::setLeastSquares_omp(const double weight,
 //   double time0 = omp_get_wtime();
 // #endif
 
+  std::cout << "Set least squares omp" << std::endl;
   int dim = srf_->dimension();
   vector<LRSplineSurface::ElementMap::const_iterator> elem_iters;
   const int num_elem = srf_->numElements();
@@ -529,11 +530,11 @@ void LRSurfSmoothLS::setLeastSquares_omp(const double weight,
 #pragma omp parallel default(none) private(ki, it) shared(dim, elem_iters)
   {
       bool has_LS_mat, is_modified;
-      size_t nmb, inb, inb1;
+      size_t nmb;//, inb, inb1;
       double *subLSmat, *subLSright;
       int kcond, nc;
-      vector<size_t> in_bs;
-      size_t ki, kj, kl, kr, kh, kk;
+      //vector<size_t> in_bs;
+      size_t ki; //, kj, kl, kr, kh, kk;
 
 #pragma omp for schedule(auto)//guided)//static,8)//runtime)//dynamic,4)
       for (ki = 0; ki < num_elem; ++ki)
@@ -575,50 +576,66 @@ void LRSurfSmoothLS::setLeastSquares_omp(const double weight,
 	      // First get access to storage in the element
 	      it->second->setLSMatrix();
 	      it->second->getLSMatrix(subLSmat, subLSright, kcond);
-	      in_bs.resize(kcond);
+	      //in_bs.resize(kcond);
 
 	      localLeastSquares(elem_data, significant_points, ghost_points, 
 				del, significant_factor, bsplines, 
 				subLSmat, subLSright, kcond);
 	      int stop_break = 1;
 	  }
-
-	  // Assemble stiffness matrix and right hand side based on the local least 
-	  // squares matrix
-	  // The size of the stiffness matrix is the squared number of LR B-splines
-	  // with a free coefficient. The size of the right hand side is equal to
-	  // the number of free coefficients times the dimension of the data points
-	  it->second->getLSMatrix(subLSmat, subLSright, kcond);
-
-	  for (kl=0, kj=0; kl<nmb; ++kl)
-	  {
-	      if (bsplines[kl]->coefFixed())
-		  continue;
-
-	      // Fetch index in the stiffness matrix
-	      inb = BSmap_.at(bsplines[kl]);
-	      in_bs[kj++] = inb; // This incrementation is not suitable for OpenMP.
-	  }
-
-	  for (kl=0, kr=0; kl<nmb; ++kl)
-	  {
-	      if (bsplines[kl]->coefFixed())
-		  continue;
-	      inb1 = in_bs[kr];
-	      nc = inb1*ncond_;
-	      for (kk=0; kk<dim; ++kk)
-		  gright_[kk*ncond_+inb1] += weight*subLSright[kk*kcond+kr];
-	      for (kj=0, kh=0; kj<nmb; ++kj)
-	      {
-		  if (bsplines[kj]->coefFixed())
-		      continue;
-		  gmat_[nc+in_bs[kh]] += weight*subLSmat[kr*kcond+kh];
-		  kh++;
-	      }
-	      kr++;
-	  }
       }
   }
+ 
+  // For each element sequential
+ for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
+      it != srf_->elementsEnd(); ++it)
+   {
+     bool has_LS_mat, is_modified;
+     size_t nmb, inb, inb1;
+     double *subLSmat, *subLSright;
+     int kcond, nc;
+      size_t ki, kj, kl, kr, kh, kk;
+
+     // Assemble stiffness matrix and right hand side based on the local least 
+     // squares matrix
+     // The size of the stiffness matrix is the squared number of LR B-splines
+     // with a free coefficient. The size of the right hand side is equal to
+     // the number of free coefficients times the dimension of the data points
+     it->second->getLSMatrix(subLSmat, subLSright, kcond);
+     vector<size_t> in_bs(kcond);
+
+     // Fetch B-splines
+     const vector<LRBSpline2D*>& bsplines = it->second->getSupport();
+     nmb = bsplines.size();
+
+     for (kl=0, kj=0; kl<nmb; ++kl)
+       {
+	 if (bsplines[kl]->coefFixed())
+	   continue;
+
+	 // Fetch index in the stiffness matrix
+	 inb = BSmap_.at(bsplines[kl]);
+	 in_bs[kj++] = inb; // This incrementation is not suitable for OpenMP.
+       }
+
+     for (kl=0, kr=0; kl<nmb; ++kl)
+       {
+	 if (bsplines[kl]->coefFixed())
+	   continue;
+	 inb1 = in_bs[kr];
+	 nc = inb1*ncond_;
+	 for (kk=0; kk<dim; ++kk)
+	   gright_[kk*ncond_+inb1] += weight*subLSright[kk*kcond+kr];
+	 for (kj=0, kh=0; kj<nmb; ++kj)
+	   {
+	     if (bsplines[kj]->coefFixed())
+	       continue;
+	     gmat_[nc+in_bs[kh]] += weight*subLSmat[kr*kcond+kh];
+	     kh++;
+	   }
+	 kr++;
+       }
+   }
 
 // #ifdef _OPENMP
 //   double time1 = omp_get_wtime();
@@ -633,19 +650,19 @@ void LRSurfSmoothLS::setLeastSquares(vector<double>& points, const double weight
 //==============================================================================
 {
   addDataPoints(points);
-#ifdef _OPENMP
-  const bool use_omp_version = true;
-#else
-  const bool use_omp_version = true;//false; // 201503 Seems to be slightly faster even for single-threaded run.
-#endif  
-  if (use_omp_version)
-  {
-    setLeastSquares_omp(weight, 1.0);
-  }
-  else
-  {
+// #ifdef _OPENMP
+//   const bool use_omp_version = false; //true;
+// #else
+//   const bool use_omp_version = false; //true;//false; // 201503 Seems to be slightly faster even for single-threaded run.
+// #endif
+//   if (use_omp_version)
+//   {
+//     setLeastSquares_omp(weight, 1.0);
+//   }
+//   else
+//   {
     setLeastSquares(weight, 1.0);
-  }
+  // }
 }
 
 //==============================================================================
@@ -828,6 +845,7 @@ void LRSurfSmoothLS::localLeastSquares_omp(vector<double>& points,
 					   double* mat, double* right, int ncond)
 //==============================================================================
 {
+  std::cout << "Local least squares omp" << std::endl;
   size_t nmbb = bsplines.size();
   int dim = srf_->dimension();
   bool outlier_test = (del > dim+3);

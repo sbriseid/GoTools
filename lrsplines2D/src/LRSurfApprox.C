@@ -61,12 +61,14 @@
 //#define DEBUG
 //#define DEBUG1
 //#define DEBUG2
-#define DEBUG_HIST
+//#define DEBUG_HIST
 
 using std::vector;
+using std::set;
 using std::cout;
 using std::endl;
 using std::pair;
+using std::make_pair;
 using namespace Go;
 
 //==============================================================================
@@ -419,8 +421,8 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   bool alter = true;
   int div = 1; //(alter) ? 2 : 1;
   int currdiv = (alter) ? 1 : 3;
-  int refstrat = 2;
-  double stratfac = -100.0; //0.1; //0.02;
+  int refstrat = 4;
+  double stratfac = 0.1; //-100.0; //0.1; //0.02;
   int ref = 1;
 
   if (srf_->dimension() == 3 && initial_surface_)
@@ -568,7 +570,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 #endif
 
   ghost_elems.clear();
-  //points_.clear();  // Not used anymore TESTING
+  points_.clear();  // Not used anymore TESTING
   double threshold_prev = -1.0;
   int prevcoef = srf_->numBasisFunctions();
   int prevelem = srf_->numElements();
@@ -620,14 +622,14 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	      break;  // No refinements performed
 	    }
 	  
-	  if (points_.size() > 0)
-	    LRSplineUtils::distributeDataPoints(srf_.get(), points_, true, 
-	  					LRSplineUtils::REGULAR_POINTS, 
-	  					outlier_detection_);
-	  if (sign_points_.size() > 0)
-	    LRSplineUtils::distributeDataPoints(srf_.get(), sign_points_, true, 
-	  					LRSplineUtils::SIGNIFICANT_POINTS, 
-	  					outlier_detection_);
+	  // if (points_.size() > 0)
+	  //   LRSplineUtils::distributeDataPoints(srf_.get(), points_, true, 
+	  // 					LRSplineUtils::REGULAR_POINTS, 
+	  // 					outlier_detection_);
+	  // if (sign_points_.size() > 0)
+	  //   LRSplineUtils::distributeDataPoints(srf_.get(), sign_points_, true, 
+	  // 					LRSplineUtils::SIGNIFICANT_POINTS, 
+	  // 					outlier_detection_);
 
 	  threshold_prev = threshold;
 	}
@@ -715,10 +717,12 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
        // Update surface
       if (useMBA_ || ki >= toMBA_)
       {
+	std::cout << "Using MBA" << std::endl;
 	runMBAUpdate(true);
       }
       else
 	{
+	  std::cout << "Using LS" << std::endl;
 	  try {
 	    LSapprox.updateLocals();
 	    performSmooth(&LSapprox);
@@ -727,6 +731,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  }
 	  catch (...)
 	    {
+	      std::cout << "Switch to MBA" << std::endl;
 	      useMBA_ = true;
 	      runMBAUpdate(true);
 	    }
@@ -1031,11 +1036,11 @@ void LRSurfApprox::computeAccuracy(vector<Element2D*>& ghost_elems)
   double outlier_rad = 0.5*sqrt(outlierK*density);
 
 #ifdef _OPENMP
-  const bool omp_for_element_pts = true;
+  const bool omp_for_element_pts = false;//true;
 #else
   const bool omp_for_element_pts = false;
 #endif
-
+  std::cout << "Omp for elements: " << omp_for_element_pts << std::endl;
 #ifdef DEBUG
   std::ofstream of1("error_pnts1.g2");
   std::ofstream of2("error_pnts2.g2");
@@ -2019,7 +2024,8 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
   // Fetch basis functions
   const vector<LRBSpline2D*>& bsplines = elem->getSupport();
   const int nmb_bsplines = (int)bsplines.size();
-  double bval, sfval;
+  double bval;
+  long double sfval;
 
   vector<double> grid_height;
   double elem_grid_start[2];
@@ -2141,7 +2147,8 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 		  //     // bsplines[kr]->evalpos(curr[0], curr[1], &bval);
 		  //     // sfval += bval;
 		      const Point& tmp_pt = bsplines[kr]->coefTimesGamma();
-		      sfval += bval[kr]*tmp_pt[0];
+		      long double tmpval = bval[kr]*tmp_pt[0];
+		      sfval += tmpval;
 		      // sfval += bpos[kr][0];
 		    }
 	      
@@ -2206,7 +2213,7 @@ void LRSurfApprox::computeAccuracyElement_omp(vector<double>& points, int nmb, i
   // Fetch basis functions
   const vector<LRBSpline2D*>& bsplines = elem->getSupport();
   const int nmb_bsplines = (int)bsplines.size();
-  double bval, sfval;
+  //double bval, sfval;
 
   vector<double> grid_height;
   double elem_grid_start[2];
@@ -2262,7 +2269,7 @@ void LRSurfApprox::computeAccuracyElement_omp(vector<double>& points, int nmb, i
   //	std::cout << "stacksize (in MB): " << (double)stacksize/(1024.0*1024.0) << std::endl;
 #endif
   //	omp_set_num_threads(4);
-#pragma omp parallel default(none) private(ki, curr, idx1, idx2, dist, upar, vpar, close_pt, curr_pt, vec, norm, dist1, dist2, dist3, dist4, sgn, pos, sfval, kr, kj, bval) \
+#pragma omp parallel default(none) private(ki, curr, idx1, idx2, dist, upar, vpar, close_pt, curr_pt, vec, norm, dist1, dist2, dist3, dist4, sgn, pos, kr, kj/*, sfval, bval*/) \
   shared(points, nmb, umax, vmax, del, dim, rd, maxiter, elem_grid_start, grid2, grid1, grid_height, grid3, grid4, elem2, bsplines, del2, prev_point_dist)
 #pragma omp for schedule(dynamic, 4)//static, 4)//runtime)//guided)//auto)
   for (ki=0; ki<nmb; ++ki)
@@ -2331,7 +2338,7 @@ void LRSurfApprox::computeAccuracyElement_omp(vector<double>& points, int nmb, i
 		{
 		  // Point pos;
 		  // srf_->point(pos, curr[0], curr[1], elem);
-		  sfval = 0.0;
+		  double sfval = 0.0;
 		  bool u_at_end = (curr[0] >= umax) ? true : false;
 		  bool v_at_end = (curr[1] >= vmax) ? true : false;
 		  vector<double> bval;
@@ -2919,7 +2926,8 @@ bool compare_elems(pair<Element2D*,double> el1, pair<Element2D*,double> el2)
 
 //==============================================================================
 void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
-				      int strategy, double& pmin, double& pmax)
+				      int strategy, double& pmin, double& pmax,
+				      set<pair<Element2D*,pair<Direction2D,double> > >& unbalanced_elem)
 //==============================================================================
 {
   // Fetch B-splines
@@ -2931,6 +2939,7 @@ void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
   pmin = (fixdir == XFIXED) ? elem->vmin() : elem->umin();
   pmax = (fixdir == XFIXED) ? elem->vmax() : elem->umax();
   double par2 = 0.5*(pmin + pmax); 
+  vector<pair<Element2D*,pair<Direction2D,double> > > unbalanced2;
   if (strategy == 1)
     {
       // All overlapping B-splines
@@ -2982,7 +2991,7 @@ void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
       double max_wgt = 0.0;
       double min_frac = 0.0;
       int ix = -1;
-      for (size_t ki=0; ki<nmb; ++ki)
+     for (size_t ki=0; ki<nmb; ++ki)
 	{
 	  // Count the number of elements with large error affected
 	  double curr_wgt = 0.0;
@@ -3043,6 +3052,7 @@ void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
 	  // Count the number of elements with large error affected
 	  double curr_wgt = 0.0;
 	  const vector<Element2D*>& curr_el = bsplines[ki]->supportedElements();
+	  vector<pair<Element2D*,pair<Direction2D,double> > > unbalanced;
 	  for (size_t kj=0; kj<curr_el.size(); ++kj)
 	    {
 	      double emin = (fixdir == XFIXED) ?
@@ -3051,6 +3061,13 @@ void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
 		curr_el[kj]->umax() : curr_el[kj]->vmax();
 	      if (emax < par || emin > par)
 		continue;  // Element not affected
+
+	      if ((emax - par > 0.55*(emax-emin) || par - emin > 0.55*(emax-emin)) &&
+		  emax-par > 0.0001 && par-emin > 0.0001)
+		{
+		  unbalanced.push_back(make_pair(curr_el[kj],make_pair(fixdir,par)));
+		}
+
 
 	      // Compute weight for importance of refinement
 	      double max_err, av_err;
@@ -3082,8 +3099,10 @@ void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
 	      max_size = bsize;
 	      min_frac = frac;
 	      ix = (int)ki;
+	      unbalanced2 = unbalanced;
 	    }
 	}
+      unbalanced_elem.insert(unbalanced2.begin(), unbalanced2.end());
       pmin = (fixdir == XFIXED) ? bsplines[ix]->vmin() :
 	bsplines[ix]->umin();
       pmax = (fixdir == XFIXED) ? bsplines[ix]->vmax() :
@@ -3161,14 +3180,14 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold, int refstrat
   double highlim = std::max(min_wgt, 0.9*prev_thresh_);
   thresh2 = std::min(thresh2, highlim); //prev_thresh_);
   prev_thresh_ = thresh2;
+  //thresh2 = min_wgt;
   std::cout << "Num elements: " << num_elem << ", elements out: " << el_out << std::endl;
   std::cout << "thresh2 = " << thresh2 << std::endl;
   double thresh3 = (kr < 0.9*num_elem) ? med_wgt2 : min_wgt; //fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
   std::cout << "min_wgt = " << min_wgt << ", av_wgt = " << av_wgt << ", max_wgt = " << max_wgt << std::endl;
   std::cout << "num_elem = " << num_elem << ", first = " << kr << ", med_wgt = " << all_wgt[num_elem/2] << ", med_wgt2 = " << all_wgt[((int)kr+num_elem)/2] << std::endl;
   std::cout << "thresh3 = " << thresh3 << std::endl;
-  thresh2 = min_wgt;
-
+  
   double choose_fac1 = 0.75;
   double choose_fac2 = 0.05;
   double outel_fac = (double)el_out/(double)num_elem;
@@ -3184,6 +3203,7 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold, int refstrat
   // Extension strategy: 1=all, 2=largest, 3="best"
   int extstrategy = refstrat; //(outel_fac > choose_fac2) ? 3 : 1;
   std::cout << "Dir: " << dir2 << ", extstrategy: " << extstrategy << std::endl;
+  set<pair<Element2D*,pair<Direction2D,double> > > unbalanced;
   vector<LRSplineSurface::Refinement2D> refs_x, refs_y;
   for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
        it != srf_->elementsEnd(); ++it)
@@ -3203,39 +3223,104 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold, int refstrat
 	  double vmin = it->second->vmin();
 	  double vmax = it->second->vmax();
 
-	  if (dir2 == 1 || dir2 == 3)
+	  const vector<LRBSpline2D*>& bsplines = it->second->getSupport();
+	  // std::cout << "Bsplines: " << std::endl;
+	  // for (size_t kr=0; kr<bsplines.size(); ++kr)
+	  //   {
+	  //     std::cout << bsplines[kr]->umin() << " "  << bsplines[kr]->umax() << " ";
+	  //     std::cout << bsplines[kr]->vmin() << " "  << bsplines[kr]->vmax() << std::endl;
+	  //   }
+	  
+	  if ((dir2 == 1 || dir2 == 3) && umax-umin > 2.0*usize_min_)
 	    {
 	      double v1, v2;
-	      getRefineExtension(it->second.get(), XFIXED, extstrategy,  v1, v2);
+	      getRefineExtension(it->second.get(), XFIXED, extstrategy,  v1, v2, unbalanced);
 	      
 	      LRSplineSurface::Refinement2D curr_ref1;
 	      curr_ref1.setVal(0.5*(umin+umax), v1, v2, XFIXED, 1);
+	      // std::cout << "El x: " << umin << " " << umax << " " << vmin << " " << vmax;
+	      // std::cout << ". Bsize: " << bsplines.size();
+	      // std::cout << ". Ref: " << 0.5*(umin+umax) << " " << v1 << " " << v2 << std::endl;
 	      appendRef(refs_x, curr_ref1, tol);
 	    }
 
-	  if (dir2 == 2 || dir2 == 3)
+	  if ((dir2 == 2 || dir2 == 3) && vmax-vmin > 2.0*vsize_min_)
 	    {
 	      double u1, u2;
-	      getRefineExtension(it->second.get(), YFIXED, extstrategy,  u1, u2);
+	      getRefineExtension(it->second.get(), YFIXED, extstrategy,  u1, u2, unbalanced);
 	      
 	      LRSplineSurface::Refinement2D curr_ref2;
 	      curr_ref2.setVal(0.5*(vmin+vmax), u1, u2, YFIXED, 1);
+	      // std::cout << "El y: " << umin << " " << umax << " " << vmin << " " << vmax;
+	      // std::cout << ". Bsize: " << bsplines.size();
+	      // std::cout << ". Ref: " << 0.5*(vmin+vmax) << " " << u1 << " " << u2 << std::endl;
 	      appendRef(refs_y, curr_ref2, tol);
 	    }
 	}
     }
 
-  srf_->refine2(refs_x, true);
-  srf_->refine2(refs_y, true);
-  // for (kr=0; kr<refs_x.size(); ++kr)
-  //   {
-  //     srf_->refine(refs_x[kr], true /*false*/);
-  //   }
+  // srf_->refine2(refs_x, true);
+  // srf_->refine2(refs_y, true);
+  std::cout << "Refs x: " << refs_x.size() << ", refs_y: " << refs_y.size() << std::endl;
+#if 0
+  std::cout << "Possible unbalanced: " << unbalanced.size() << std::endl;
+  double fuzzy = 1.0e-10;
+  for (auto it=unbalanced.begin(); it!=unbalanced.end(); )
+    {
+      Direction2D d = (*it).second.first;
+      double par = (*it).second.second;
+      Element2D* elem = (*it).first;
+      double umin = elem->umin();
+      double umax = elem->umax();
+      double vmin = elem->vmin();
+      double vmax = elem->vmax();
+      if (d == XFIXED)
+	{
+	  size_t kr;
+	  for (kr=0; kr<refs_x.size(); ++kr)
+	    {
+	      if (vmin > refs_x[kr].end+fuzzy || vmax < refs_x[kr].start-fuzzy)
+		continue;
+	      if (fabs(par - 0.5*(umin+umax)) < fuzzy)
+		break;
+	    }
+	  if (kr < refs_x.size())
+	    it = unbalanced.erase(it);
+	  else
+	    ++it;
+	}
+      else
+	{
+	  size_t kr;
+	  for (kr=0; kr<refs_y.size(); ++kr)
+	    {
+	      if (vmin > refs_y[kr].end+fuzzy || vmax < refs_y[kr].start-fuzzy)
+		continue;
+	      if (fabs(par - 0.5*(umin+umax)) < fuzzy)
+		break;
+	    }
+	  if (kr < refs_x.size())
+	    it = unbalanced.erase(it);
+	  else
+	    ++it;
+	}
+    }
+#endif
+  std::cout << "Unbalanced: " << unbalanced.size() << std::endl;
+ 
+  for (kr=0; kr<refs_x.size(); ++kr)
+    {
+      // std::cout << "Ref: " << refs_x[kr].kval << " " << refs_x[kr].start << " ";
+      // std::cout << refs_x[kr].end << " " << refs_x[kr].d << std::endl;
+      srf_->refine(refs_x[kr], true /*false*/);
+    }
 
-  // for (size_t kr=0; kr<refs_y.size(); ++kr)
-  //   {
-  //     srf_->refine(refs_y[kr], true /*false*/);
-  //   }
+  for (size_t kr=0; kr<refs_y.size(); ++kr)
+    {
+      // std::cout << "Ref: " << refs_y[kr].kval << " " << refs_y[kr].start << " ";
+      // std::cout << refs_y[kr].end << " " << refs_y[kr].d << std::endl;
+      srf_->refine(refs_y[kr], true /*false*/);
+    }
   return (int)refs_x.size() + (int)refs_y.size();
  }
 
@@ -3634,7 +3719,7 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   std::cout << "Remaining elements with outside points: " << elem_out.size() << std::endl;
 #endif
 
-  bool elemref = false;
+  bool elemref = true;
   if (elemref)
     {
       // Removing affected elements
@@ -6419,8 +6504,7 @@ void LRSurfApprox::getCandElements(double x, double y, double rad,
 
 //==============================================================================
 void LRSurfApprox::appendRef(vector<LRSplineSurface::Refinement2D>& refs,
-			     LRSplineSurface::Refinement2D& curr_ref,
-			     double tol)
+			     LRSplineSurface::Refinement2D& curr_ref, double tol)
 //==============================================================================
 {
   // Check if the current refinement can be combined with an existing one
