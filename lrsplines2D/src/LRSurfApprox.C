@@ -53,6 +53,7 @@
 #include <fstream>
 #include <string>
 #include "stdio.h"
+#include <cstring>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -62,6 +63,7 @@
 //#define DEBUG1
 //#define DEBUG2
 //#define DEBUG_HIST
+//#define DEBUG_SURF
 
 using std::vector;
 using std::set;
@@ -394,7 +396,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
     const bool omp_for_mba_update = true;//false; // 201503 The omp version seems to be faster even when run sequentially.
 #endif
 
-#ifdef DEBUG
+#ifdef DEBUG_SURF
   std::ofstream of0("init0_sf.g2");
   std::ofstream of0el("init0_el.g2");
   srf_->writeStandardHeader(of0);
@@ -421,7 +423,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   bool alter = true;
   int div = 1; //(alter) ? 2 : 1;
   int currdiv = (alter) ? 1 : 3;
-  int refstrat = 1;
+  int refstrat = 4;
   double stratfac = -100.0; //0.1; //0.02;
   int ref = 1;
 
@@ -519,7 +521,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
     }
 
 
-#ifdef DEBUG
+#ifdef DEBUG_SURF
   std::ofstream of1("init_sf.g2");
   std::ofstream of1el("init_el.g2");
   srf_->writeStandardHeader(of1);
@@ -596,7 +598,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  updateGhostElems(ghost_elems);
 	}
 
-      if (ki > 0 || (!initial_surface_))
+      if (true)//ki > 0 || (!initial_surface_))
 	{
 	  double threshold = (aepsge_ + 0.5*maxout_)/2.0 + avout_;
 	  if (ki > 0 && maxdist_/maxdist_prev_ > 0.9)
@@ -737,10 +739,25 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	    }
 	}
 
-#ifdef DEBUG
-      std::ofstream of4("updated_sf.g2");
-      std::ofstream of4el("updated_el.g2");
-      std::ofstream of4coef("updated_coef.g2");
+#ifdef DEBUG_SURF
+      char tmp[4];
+      int ki2 = ki + 1;
+      sprintf(tmp, "_%d", ki2);
+      char filename1[40];
+      strcpy(filename1, "updated_sf");
+      char filename2[40];
+      strcpy(filename2, "updated_el");
+      char filename3[40];
+      strcpy(filename3, "updated_coef");
+      strncat(filename1, tmp, 3);
+      strncat(filename1, ".g2", 3);
+      strncat(filename2, tmp, 3);
+      strncat(filename2, ".g2", 3);
+      strncat(filename3, tmp, 3);
+      strncat(filename3, ".g2", 3);
+      std::ofstream of4(filename1);
+      std::ofstream of4el(filename2);
+      std::ofstream of4coef(filename3);
       srf_->writeStandardHeader(of4);
       srf_->write(of4);
       of4 << std::endl;
@@ -2926,7 +2943,7 @@ bool compare_elems(pair<Element2D*,double> el1, pair<Element2D*,double> el2)
 
 //==============================================================================
 void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
-				      int strategy, double& pmin, double& pmax,
+				      int strategy, double& ppar, double& pmin, double& pmax,
 				      set<pair<Element2D*,pair<Direction2D,double> > >& unbalanced_elem)
 //==============================================================================
 {
@@ -2934,7 +2951,7 @@ void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
   const vector<LRBSpline2D*>& bsplines = elem->getSupport();
   size_t nmb = bsplines.size();
 
-  double par = (fixdir == XFIXED) ? 0.5*(elem->umin() + elem->umax()) :
+  ppar = (fixdir == XFIXED) ? 0.5*(elem->umin() + elem->umax()) :
     0.5*(elem->vmin() + elem->vmax());
   pmin = (fixdir == XFIXED) ? elem->vmin() : elem->umin();
   pmax = (fixdir == XFIXED) ? elem->vmax() : elem->umax();
@@ -3002,7 +3019,7 @@ void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
 		curr_el[kj]->umin() : curr_el[kj]->vmin();
 	      double emax = (fixdir == XFIXED) ?
 		curr_el[kj]->umax() : curr_el[kj]->vmax();
-	      if (emax < par || emin > par)
+	      if (emax < ppar || emin > ppar)
 		continue;  // Element not affected
 
 	      // Compute weight for importance of refinement
@@ -3059,13 +3076,13 @@ void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
 		curr_el[kj]->umin() : curr_el[kj]->vmin();
 	      double emax = (fixdir == XFIXED) ?
 		curr_el[kj]->umax() : curr_el[kj]->vmax();
-	      if (emax < par || emin > par)
+	      if (emax < ppar || emin > ppar)
 		continue;  // Element not affected
 
-	      if ((emax - par > 0.55*(emax-emin) || par - emin > 0.55*(emax-emin)) &&
-		  emax-par > 0.0001 && par-emin > 0.0001)
+	      if ((emax - ppar > 0.55*(emax-emin) || ppar - emin > 0.55*(emax-emin)) &&
+		  emax-ppar > 0.0001 && ppar-emin > 0.0001)
 		{
-		  unbalanced.push_back(make_pair(curr_el[kj],make_pair(fixdir,par)));
+		  unbalanced.push_back(make_pair(curr_el[kj],make_pair(fixdir,ppar)));
 		}
 
 
@@ -3103,6 +3120,15 @@ void LRSurfApprox::getRefineExtension(Element2D *elem, Direction2D fixdir,
 	    }
 	}
       unbalanced_elem.insert(unbalanced2.begin(), unbalanced2.end());
+#if 0
+      if (unbalanced2.size() > 0)
+	{
+	  if (fixdir == XFIXED)
+	    ppar = 0.5*(unbalanced2[0].first->umin() + unbalanced2[0].first->umax());
+	  else
+	    ppar = 0.5*(unbalanced2[0].first->vmin() + unbalanced2[0].first->vmax());
+	}
+#endif
       pmin = (fixdir == XFIXED) ? bsplines[ix]->vmin() :
 	bsplines[ix]->umin();
       pmax = (fixdir == XFIXED) ? bsplines[ix]->vmax() :
@@ -3180,7 +3206,7 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold, int refstrat
   double highlim = std::max(min_wgt, 0.9*prev_thresh_);
   thresh2 = std::min(thresh2, highlim); //prev_thresh_);
   prev_thresh_ = thresh2;
-  //thresh2 = min_wgt;
+  thresh2 = min_wgt;
   std::cout << "Num elements: " << num_elem << ", elements out: " << el_out << std::endl;
   std::cout << "thresh2 = " << thresh2 << std::endl;
   double thresh3 = (kr < 0.9*num_elem) ? med_wgt2 : min_wgt; //fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
@@ -3233,11 +3259,11 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold, int refstrat
 	  
 	  if ((dir2 == 1 || dir2 == 3) && umax-umin > 2.0*usize_min_)
 	    {
-	      double v1, v2;
-	      getRefineExtension(it->second.get(), XFIXED, extstrategy,  v1, v2, unbalanced);
+	      double v1, v2, ppar;
+	      getRefineExtension(it->second.get(), XFIXED, extstrategy,  ppar, v1, v2, unbalanced);
 	      
 	      LRSplineSurface::Refinement2D curr_ref1;
-	      curr_ref1.setVal(0.5*(umin+umax), v1, v2, XFIXED, 1);
+	      curr_ref1.setVal(ppar, v1, v2, XFIXED, 1);
 	      // std::cout << "El x: " << umin << " " << umax << " " << vmin << " " << vmax;
 	      // std::cout << ". Bsize: " << bsplines.size();
 	      // std::cout << ". Ref: " << 0.5*(umin+umax) << " " << v1 << " " << v2 << std::endl;
@@ -3246,11 +3272,11 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold, int refstrat
 
 	  if ((dir2 == 2 || dir2 == 3) && vmax-vmin > 2.0*vsize_min_)
 	    {
-	      double u1, u2;
-	      getRefineExtension(it->second.get(), YFIXED, extstrategy,  u1, u2, unbalanced);
+	      double u1, u2, ppar;
+	      getRefineExtension(it->second.get(), YFIXED, extstrategy,  ppar, u1, u2, unbalanced);
 	      
 	      LRSplineSurface::Refinement2D curr_ref2;
-	      curr_ref2.setVal(0.5*(vmin+vmax), u1, u2, YFIXED, 1);
+	      curr_ref2.setVal(ppar, u1, u2, YFIXED, 1);
 	      // std::cout << "El y: " << umin << " " << umax << " " << vmin << " " << vmax;
 	      // std::cout << ". Bsize: " << bsplines.size();
 	      // std::cout << ". Ref: " << 0.5*(vmin+vmax) << " " << u1 << " " << u2 << std::endl;

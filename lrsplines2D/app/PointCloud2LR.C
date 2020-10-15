@@ -55,7 +55,7 @@
 
 //#define DEBUG
 //#define DEBUG_EL
-#define DEBUG2
+//#define DEBUG2
 
 
 using namespace Go;
@@ -585,11 +585,25 @@ int main(int argc, char *argv[])
   //   }
   int order = degree + 1; 
   int nmb_coef = std::max(order, 14);
+  int nm = nmb_coef*nmb_coef;
+  double dom = (extent[1]-extent[0])*(extent[3]-extent[2]);
+  double c1 = std::pow((double)nm/dom, 1.0/2.0);
+  int nc[2];
+  for (kj=0; kj<2; ++kj)
+    {
+      double tmp = c1*(extent[2*kj+1]-extent[2*kj]);
+      nc[kj] = (int)tmp;
+      //if (tmp - (double)nc[kj] > 0.5)
+      ++nc[kj];
+      nc[kj] = std::max(nc[kj], order);
+    }
   double mba_coef = 0.0;
   if (initmba)
     mba_coef = 0.5*(extent[2*(del-1)] + extent[2*(del-1)+1]);
    LRSurfApprox approx(nmb_coef, order, nmb_coef, order, data, del-2, 
-		       AEPSGE, initmba ? true : false, mba_coef, true, true);
+   		       AEPSGE, initmba ? true : false, mba_coef, true, true);
+   // LRSurfApprox approx(nc[0], order, nc[1], order, data, del-2, 
+   // 		       AEPSGE, initmba ? true : false, mba_coef, true, true);
   approx.setSmoothingWeight(smoothwg);
   approx.setSmoothBoundary(true);
   if (mba)

@@ -596,7 +596,7 @@ private:
     int refineSurf3(int iter, int& dir, double threshold, int refstrat);
     int refineSurf4(int& dir, double threshold);
     void getRefineExtension(Element2D *elem, Direction2D fixdir,
-			    int strategy, double& pmin, double& pmax,
+			    int strategy, double& ppar, double& pmin, double& pmax,
 			    std::set<std::pair<Element2D*,std::pair<Direction2D,double> > >& unbalanced_elem);
 
     /// Create initial LR B-spline surface

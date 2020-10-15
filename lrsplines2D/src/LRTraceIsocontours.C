@@ -10,8 +10,9 @@
 #include "GoTools/lrsplines2D/SSurfTraceIsocontours.h"
 #include "GoTools/lrsplines2D/TrimCrvUtils.h"
 
-#define DEBUG
-#define DEBUG2
+#define DEBUG0
+//#define DEBUG
+//#define DEBUG2
 
 using namespace std;
 using namespace Go;
@@ -179,7 +180,7 @@ vector<CurveVec> LRTraceIsocontours(const LRSplineSurface& lrs,
   const vector<pair<LRSurfPtr,LRSplineSurface::PatchStatus> > surf_fragments = 
     lrs.subdivideIntoSimpler(threshold_missing, tol, domain);
 
-#ifdef DEBUG
+#ifdef DEBUG0
   std::ofstream of("lrsurf_fragments.g2");
   for (size_t ki=0; ki<surf_fragments.size(); ++ki)
     {
@@ -251,14 +252,20 @@ vector<CurveVec> LRTraceIsocontours(const LRSplineSurface& lrs,
 	  curve_fragments[ki] = dummy;
 	}
       else
-	curve_fragments[ki] =
-	  SSurfTraceIsocontours(*as_spline_surf(surf_fragments[ki].first), 
-				isovals,
-				tol, include_3D_curves,
-				use_sisl_marching);
+	try {
+	  curve_fragments[ki] =
+	    SSurfTraceIsocontours(*as_spline_surf(surf_fragments[ki].first), 
+				  isovals,
+				  tol, include_3D_curves,
+				  use_sisl_marching);
+	}
+	catch (...)
+	  {
+	    std::cout << "Tracing of curve " << ki << "failed" << std::endl;
+	  }
     }
 
-#ifdef DEBUG
+#ifdef DEBUG0
   std::cout << "Ready to merge isocontours" << std::endl;
   ofstream os_surf("lrsurf.g2");
   for (auto f : surf_fragments) {
