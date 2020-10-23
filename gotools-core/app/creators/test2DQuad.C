@@ -101,17 +101,18 @@ int main(int argc, char** argv)
   weights[1] = 0.326072577431273071313468025389000296382;
   weights[2] = 0.326072577431273071313468025389000296382;
   weights[3] = 0.173927422568726928686531974610999703618;
-  vector<vector<double> > quadpt;
-  vector<vector<double> > bdquad;
   double min_cell_size = 0.01;
   quad.setQuadratureInfo(quadval, weights, min_cell_size);
 
   vector<vector<shared_ptr<ParamCurve> > > unresolved_cells;
   vector<vector<shared_ptr<ParamCurve> > > short_cvs;
-  vector<vector<double> > ptweights;
-  vector<vector<double> > bdweights;
+  vector<double> quadpt;
+  vector<double> bdquad;
+  vector<double> bdnorm;
+  vector<double> ptweights;
+  vector<double> bdweights;
   quad.quadrature(ll, ur, quadpt, ptweights, unresolved_cells,
-		  bdquad, bdweights, short_cvs, stat);
+		  bdquad, bdnorm, bdweights, short_cvs, stat);
   
   int stop_break = 1;
 }

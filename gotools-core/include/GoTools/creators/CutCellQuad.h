@@ -70,11 +70,12 @@ namespace Go
 
     // Compute quadrature
     void quadrature(const Point& ll, const Point& ur,
-		    std::vector<std::vector<double> >& quadraturepoints,
-		    std::vector<std::vector<double> >& pointsweights,
+		    std::vector<double>& quadraturepoints,
+		    std::vector<double>& pointsweights,
 		    std::vector<std::vector<shared_ptr<ParamCurve> > >& unresolved_cells,
-		    std::vector<std::vector<double> >& curvequads,
-		    std::vector<std::vector<double> >& crvptweights,
+		    std::vector<double>& curvequads,
+		    std::vector<double>& curvenorms,
+		    std::vector<double>& crvptweights,
 		    std::vector<std::vector<shared_ptr<ParamCurve> > >& short_curves,
 		    int stat = -1);
 
@@ -111,11 +112,12 @@ namespace Go
 
     void
       quadraturePoints(std::vector<shared_ptr<CurveLoop> >& cell_loops,
-		       std::vector<std::vector<double> >& quadraturepoints,
-		       std::vector<std::vector<double> >& pointsweights,
+		       std::vector<double>& quadraturepoints,
+		       std::vector<double>& pointsweights,
 		       std::vector<std::vector<shared_ptr<ParamCurve> > >& unresolved_cells,
-		       std::vector<std::vector<double> >& curvequads,
-		       std::vector<std::vector<double> >& crvptweights,
+		       std::vector<double>& curvequads,
+		       std::vector<double>& curvenorms,
+		       std::vector<double>& crvptweights,
 		       std::vector<std::vector<shared_ptr<ParamCurve> > >& short_curves);
     
     
@@ -132,6 +134,7 @@ namespace Go
       void
       computeQuadraturePoints(std::vector<shared_ptr<ParamCurve> >& bd_seg,
 			      std::vector<double>& quadraturepoints,
+			      std::vector<double>& quadraturenorms,
 			      std::vector<double>& weights);
     
     void splitPars(std::vector<shared_ptr<CurveLoop> >& cell_loops,

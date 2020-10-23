@@ -104,11 +104,12 @@ int CutCellQuad::cellStat(const Point& ll, const Point& ur)
 //==============================================================================
 void
 CutCellQuad::quadrature(const Point& ll, const Point& ur,
-			vector<vector<double> >& quadraturepoints,
-			vector<vector<double> >& pointsweights,
+			vector<double>& quadraturepoints,
+			vector<double>& pointsweights,
 			vector<vector<shared_ptr<ParamCurve> > >& unresolved_cells,
-			vector<vector<double> >& curvequads,
-			vector<vector<double> >& crvptweights,
+			vector<double>& curvequads,
+			vector<double>& curvenorms,
+			vector<double>& crvptweights,
 			vector<vector<shared_ptr<ParamCurve> > >& short_curves,
 			int stat)
 //==============================================================================
@@ -189,16 +190,14 @@ CutCellQuad::quadrature(const Point& ll, const Point& ur,
 	  quadpar2[ki] = ll[1] + quadpar_[ki]*del2;
 	  wgt2[ki] = weights_[ki]*del2;
 	}
-      quadraturepoints.resize(1);
-      quadraturepoints[0].resize(2*quadpar_.size()*quadpar_.size());
-      pointsweights.resize(1);
-      pointsweights[0].resize(quadpar_.size()*quadpar_.size());
+      quadraturepoints.resize(2*quadpar_.size()*quadpar_.size());
+      pointsweights.resize(quadpar_.size()*quadpar_.size());
       for (size_t kj=0; kj<quadpar_.size(); ++kj)
 	for (size_t ki=0; ki<quadpar_.size(); ++ki)
 	  {
-	    quadraturepoints[0][2*(kj*quadpar_.size()+ki)] = quadpar1[ki];
-	    quadraturepoints[0][2*(kj*quadpar_.size()+ki)+1] = quadpar2[kj];
-	    pointsweights[0][kj*quadpar_.size()+ki] = wgt1[ki]*wgt2[kj];
+	    quadraturepoints[2*(kj*quadpar_.size()+ki)] = quadpar1[ki];
+	    quadraturepoints[2*(kj*quadpar_.size()+ki)+1] = quadpar2[kj];
+	    pointsweights[kj*quadpar_.size()+ki] = wgt1[ki]*wgt2[kj];
 	  }
 
       // Check for coincidence between a piece of the boundary loop and the
@@ -218,11 +217,7 @@ CutCellQuad::quadrature(const Point& ll, const Point& ur,
 	    short_curves.push_back(bd_segs[ki]);
 	  else
 	    {
-	      vector<double> crvquads;
-	      vector<double> crvptwgts;
-	      computeQuadraturePoints(bd_segs[ki], crvquads, crvptwgts);
-	      curvequads.push_back(crvquads);
-	      crvptweights.push_back(crvptwgts);
+	      computeQuadraturePoints(bd_segs[ki], curvequads, curvenorms, crvptweights);
 	    }
 	}
     }
@@ -238,20 +233,17 @@ CutCellQuad::quadrature(const Point& ll, const Point& ur,
       for (size_t ki=0; ki<cut_bd.size(); ++ki)
 	{
 	  quadraturePoints(cut_bd[ki], quadraturepoints, pointsweights, unresolved_cells,
-			   curvequads, crvptweights, short_curves);
+			   curvequads, curvenorms, crvptweights, short_curves);
 	}
     }
 
   std::ofstream ofq("quadpts.g2");
-  for (size_t ki=0; ki<quadraturepoints.size(); ++ki)
+  ofq << "400 1 0 4 100 100 55 255" << std::endl;
+  ofq << pointsweights.size() << std::endl;
+  for (size_t kj=0; kj<quadraturepoints.size(); kj+=2)
     {
-      ofq << "400 1 0 4 100 100 55 255" << std::endl;
-      ofq << quadpar_.size()*quadpar_.size() << std::endl;
-      for (size_t kj=0; kj<quadraturepoints[ki].size(); kj+=2)
-	{
-	  Point pt(quadraturepoints[ki][kj], quadraturepoints[ki][kj+1], 0.0);
-	  ofq << pt << std::endl;
-	}
+      Point pt(quadraturepoints[kj], quadraturepoints[kj+1], 0.0);
+      ofq << pt << std::endl;
     }
   int stop_break = 1;
 }
@@ -685,11 +677,12 @@ CutCellQuad::sortLoops(vector<vector<shared_ptr<ParamCurve> > >& loop_cvs,
 //==============================================================================
 void
 CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
-			      vector<vector<double> >& quadraturepoints,
-			      vector<vector<double> >& pointsweights,
+			      vector<double>& quadraturepoints,
+			      vector<double>& pointsweights,
 			      vector<vector<shared_ptr<ParamCurve> > >& unresolved_cells,
-			      vector<vector<double> >& curvequads,
-			      vector<vector<double> >& crvptweights,
+			      vector<double>& curvequads,
+			      vector<double>& curvenorms,
+			      vector<double>& crvptweights,
 			      vector<vector<shared_ptr<ParamCurve> > >& short_curves)
 //==============================================================================
 {
@@ -764,7 +757,7 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
       for (size_t ki=0; ki<trim_loops.size(); ++ki)
 	{
 	  quadraturePoints(trim_loops[ki], quadraturepoints, pointsweights, unresolved_cells,
-			   curvequads, crvptweights, short_curves);
+			   curvequads, curvenorms, crvptweights, short_curves);
 	  int stop_break = 1;
 	}
     }
@@ -793,8 +786,8 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
 	  unresolved_cells.push_back(unresolved_cvs);
 	  return;   // Cell not handled
  	}
-      quadraturepoints.push_back(quadpts);
-      pointsweights.push_back(ptsweights);
+      quadraturepoints.insert(quadraturepoints.end(), quadpts.begin(), quadpts.end());
+      pointsweights.insert(pointsweights.end(), ptsweights.begin(), ptsweights.end());
 
       // Quadrature points corresponding to boundary curves
       vector<vector<shared_ptr<ParamCurve> > > bd_segs;
@@ -812,10 +805,12 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
 	      else
 		{
 		  vector<double> crvquads;
+		  vector<double> crvnorms;
 		  vector<double> crvptwgts;
-		  computeQuadraturePoints(bd_segs[ki], crvquads, crvptwgts);
-		  curvequads.push_back(crvquads);
-		  crvptweights.push_back(crvptwgts);
+		  computeQuadraturePoints(bd_segs[ki], crvquads, crvnorms, crvptwgts);
+		  curvequads.insert(curvequads.end(), crvquads.begin(), crvquads.end());
+		  curvenorms.insert(curvenorms.end(), crvnorms.begin(), crvnorms.end());
+		  crvptweights.insert(crvptweights.end(), crvptwgts.begin(), crvptwgts.end());
 		}
 	    }
 	}
@@ -826,6 +821,7 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
 void
 CutCellQuad::computeQuadraturePoints(vector<shared_ptr<ParamCurve> >& bd_seg,
 				     vector<double>& quadraturepoints,
+				     vector<double>& quadraturenorms,
 				     vector<double>& weights)
 //==============================================================================
 {
@@ -862,6 +858,10 @@ CutCellQuad::computeQuadraturePoints(vector<shared_ptr<ParamCurve> >& bd_seg,
       bd_seg[ix]->point(quadder, quadpar[ki], 1);
       quadraturepoints.push_back(quadder[0][0]);
       quadraturepoints.push_back(quadder[0][1]);
+      Point quadnorm(quadder[1][1], -quadder[1][0]);
+      (void)quadnorm.normalize_checked();
+      quadraturenorms.push_back(quadnorm[0]);
+      quadraturenorms.push_back(quadnorm[1]);
       weights.push_back(wgt[ki]*quadder[1].length());
      }
  }
@@ -970,7 +970,7 @@ CutCellQuad::computeQuadraturePoints(shared_ptr<CurveBoundedDomain> cvdom,
 
   // Fetch constant parameter curves
   quadraturepoints.resize(2*quadpar_.size()*quadpar_.size());
-  pointsweights.resize(2*quadpar_.size()*quadpar_.size());
+  pointsweights.resize(quadpar_.size()*quadpar_.size());
   for (size_t ki=0; ki<quadpar1.size(); ++ki)
     {
       Point pt1, pt2;

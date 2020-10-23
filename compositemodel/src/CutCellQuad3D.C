@@ -159,11 +159,12 @@ int CutCellQuad3D::cellStat(const Point& ll, const Point& ur, int& coinc)
 //==============================================================================
 void
 CutCellQuad3D::quadrature(const Point& ll, const Point& ur,
-			  vector<vector<double> >& quadraturepoints,
-			  vector<vector<double> >& pointsweights,
+			  vector<double>& quadraturepoints,
+			  vector<double>& pointsweights,
 			  vector<vector<shared_ptr<ParamSurface> > >& unresolved_cells,
-			  vector<vector<double> >& surfquads,
-			  vector<vector<double> >& sfptweights,
+			  vector<double>& surfquads,
+			  vector<double>& surfnorms,
+			  vector<double>& sfptweights,
 			  vector<vector<shared_ptr<ParamSurface> > >& small_sfs,
 			  int stat, int coinc)
 //==============================================================================
@@ -201,18 +202,16 @@ CutCellQuad3D::quadrature(const Point& ll, const Point& ur,
 	  quadpar3[ki] = ll[2] + quadpar_[ki]*del3;
 	  wgt3[ki] = weights_[ki]*del3;
 	}
-      quadraturepoints.resize(1);
-      quadraturepoints[0].resize(3*quadpar_.size()*quadpar_.size()*quadpar_.size());
-      pointsweights.resize(1);
-      pointsweights[0].resize(quadpar_.size()*quadpar_.size()*quadpar_.size());
+      quadraturepoints.resize(3*quadpar_.size()*quadpar_.size()*quadpar_.size());
+      pointsweights.resize(quadpar_.size()*quadpar_.size()*quadpar_.size());
       for (size_t kk=0; kk<quadpar_.size(); ++kk)
 	for (size_t kj=0; kj<quadpar_.size(); ++kj)
 	  for (size_t ki=0; ki<quadpar_.size(); ++ki)
 	    {
-	      quadraturepoints[0][3*((kk*quadpar_.size()+kj)*quadpar_.size()+ki)] = quadpar1[ki];
-	      quadraturepoints[0][3*((kk*quadpar_.size()+kj)*quadpar_.size()+ki)+1] = quadpar2[kj];
-	      quadraturepoints[0][3*((kk*quadpar_.size()+kj)*quadpar_.size()+ki)+2] = quadpar3[kk];
-	      pointsweights[0][(kk*quadpar_.size()+kj)*quadpar_.size()+ki] = wgt1[ki]*wgt2[kj]*wgt3[kk];
+	      quadraturepoints[3*((kk*quadpar_.size()+kj)*quadpar_.size()+ki)] = quadpar1[ki];
+	      quadraturepoints[3*((kk*quadpar_.size()+kj)*quadpar_.size()+ki)+1] = quadpar2[kj];
+	      quadraturepoints[3*((kk*quadpar_.size()+kj)*quadpar_.size()+ki)+2] = quadpar3[kk];
+	      pointsweights[(kk*quadpar_.size()+kj)*quadpar_.size()+ki] = wgt1[ki]*wgt2[kj]*wgt3[kk];
 	    }
 
       // Check for coincidence between a piece of the boundary loop and the
@@ -232,7 +231,7 @@ CutCellQuad3D::quadrature(const Point& ll, const Point& ur,
       for (size_t ki=0; ki<cutcells.size(); ++ki)
 	{
 	  quadraturePoints(ll, ur, cutcells[ki], quadraturepoints, pointsweights, unresolved_cells,
-			   surfquads, sfptweights, small_sfs);
+			   surfquads, surfnorms, sfptweights, small_sfs);
 	}
 
       int stop_break0 = 1;
@@ -531,11 +530,12 @@ void CutCellQuad3D::createCellSfs(const Point& ll, const Point& ur,
 void
 CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 				shared_ptr<Body> body,
-				vector<vector<double> >& quadraturepoints,
-				vector<vector<double> >& pointsweights,
+				vector<double>& quadraturepoints,
+				vector<double>& pointsweights,
 				vector<vector<shared_ptr<ParamSurface> > >& unresolved_cells,
-				vector<vector<double> >& surfquads,
-				vector<vector<double> >& sfptweights,
+				vector<double>& surfquads,
+				vector<double>& surfnorms,
+				vector<double>& sfptweights,
 				vector<vector<shared_ptr<ParamSurface> > >& small_sfs)
 //==============================================================================
 {
@@ -569,7 +569,7 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 
 	  for (size_t ki=0; ki<subcell.size(); ++ki)
 	    quadraturePoints(ll, ur, subcell[ki], quadraturepoints, pointsweights,
-			     unresolved_cells, surfquads, sfptweights, small_sfs);
+			     unresolved_cells, surfquads, surfnorms, sfptweights, small_sfs);
 
 	  int stop_break = 1;
 	}
@@ -604,7 +604,7 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 
 	  for (size_t ki=0; ki<subcell.size(); ++ki)
 	    quadraturePoints(ll, ur, subcell[ki], quadraturepoints, pointsweights,
-			     unresolved_cells, surfquads, sfptweights, small_sfs);
+			     unresolved_cells, surfquads, surfnorms, sfptweights, small_sfs);
 
 	  int stop_rule = 1;
 							      
@@ -706,37 +706,37 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 	  // NB! What about disjunct curve loops? Are they handled in 2D code?
 	  CutCellQuad quad2D(bd_curves, tol_);
 	  quad2D.setQuadratureInfo(quadpar_, weights_, min_cell_size_);
-	  vector<vector<double> > quadpts;
-	  vector<vector<double> > wgts;
+	  vector<double> quadpts;
+	  vector<double> wgts;
 	  vector<vector<shared_ptr<ParamCurve> > > unresolved;
-	  vector<vector<double> > cvquads;
-	  vector<vector<double> > cvwgts;
+	  vector<double> cvquads;
+	  vector<double> cvnorms;
+	  vector<double> cvwgts;
 	  vector<vector<shared_ptr<ParamCurve> > > shortcvs;
-	  quad2D.quadrature(ll2, ur2, quadpts, wgts, unresolved, cvquads, cvwgts, shortcvs);
+	  quad2D.quadrature(ll2, ur2, quadpts, wgts, unresolved, cvquads, cvnorms,
+			    cvwgts, shortcvs);
 
 	  // Expand quadrature results with basedir information
-	  for (size_t kj=0; kj<quadpts.size(); ++kj)
+	  vector<double> currquads;
+	  vector<double> currwgts;
+	  size_t kr, kh;
+	  for (kr=0, kh=0; kr<quadpts.size(); kr+=2, ++kh)
 	    {
-	      vector<double> currquads;
-	      vector<double> currwgts;
-	      size_t kr, kh;
-	      for (kr=0, kh=0; kr<quadpts[kj].size(); kr+=2, ++kh)
+	      currwgts.push_back(wgts[kh]*wgt);
+	      size_t kw = 0;
+	      for (int ka=0; ka<3; ++ka)
 		{
-		  currwgts.push_back(wgts[kj][kh]*wgt);
-		  size_t kw = 0;
-		  for (int ka=0; ka<3; ++ka)
+		  if (ka == basedir)
+		    currquads.push_back(quadpar);
+		  else
 		    {
-		      if (ka == basedir)
-			currquads.push_back(quadpar);
-		      else
-			{
-			  currquads.push_back(quadpts[kj][kr+kw]);
-			  ++kw;
-			}
+		      currquads.push_back(quadpts[kr+kw]);
+		      ++kw;
 		    }
 		}
-	      quadraturepoints.push_back(currquads);
-	      pointsweights.push_back(currwgts);
+	      quadraturepoints.insert(quadraturepoints.end(), currquads.begin(),
+				      currquads.end());
+	      pointsweights.insert(pointsweights.end(), currwgts.begin(), currwgts.end());
 
 	      ofp << "400 1 0 4 255 0 0 255" << std::endl;
 	      ofp << currwgts.size() << std::endl;

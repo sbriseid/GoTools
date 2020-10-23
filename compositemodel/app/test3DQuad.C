@@ -211,8 +211,6 @@ int main(int argc, char** argv)
   weights[1] = 0.326072577431273071313468025389000296382;
   weights[2] = 0.326072577431273071313468025389000296382;
   weights[3] = 0.173927422568726928686531974610999703618;
-  vector<vector<double> > quadpt;
-  vector<vector<double> > bdquad;
   quad.setQuadratureInfo(quadval, weights, min_cell_size);
 
   
@@ -296,22 +294,20 @@ int main(int argc, char** argv)
 	  {
 	    vector<vector<shared_ptr<ParamSurface> > > unresolved_cells;
 	    vector<vector<shared_ptr<ParamSurface> > > small_sfs;
-	    vector<vector<double> > quadpt;
-	    vector<vector<double> > ptweights;
-	    vector<vector<double> > bdquad;
-	    vector<vector<double> > bdweights;
+	    vector<double> quadpt;
+	    vector<double> ptweights;
+	    vector<double> bdquad;
+	    vector<double> bdnorm;
+	    vector<double> bdweights;
 	    quad.quadrature(ll, ur, quadpt, ptweights, unresolved_cells,
-			    bdquad, bdweights, small_sfs, stat, coinc);
+			    bdquad, bdnorm, bdweights, small_sfs, stat, coinc);
   
-	    for (size_t kk=0; kk<quadpt.size(); ++kk)
+	    outfile << "400 1 0 4 100 100 55 255" << std::endl;
+	    outfile << ptweights.size() << std::endl;
+	    for (size_t kr=0; kr<quadpt.size(); kr+=3)
 	      {
-		outfile << "400 1 0 4 100 100 55 255" << std::endl;
-		outfile << quadpt[kk].size()/3 << std::endl;
-		for (size_t kr=0; kr<quadpt[kk].size(); kr+=3)
-		  {
-		    Point pt(quadpt[kk][kr], quadpt[kk][kr+1], quadpt[kk][kr+2]);
-		    outfile << pt << std::endl;
-		  }
+		Point pt(quadpt[kr], quadpt[kr+1], quadpt[kr+2]);
+		outfile << pt << std::endl;
 	      }
 
 	    for (size_t kk=0; kk<unresolved_cells.size(); ++kk)
@@ -323,15 +319,22 @@ int main(int argc, char** argv)
 
 	    if (bdquad.size() > 0)
 	      {
-		for (size_t kk=0; kk<bdquad.size(); ++kk)
+		outfile << "400 1 0 4 155 0 100 255" << std::endl;
+		outfile << bdweights.size() << std::endl;
+		for (size_t kr=0; kr<bdquad.size(); kr+=3)
 		  {
-		    outfile << "400 1 0 4 155 0 100 255" << std::endl;
-		    outfile << bdquad[kk].size()/2 << std::endl;
-		    for (size_t kr=0; kr<bdquad[kk].size(); kr+=3)
-		      {
-			Point pt(bdquad[kk][kr], bdquad[kk][kr+1], bdquad[kk][kr+2]);
-			outfile << pt << std::endl;
-		      }
+		    Point pt(bdquad[kr], bdquad[kr+1], bdquad[kr+2]);
+		    outfile << pt << std::endl;
+		  }
+
+		outfile << "410 1 0 4 155 0 100 255" << std::endl;
+		outfile << bdweights.size() << std::endl;
+		for (size_t kr=0; kr<bdquad.size(); kr+=3)
+		  {
+		    Point pt1(bdquad[kr], bdquad[kr+1], bdquad[kr+2]);
+		    Point pt2(bdquad[kr]+bdnorm[kr], bdquad[kr+1]+bdnorm[kr+1],
+			      bdquad[kr+2]+bdnorm[kr+2]);
+		    outfile << pt1 << " " << pt2 << std::endl;
 		  }
 
 		for (size_t kk=0; kk<small_sfs.size(); ++kk)

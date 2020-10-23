@@ -70,11 +70,12 @@ namespace Go
 
     // Compute quadrature points and weights
     void quadrature(const Point& ll, const Point& ur,
-		    std::vector<std::vector<double> >& quadraturepoints,
-		    std::vector<std::vector<double> >& pointsweights,
+		    std::vector<double>& quadraturepoints,
+		    std::vector<double>& pointsweights,
 		    std::vector<std::vector<shared_ptr<ParamSurface> > >& unresolved_cells,
-		    std::vector<std::vector<double> >& surfquads,
-		    std::vector<std::vector<double> >& sfptweights,
+		    std::vector<double>& surfquads,
+		    std::vector<double>& surfnorms,
+		    std::vector<double>& sfptweights,
 		    std::vector<std::vector<shared_ptr<ParamSurface> > >& small_sfs,
 		    int stat = -1, int coinc = -1);
 
@@ -92,12 +93,14 @@ namespace Go
 		       std::vector<shared_ptr<SplineSurface> >& cell_sfs);
     void quadraturePoints(const Point& ll, const Point& ur,
 			  shared_ptr<Body> body,
-			  std::vector<std::vector<double> >& quadraturepoints,
-			  std::vector<std::vector<double> >& pointsweights,
+			  std::vector<double>& quadraturepoints,
+			  std::vector<double>& pointsweights,
 			  std::vector<std::vector<shared_ptr<ParamSurface> > >& unresolved_cells,
-			  std::vector<std::vector<double> >& surfquads,
-			  std::vector<std::vector<double> >& sfptweights,
+			  std::vector<double>& surfquads,
+			  std::vector<double>& surfnorms,
+			  std::vector<double>& sfptweights,
 			  std::vector<std::vector<shared_ptr<ParamSurface> > >& small_sfs);
+
 
     int selectBaseDir(Point& ll, Point& ur,
 		      shared_ptr<Body> body, int& splitdir, double& splitval,
