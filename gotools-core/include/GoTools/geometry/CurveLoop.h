@@ -166,7 +166,7 @@ public:
     /// Dimension
     int dimension()
     {
-      curves_.size() == 0 ? 0 : curves_[0]->dimension();
+      return curves_.size() == 0 ? 0 : curves_[0]->dimension();
     }
 
     /// Get a const iterator to the first curve in the CurveLoop

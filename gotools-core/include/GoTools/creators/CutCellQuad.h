@@ -56,8 +56,8 @@ namespace Go
 		double tol);
 
     // Define quadrature information
-    void setQuadratureInfo(std::vector<double>& quadpar,
-			   std::vector<double> weights,
+    void setQuadratureInfo(const std::vector<double>& quadpar,
+			   const std::vector<double>& weights,
 			   double min_cell_size)
     {
       quadpar_ = quadpar;
