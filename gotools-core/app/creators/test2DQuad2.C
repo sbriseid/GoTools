@@ -74,6 +74,7 @@ int main(int argc, char** argv)
   GoTools::init();
 
   vector<shared_ptr<ParamCurve> > curves;
+  BoundingBox bb;
   while (!infile.eof())
     {
       shared_ptr<ObjectHeader> header(new ObjectHeader());
@@ -85,9 +86,18 @@ int main(int argc, char** argv)
 	dynamic_pointer_cast<ParamCurve,GeomObject>(geom_obj);
       if (cv.get())
 	curves.push_back(cv);
+      BoundingBox cvbox = cv->boundingBox();
+      if (bb.dimension() == 0)
+	bb = cvbox;
+      else
+	bb.addUnionWith(cvbox);
 
       Utils::eatwhite(infile);
     }
+
+  Point ll = bb.low();
+  Point ur = bb.high();
+  std::cout << "Bounding box: " << ll << " " << ur << std::endl;
 
   CutCellQuad quad(curves, tol);
   vector<double> quadval(4);
@@ -147,8 +157,14 @@ int main(int argc, char** argv)
 	    vector<double> bdquad;
 	    vector<double> bdnorm;
 	    vector<double> bdweights;
-	    quad.quadrature(ll, ur, quadpt, ptweights, unresolved_cells,
-			    bdquad, bdnorm, bdweights, short_cvs, stat);
+	    try {
+	      quad.quadrature(ll, ur, quadpt, ptweights, unresolved_cells,
+			      bdquad, bdnorm, bdweights, short_cvs, stat);
+	    }
+	    catch (...)
+	      {
+		std::cout << "Cell failed" << std::endl;
+	      }
   
 	    outfile << "400 1 0 4 100 100 55 255" << std::endl;
 	    outfile << ptweights.size() << std::endl;
@@ -180,7 +196,7 @@ int main(int argc, char** argv)
 		for (size_t kr=0; kr<bdquad.size(); kr+=2)
 		  {
 		    Point pt1(bdquad[kr], bdquad[kr+1], 0.0);
-		    Point pt2(bdquad[kr]+bdnorm[kr], bdquad[kr+1]+bdnorm[kr+1], 0.0);
+		    Point pt2(bdquad[kr]+0.01*bdnorm[kr], bdquad[kr+1]+0.01*bdnorm[kr+1], 0.0);
 		    outfile << pt1 << " " << pt2 << std::endl;
 		  }
 

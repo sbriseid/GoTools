@@ -87,6 +87,7 @@ namespace Go
     std::vector<double> quadpar_;
     std::vector<double> weights_;
     double min_cell_size_;
+    shared_ptr<CurveBoundedDomain> cutcelldom_;
 
     // Sort boundary curves
     void sortBoundary(std::vector<shared_ptr<ParamCurve> >& bd_curves,
@@ -167,6 +168,12 @@ namespace Go
 
     void checkSplits2(std::vector<double>& splitpar, double minp,
 		      double maxp, double lim);
+
+    bool checkSideCvs(std::vector<shared_ptr<ParamCurve> >& cvs);
+
+    void computeDirCurvature(std::vector<shared_ptr<ParamCurve> > cvs,
+			     double& curv1, double& curv2);
+
 
   };
 } // end namespace Go

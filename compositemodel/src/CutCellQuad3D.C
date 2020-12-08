@@ -43,6 +43,7 @@
 #include "GoTools/geometry/SplineCurve.h"
 #include "GoTools/geometry/BoundedSurface.h"
 #include "GoTools/geometry/BoundedUtils.h"
+#include "GoTools/geometry/SurfaceTools.h"
 #include "GoTools/compositemodel/ftPlane.h"
 #include "GoTools/compositemodel/ftCurve.h"
 #include "GoTools/compositemodel/ModifyFaceSet.h"
@@ -616,6 +617,8 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
     {
       std::ofstream ofp("currquads.g2");
       
+      int numshell = body->nmbOfShells();
+
       // 2D cell
       Point ll2(2), ur2(2);
       int ix = 0;
@@ -648,7 +651,6 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 
 	  std::ofstream of("intcvs.g2");
 	  
-	  int numshell = body->nmbOfShells();
 	  vector<shared_ptr<ParamCurve> > bd_curves;
 	  for (int kd=0; kd<numshell; ++kd)
 	    {
@@ -734,21 +736,99 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 		      ++kw;
 		    }
 		}
-	      quadraturepoints.insert(quadraturepoints.end(), currquads.begin(),
-				      currquads.end());
-	      pointsweights.insert(pointsweights.end(), currwgts.begin(), currwgts.end());
-
-	      ofp << "400 1 0 4 255 0 0 255" << std::endl;
-	      ofp << currwgts.size() << std::endl;
-	      for (kr=0; kr<currquads.size(); kr+=3)
-		{
-		  Point pt(currquads[kr], currquads[kr+1], currquads[kr+2]);
-		  ofp << pt << std::endl;
-		}
-	      int stop_break = 1;
+	    }
+	  quadraturepoints.insert(quadraturepoints.end(), currquads.begin(),
+				  currquads.end());
+	  pointsweights.insert(pointsweights.end(), currwgts.begin(), currwgts.end());
+	  
+	  ofp << "400 1 0 4 255 0 0 255" << std::endl;
+	  ofp << currwgts.size() << std::endl;
+	  for (kr=0; kr<currquads.size(); kr+=3)
+	    {
+	      Point pt(currquads[kr], currquads[kr+1], currquads[kr+2]);
+	      ofp << pt << std::endl;
 	    }
 	  
 	}
+
+      // Compute surface curvature
+      for (int ka=0; ka<numshell; ++ka)
+	{
+	  shared_ptr<SurfaceModel> shell = body->getShell(ka);
+	  int num = shell->nmbEntities();
+	  for (int kb=0; kb<num; ++kb)
+	    {
+	      shared_ptr<ParamSurface> surf = shell->getSurface(kb);
+	      int code = surf->getFlagCode();
+	      if (code != 2)
+		continue;   // Not a boundary surface
+
+	      // Fetch 2D boundary loop
+	      vector<shared_ptr<ParamCurve> > bdcvs;
+	      vector<CurveLoop> loop = SurfaceTools::absolutelyAllBoundarySfLoops(surf, tol_);
+	      int nmbcvs = loop[0].size();
+	      for (int kc=0; kc<nmbcvs; ++kc)
+		{
+		  shared_ptr<ParamCurve> parcv = loop[0][kc];
+		  shared_ptr<CurveOnSurface> sfcv =
+		    dynamic_pointer_cast<CurveOnSurface,ParamCurve>(parcv);
+		  if (!sfcv.get())
+		    THROW("Not a curve-on-surface curve");
+		  sfcv->ensureParCrvExistence(tol_);
+		  bdcvs.push_back(sfcv->parameterCurve());
+		}
+
+	      if (bdcvs.size() == 0)
+		THROW("Missing 2D curves");
+	      BoundingBox bdbox = bdcvs[0]->boundingBox();
+	      for (size_t ki=1; ki<bdcvs.size(); ++ki)
+		{
+		  BoundingBox bdbox2 = bdcvs[ki]->boundingBox();
+		  bdbox.addUnionWith(bdbox2);
+		}
+
+	      // Define 2D quadrature points
+	      CutCellQuad quad2D(bdcvs, tol_);
+	      quad2D.setQuadratureInfo(quadpar_, weights_, min_cell_size_);
+	      vector<double> quadpts;
+	      vector<double> wgts;
+	      vector<vector<shared_ptr<ParamCurve> > > unresolved;
+	      vector<double> cvquads;
+	      vector<double> cvnorms;
+	      vector<double> cvwgts;
+	      vector<vector<shared_ptr<ParamCurve> > > shortcvs;
+	      quad2D.quadrature(bdbox.low(), bdbox.high(), quadpts, wgts, unresolved, cvquads, 
+				cvnorms, cvwgts, shortcvs);
+
+	      for (size_t ki=0; ki<wgts.size(); ++ki)
+		{
+		  vector<Point> der(3);
+		  surf->point(der, quadpts[2*ki], quadpts[2*ki+1], 1);
+		  surfquads.insert(surfquads.end(), der[0].begin(), der[0].end());
+		  double det = der[1].length()*der[2].length();
+		  sfptweights.push_back(wgts[ki]*det);
+		  Point norm = der[1].cross(der[2]);
+		  (void)norm.normalize_checked();
+		  surfnorms.insert(surfnorms.end(), norm.begin(), norm.end());
+		}
+	      
+	      std::ofstream sfof("sfquads.g2");
+	      for (size_t ki=0; ki<wgts.size(); ++ki)
+		{
+		  sfof << "400 1 0 4 155 0 100 255" << std::endl;
+		  sfof << wgts.size() << std::endl;
+		  for (size_t ki=0; ki<wgts.size(); ++ki)
+		    {
+		      Point pos = surf->point(quadpts[2*ki], quadpts[2*ki+1]);
+		      sfof << pos << std::endl;
+		    }
+		}
+		  
+	      int stop_bread_bd = 1;
+
+	    }
+	}
+      
       int stop_break2 = 1;
     }
 }
@@ -1356,12 +1436,49 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
 	   }
 	 if (split_info2.size() == 0 || nmbdir == 0)
 	   {
-	     if (cand2[ix2].size() > 1)
+	     // Check if sorted out multiple faces belong to sharp edges
+	     // configuration in the other groups
+	     int num_sharp = 0;
+	     shared_ptr<SurfaceModel> shell = body->getShell(0); // Only outer shell
+	     for (size_t kr=0; kr<multiple.size(); ++kr)
 	       {
-		 ll[ix2] = ll2[ix2];
-		 ur[ix2] = ur2[ix2];
+		 for (size_t kj=0; kj<cand[ix2].size(); ++kj)
+		   {
+		     if (cand[ix2][kj] == multiple[kr])
+		       {
+			 int sfix1 = shell->getIndex(sfs[multiple[kr]].get());
+			 shared_ptr<ftSurface> face1 = shell->getFace(sfix1);
+			 for (int ix3=0; ix3<3; ++ix3)
+			   {
+			     if (ix2 == ix3)
+			       continue;
+			     size_t kh;
+			     for (kh=0; kh<cand[ix3].size(); ++kh)
+			       {
+				 if (multiple[kr] == cand[ix3][kh])
+				   continue;
+				 int sfix2 = shell->getIndex(sfs[cand[ix3][kh]].get());
+				 shared_ptr<ftSurface> face2 = shell->getFace(sfix2);
+				 bool adj, smooth;
+				 adj = face1->isAdjacent(face2.get(), smooth);
+				 if (adj && (!smooth))
+				   break;
+			       }
+			     if (kh < cand[ix3].size())
+			       num_sharp++;
+			   }
+		       }
+		   }
 	       }
-	     return ix2;
+	     if (num_sharp <= 1 || split_info2.size() == 0)
+	       {
+		 if (cand2[ix2].size() > 1)
+		   {
+		     ll[ix2] = ll2[ix2];
+		     ur[ix2] = ur2[ix2];
+		   }
+		 return ix2;
+	       }
 	   }
 	 split_info = split_info2;
        }

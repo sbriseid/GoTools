@@ -420,10 +420,10 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   FILE *fp = fopen("acc_stat.txt","w");
   fprintf(fp, "Max iterations = %d, tolerance = %4.2f, no pts: %d \n",max_iter, aepsge_,nmb_pts_);
   fprintf(fp,"iter, maxdist, average dist, no. pts. out, no. coefs, rel. improvement, no. pts.in, approx efficiency, rel element without-element div, rel element under-element div, max inner knots, average inner knots, average out, no. el.  \n");
-  bool alter = false;
+  bool alter = true;
   int div = 1; //(alter) ? 2 : 1;
   int currdiv = (alter) ? 1 : 3;
-  int refstrat = 2;
+  int refstrat = 1;
   double stratfac = -100.0; //0.1; //0.02;
   int ref = 1;
 
@@ -3206,7 +3206,7 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold, int refstrat
   double highlim = std::max(min_wgt, 0.9*prev_thresh_);
   thresh2 = std::min(thresh2, highlim); //prev_thresh_);
   prev_thresh_ = thresh2;
-  thresh2 = min_wgt;
+  //thresh2 = min_wgt;
   std::cout << "Num elements: " << num_elem << ", elements out: " << el_out << std::endl;
   std::cout << "thresh2 = " << thresh2 << std::endl;
   double thresh3 = (kr < 0.9*num_elem) ? med_wgt2 : min_wgt; //fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
@@ -3745,7 +3745,7 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   std::cout << "Remaining elements with outside points: " << elem_out.size() << std::endl;
 #endif
 
-  bool elemref = true;
+  bool elemref = false; //true;
   if (elemref)
     {
       // Removing affected elements
