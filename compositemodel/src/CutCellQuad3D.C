@@ -50,6 +50,8 @@
 #include "GoTools/creators/CutCellQuad.h"
 #include <fstream>
 
+#define DEBUG
+
 using std::vector;
 using std::set;
 using std::pair;
@@ -392,7 +394,7 @@ void CutCellQuad3D::createCutCell(const Point& ll, const Point& ur,
     }
 
   // Voids
-
+#ifdef DEBUG
   std::ofstream of("cutcell.g2");
   int nmb = sub_mod[0]->nmbEntities();
   for (int ki=0; ki<nmb; ++ki)
@@ -401,7 +403,7 @@ void CutCellQuad3D::createCutCell(const Point& ll, const Point& ur,
       sf->writeStandardHeader(of);
       sf->write(of);
     }
-  
+#endif
   int nmbbd = sub_mod[0]->nmbBoundaries();
   if (nmbbd > 0)
     {
@@ -510,7 +512,7 @@ void CutCellQuad3D::createCellSfs(const Point& ll, const Point& ur,
 							    &coefs5[0], 3, false));
   cell_sfs[5] = shared_ptr<SplineSurface>(new SplineSurface(2, 2, 2, 2, &knots1[0], &knots3[0],
 							    &coefs6[0], 3, false));
-
+#ifdef DEBUG
   std::ofstream of("cell_sfs.g2");
   for (size_t ki=0; ki<cell_sfs.size(); ++ki)
     {
@@ -525,6 +527,7 @@ void CutCellQuad3D::createCellSfs(const Point& ll, const Point& ur,
   of << ur << std::endl;
 
   int stop_break = 1;
+#endif
 }
 
 //==============================================================================
@@ -615,8 +618,9 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
     }
   else
     {
+#ifdef DEBUG
       std::ofstream ofp("currquads.g2");
-      
+#endif
       int numshell = body->nmbOfShells();
 
       // 2D cell
@@ -648,9 +652,10 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 	  // Intersect with plane through quadrature parameter
 	  pos[basedir] = quadpar;
 	  ftPlane plane(norm, pos);
-
-	  std::ofstream of("intcvs.g2");
 	  
+#ifdef DEBUG
+	  std::ofstream of("intcvs.g2");
+#endif
 	  vector<shared_ptr<ParamCurve> > bd_curves;
 	  for (int kd=0; kd<numshell; ++kd)
 	    {
@@ -665,11 +670,13 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 		    dynamic_pointer_cast<CurveOnSurface,ParamCurve>(cv);
 		  if (sfcv)
 		    cv = sfcv->spaceCurve();
+#ifdef DEBUG
 		  if (cv.get())
 		    {
 		      cv->writeStandardHeader(of);
 		      cv->write(of);
 		    }
+#endif
 		  
 		  shared_ptr<SplineCurve> spl2;
 		  SplineCurve *spl = cv->getSplineCurve();
@@ -706,7 +713,7 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 
 	  // Compute 2D quadrature points
 	  // NB! What about disjunct curve loops? Are they handled in 2D code?
-	  CutCellQuad quad2D(bd_curves, tol_);
+	  CutCellQuad quad2D(bd_curves, 2.0*tol_);
 	  quad2D.setQuadratureInfo(quadpar_, weights_, min_cell_size_);
 	  vector<double> quadpts;
 	  vector<double> wgts;
@@ -740,7 +747,8 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 	  quadraturepoints.insert(quadraturepoints.end(), currquads.begin(),
 				  currquads.end());
 	  pointsweights.insert(pointsweights.end(), currwgts.begin(), currwgts.end());
-	  
+
+#ifdef DEBUG
 	  ofp << "400 1 0 4 255 0 0 255" << std::endl;
 	  ofp << currwgts.size() << std::endl;
 	  for (kr=0; kr<currquads.size(); kr+=3)
@@ -748,10 +756,13 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 	      Point pt(currquads[kr], currquads[kr+1], currquads[kr+2]);
 	      ofp << pt << std::endl;
 	    }
-	  
+#endif
 	}
-
+    
       // Compute surface curvature
+#ifdef DEBUG
+      std::ofstream sfof("sfquads.g2");
+#endif
       for (int ka=0; ka<numshell; ++ka)
 	{
 	  shared_ptr<SurfaceModel> shell = body->getShell(ka);
@@ -788,7 +799,7 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 		}
 
 	      // Define 2D quadrature points
-	      CutCellQuad quad2D(bdcvs, tol_);
+	      CutCellQuad quad2D(bdcvs, 2.0*tol_);
 	      quad2D.setQuadratureInfo(quadpar_, weights_, min_cell_size_);
 	      vector<double> quadpts;
 	      vector<double> wgts;
@@ -811,8 +822,8 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 		  (void)norm.normalize_checked();
 		  surfnorms.insert(surfnorms.end(), norm.begin(), norm.end());
 		}
-	      
-	      std::ofstream sfof("sfquads.g2");
+
+#ifdef DEBUG
 	      for (size_t ki=0; ki<wgts.size(); ++ki)
 		{
 		  sfof << "400 1 0 4 155 0 100 255" << std::endl;
@@ -825,7 +836,7 @@ CutCellQuad3D::quadraturePoints(const Point& ll, const Point& ur,
 		}
 		  
 	      int stop_bread_bd = 1;
-
+#endif
 	    }
 	}
       
@@ -837,26 +848,19 @@ struct edgeInfo
 {
   int splitdir_;
   double splitval_;
-  double angle_;
-  int sfix1_;
-  int sfix2_;
-  bool convex_;
+  int prio_;
 
   edgeInfo()
   {
     splitdir_ = -1;
-    sfix1_ = sfix2_ = -1;
-    convex_ = false;
+    prio_ = -1;
   }
 
-  edgeInfo(int splitdir, double splitval, double angle, int sfix1, int sfix2, bool convex)
+  edgeInfo(int splitdir, double splitval, int prio)
   {
     splitdir_ = splitdir;
     splitval_ = splitval;
-    angle_ = angle;
-    sfix1_ = sfix1;
-    sfix2_ = sfix2;
-    convex_ = convex;
+    prio_ = prio;
   }
   
 };
@@ -900,6 +904,7 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
   splitval = 0.0;
   
   // Collect surfaces and generate normal cones corresponding to all surfaces
+  double numtol = 1.0e-10;
   double angtol = 0.001;
   double anglim = M_PI/6.0;
   int numshells = body->nmbOfShells();
@@ -941,15 +946,17 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
 	  ++ix;
 	}
     }
-
+#ifdef DEBUG
   std::ofstream of("selsfs.g2");
   for (size_t ki=0; ki<sfs.size(); ++ki)
     {
       sfs[ki]->writeStandardHeader(of);
       sfs[ki]->write(of);
     }
+#endif
   
   // Check the coordinate directions for a suitable base direction
+  // Identify surfaces that overlap with each coordinate direction
   vector<size_t> cand[3];
   int nonlin[3];
   for (ix=0; ix<3; ++ix)
@@ -981,49 +988,40 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
      ur[ix] = std::min(ur[ix], bbox.high()[ix]);
    }
 
-  // Fetch sharp concave edges
-  vector<ftEdge*> convex;
-  vector<pair<int,int> > convex_sfs;
+  // Fetch sharp edges
+ vector<ftEdge*> convex, concave;
+ fetchSharpEdges(body, convex, concave);
+ 
+#ifdef DEBUG
   std::ofstream ofconv("convex.g2");
-  for (int ka=0; ka<numshells; ++ka)
+  std::ofstream ofconc("concave.g2");
+  for (size_t ki=0; ki<convex.size(); ++ki)
     {
-       shared_ptr<SurfaceModel> shell = body->getShell(ka);
-       ModifyFaceSet fset(shell);
-       vector<ftEdge*> convex2 = fset.fetchSharpEdges();
-       if (convex2.size() > 0)
-	 {
-	   convex.insert(convex.end(), convex2.begin(), convex2.end());
-	   for (size_t ki=0; ki<convex2.size(); ++ki)
-	     {
-	       shared_ptr<ParamCurve> cv = convex2[ki]->geomCurve();
-	       SplineCurve *spl = cv->getSplineCurve();
-	       if (spl)
-		 {
-		   spl->writeStandardHeader(ofconv);
-		   spl->write(ofconv);
-		 }
-	       shared_ptr<ParamSurface> sf1 =
-		 convex2[ki]->face()->asFtSurface()->surface();
-	       shared_ptr<ParamSurface> sf2 =
-		 convex2[ki]->twin()->face()->asFtSurface()->surface();
-	       int ix1 = -1, ix2 = -1;
-	       for (size_t kj=0; kj<sfs.size(); ++kj)
-		 {
-		   if (sfs[kj].get() == sf1.get())
-		     ix1 = (int)kj;
-		   if (sfs[kj].get() == sf2.get())
-		     ix2 = (int)kj;
-		 }
-	       if (ix2 < ix1)
-		 std::swap(ix1, ix2);
-	       convex_sfs.push_back(make_pair(ix1, ix2));
-	     }
-	 }
+      shared_ptr<ParamCurve> cv = convex[ki]->geomCurve();
+      SplineCurve *spl = cv->getSplineCurve();
+      if (spl)
+	{
+	  spl->writeStandardHeader(ofconv);
+	  spl->write(ofconv);
+	}
     }
+  for (size_t ki=0; ki<concave.size(); ++ki)
+    {
+      shared_ptr<ParamCurve> cv = concave[ki]->geomCurve();
+      SplineCurve *spl = cv->getSplineCurve();
+      if (spl)
+	{
+	  spl->writeStandardHeader(ofconc);
+	  spl->write(ofconc);
+	}
+    }
+#endif
   
-  if (nonlin[0] == 0 && nonlin[1] == 0 && nonlin[2] == 0 & convex.size() == 0)
+  if (nonlin[0] == 0 && nonlin[1] == 0 && nonlin[2] == 0 &&
+      concave.size() == 0)
    {
-     for (int ix=0; ix<3; ++ix)
+     // All boundary surfaces are planar
+     for (ix=0; ix<3; ++ix)
        {
 	 Point dir(0.0, 0.0, 0.0);
 	 dir[ix] = 1.0;
@@ -1036,231 +1034,298 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
 	       nmb_dir++;
 	   }
        if (nmb_dir == 2)
-	 return ix;
+	 return ix;  
        }
    }
 
-  // // Search for simple cases
-  // if (nonlin[0] == 0 && nonlin[1] == 0)
-  //   {
-  //     int d1 = (curved[0] < curved[1]) ? 0 : 1;
-  //     int d2 = (curved[0] < curved[1]) ? 1 : 0;
-  //     if (curved[d1] == 0 && cand[d2].size() == 2)
-  // 	return d2;
-  //   }
-    
-  // if (nonlin[0] == 0 && nonlin[2] == 0)
-  //   {
-  //     int d1 = (curved[0] < curved[2]) ? 0 : 2;
-  //     int d2 = (curved[0] < curved[2]) ? 2 : 0;
-  //     if (curved[d1] == 0 && cand[d2].size() == 2)
-  // 	return d2;
-  //   }
-    
-  // if (nonlin[1] == 0 && nonlin[2] == 0)
-  //   {
-  //     int d1 = (curved[1] < curved[2]) ? 1 : 2;
-  //     int d2 = (curved[1] < curved[2]) ? 2 : 1;
-  //     if (curved[d1] == 0 && cand[d2].size() == 2)
-  // 	return d2;
-  //   }
-
-  // Count number of connected groups of candidate surfaces in each parameter
-  // direction, and check for sharp edges and significant curvature in each group
-  tpTolerances tptol = body->getTolerances();
-  int numzero = 0;
+  // Check for a simple configuration that can be handled by the 2D code
   for (ix=0; ix<3; ++ix)
-    if (nonlin[ix] == 0)
-      numzero++;
-  if (numzero > 0)
     {
-      for (ix=0; ix<3; ++ix)
+      if (nonlin[ix] > 0)
+	continue;
+      
+      // Check if the side surface normal coincides with the coordinate directions
+      Point dir(0.0, 0.0, 0.0);
+      dir[ix] = 1.0;
+      Point dir2 = -dir;
+      size_t ki;
+      for (ki=0; ki<cand[ix].size(); ++ki)
 	{
-	  Point dir(0.0, 0.0, 0.0);
-	  dir[ix] = 1.0;
-	  Point dir2 = -dir;
-	  if (nonlin[ix] == 0)
-	    {
-	      size_t ki;
-	      // Check if the side surface coincides with the coordinate directions
-	      for (ki=0; ki<cand[ix].size(); ++ki)
-		{
-		  if (dir.angle(ncones[cand[ix][ki]].centre()) > angtol &&
-		      dir2.angle(ncones[cand[ix][ki]].centre()) > angtol)
-		    break;
-		}
-	      if (ki < cand[ix].size())
-		continue;
-	      
-	      vector<shared_ptr<ParamSurface> > cand_sfs;
-	      for (size_t ki=0; ki<cand[ix].size(); ++ki)
-		cand_sfs.push_back(sfs[cand[ix][ki]]);
-	      shared_ptr<SurfaceModel> sfmod(new SurfaceModel(tptol.gap, tptol.gap, tptol.neighbour,
-							      tptol.kink, tptol.bend, cand_sfs));
-	      vector<shared_ptr<SurfaceModel> > connmod = sfmod->getConnectedModels();
-	      if (connmod.size() > 2)
-		continue;
-	      
-	      vector<ftEdge* > edgs;
-	      for (size_t ki=0; ki<connmod.size(); ++ki)
-		connmod[ki]->getCorners(edgs);
-	      if (edgs.size() > 0)
-		continue;
+	  if (dir.angle(ncones[cand[ix][ki]].centre()) > angtol &&
+	      dir2.angle(ncones[cand[ix][ki]].centre()) > angtol)
+	    break;
+	}
+      if (ki == cand[ix].size())
+	return ix;   // The configuration corresponds to a linear sweep
+    }
 
-	      for (ki=0; ki<sfs.size(); ++ki)
+  // A further search for a simple parameter direction or planar splits
+  int numplane[3];
+  vector<vector<ftEdge*> > planar(3);
+  vector<vector<double> > planar_par(3);
+  vector<vector<double> > sharp_bounds(3);
+  DirectionCone acc_cones[3][2];
+  vector<int> cand_sidesfs;
+  for (ix=0; ix<3; ++ix)
+    {
+      // Count number of planar surfaces with a surface normal coinciding with the
+      // coordinate axis
+      numplane[ix] = 0;
+      Point dir(0.0, 0.0, 0.0);
+      dir[ix] = 1.0;
+      Point dir2 = -dir;
+      for (size_t ki=0; ki<cand[ix].size(); ++ki)
+	{
+	  if (ncones[cand[ix][ki]].angle() <= angtol &&
+	      (dir.angle(ncones[cand[ix][ki]].centre()) <= angtol ||
+	       dir2.angle(ncones[cand[ix][ki]].centre()) <= angtol))
+	    {
+	      ++numplane[ix];
+	      cand_sidesfs.push_back(cand[ix][ki]);
+	    }
+	}
+
+      // Identify sharp curves lying in an internal plane in this parameter direction
+      double low = ll[ix];
+      double high = ur[ix];
+      planar[ix].insert(planar[ix].end(), convex.begin(), convex.end());
+      planar[ix].insert(planar[ix].end(), concave.begin(), concave.end());
+      for (size_t ki=0; ki<planar[ix].size(); )
+	{
+	  shared_ptr<ParamCurve> crv = planar[ix][ki]->geomCurve();
+	  BoundingBox bbcv = crv->boundingBox();
+	  double low2 = bbcv.low()[ix];
+	  double high2 = bbcv.high()[ix];
+	  if (high2 - low2 > tol_)
+	    {
+	      // Not planar, remember end positions of curve
+	      Point pos1 = crv->point(crv->startparam());
+	      Point pos2 = crv->point(crv->endparam());
+	      if (pos1[ix] > low+tol_ && pos1[ix] < high-tol_)
+		sharp_bounds[ix].push_back(pos1[ix]);
+	      if (pos2[ix] > low+tol_ && pos2[ix] < high-tol_)
+		sharp_bounds[ix].push_back(pos2[ix]);
+
+	      planar[ix].erase(planar[ix].begin() + ki);
+	    }
+	  else if (fabs(high2-low) < tol_ || fabs(high-low2) < tol_)
+	    planar[ix].erase(planar[ix].begin() + ki);
+	  else
+	    {
+	      // Internal planar curve
+	      planar_par[ix].push_back(0.5*(low2+high2));
+	      ++ki;
+	    }
+	}
+
+      // Compute accumulated normal cone along candidate direction of remaining surfaces
+      for (int ix2=0; ix2<3; ++ix2)
+	{
+	  if (ix2 == ix)
+	    continue;
+	  int ix3, ix4;
+	  for (ix3=0, ix4=0; ix3<3; ++ix3)
+	    {
+	      if (ix3 == ix2)
+		continue;
+	      for (size_t ki=0; ki<cand[ix2].size(); ++ki)
 		{
-		  size_t kj;
-		  for (kj=0; kj<cand[ix].size(); ++kj)
+		  if (fabs(orthcone[ix3][cand[ix2][ki]]->centre()*dir) < numtol)
+		    continue;
+		  if (acc_cones[ix][ix4].dimension() == 0 ||
+		      acc_cones[ix][ix4].centre().length() < tol_)
+		    acc_cones[ix][ix4] = *(orthcone[ix3][cand[ix2][ki]]);
+		  else if (orthcone[ix3][cand[ix2][ki]]->centre().length() > tol_)
 		    {
-		      if (cand[ix][kj] == ki)
-			break;
-		    }
-		  if (kj == cand[ix].size())
-		    {
-		      bool overlap1 = alongcone[ix][ki]->containsDirection(dir);
-		      bool overlap2 = alongcone[ix][ki]->containsDirection(dir2);
-		      if (overlap1 || overlap2)
-			break;
+		      Point centre1 = acc_cones[ix][ix4].centre();
+		      Point centre2 = orthcone[ix3][cand[ix2][ki]]->centre();
+		      double ang1 = acc_cones[ix][ix4].angle();
+		      double ang2 = orthcone[ix3][cand[ix2][ki]]->angle();
+		      acc_cones[ix][ix4].addUnionWith(*(orthcone[ix3][cand[ix2][ki]]));
 		    }
 		}
-	      if (ki == sfs.size())
-		return ix;   // Should also check direction of edges
+	      ++ix4;
 	    }
 	}
     }
 
- vector<edgeInfo> split_info;
- vector<ruledInfo> ruled_info;
- std::ofstream edgof("planar_edgs.g2");
- for (ix=0; ix<3; ++ix)
+  // Clean up in sharp_bounds
+  for (ix=0; ix<3; ++ix)
     {
-      vector<shared_ptr<ParamSurface> > cand_sfs;
-      for (size_t ki=0; ki<cand[ix].size(); ++ki)
-	cand_sfs.push_back(sfs[cand[ix][ki]]);
-      shared_ptr<SurfaceModel> sfmod(new SurfaceModel(tptol.gap, tptol.gap, tptol.neighbour,
-						      tptol.kink, tptol.bend, cand_sfs));
-      vector<shared_ptr<SurfaceModel> > connmod = sfmod->getConnectedModels();
-      for (size_t ki=0; ki<connmod.size(); ++ki)
+      if (sharp_bounds[ix].size() == 0)
+	continue;
+
+      std::sort(sharp_bounds[ix].begin(), sharp_bounds[ix].end());
+      size_t ki, kj;
+      for (ki=0; ki<sharp_bounds[ix].size(); ki=kj)
 	{
-	  int numsf = connmod[ki]->nmbEntities();
-	  vector<ftEdge* > edgs;
-	  connmod[ki]->getCorners(edgs);
-
-	  size_t nedgs = edgs.size();
-	  if (convex.size() > 0)
-	    edgs.insert(edgs.end(), convex.begin(), convex.end());
-	  
-	   for (size_t kr=0; kr<edgs.size(); ++kr)
-	     {
-	       ftEdgeBase *twin = edgs[kr]->twin();
-	       if (!twin)
-		 continue;
-
-	       // Fetch associated surfaces
-	       shared_ptr<ParamSurface> surf1 = edgs[kr]->face()->asFtSurface()->surface();
-	       shared_ptr<ParamSurface> surf2 = twin->face()->asFtSurface()->surface();
-	       int sfix1=-1, sfix2=-1;
-	       for (size_t kj=0; kj<sfs.size(); ++kj)
-		 {
-		   if (sfs[kj].get() == surf1.get())
-		     sfix1 = (int)kj;
-		   else if (sfs[kj].get() == surf2.get())
-		     sfix2 = (int)kj;
-		 }
-
-	       // Compute normal information
-	       double t1 = edgs[kr]->tMin();
-	       double t2 = edgs[kr]->tMax();
-	       int nn = 3;
-	       double tdel = (t2 - t1)/(double)(nn);
-	       double tpar = t1 + 0.5*tdel;
-	       double tang =0.0;
-	       for (int ka=0; ka<nn; ++ka, tpar+=tdel)
-		 {
-		   Point pos1 = edgs[kr]->point(tpar);
-		   Point norm1 =edgs[kr]->normal(tpar);
-		   double tpar2, dist2;
-		   Point pos2;
-		   twin->closestPoint(pos1, tpar2, pos2, dist2);
-		   Point norm2 = twin->normal(tpar2);
-		   double ang = norm1.angle(norm2);
-		   if (norm1*norm2 < 0.0)
-		     ang = M_PI - ang;
-		   tang += ang;
-		 }
-	       tang /= (double)nn;
-
-	       // Check if current edge is feasible for model split
-	       shared_ptr<ParamCurve> crv = edgs[kr]->geomCurve();
-	       if (crv.get())
-		 {
-		   BoundingBox edgebb = crv->boundingBox();
-		   BoundingBox sfbox1 = sfs[sfix1]->boundingBox();
-		   BoundingBox sfbox2 = sfs[sfix2]->boundingBox();
-		   bool planar = false;
-		   for (int ix2=0; ix2<3; ++ix2)
-		     {
-		       double elow = edgebb.low()[ix2];
-		       double ehigh = edgebb.high()[ix2];
-		       if (ehigh-elow < tol_ &&
-			   ur[ix2]-ehigh > tol_ && elow-ll[ix2] > tol_ /*&&
-			   (sfbox1.high()[ix2]-ehigh > tol_ || elow-sfbox1.low()[ix2] > tol_) &&
-			   (sfbox2.high()[ix2]-ehigh > tol_ || elow-sfbox2.low()[ix2] > tol_)*/)
-			 {
-			   edgeInfo edginfo(ix2, 0.5*(elow+ehigh),
-					    tang, sfix1, sfix2, kr>=nedgs);
-			   split_info.push_back(edginfo);
-			   planar = true;
-			   shared_ptr<SplineCurve> crv2(crv->geometryCurve());
-			   crv2->writeStandardHeader(edgof);
-			   crv2->write(edgof);
-			 }
-		     }
-		   if (kr >= nedgs && !planar)
-		     {
-		       std::cout << "Convex non-planar curve identified";
-		       // Find ruled direction
-		       double minang = M_PI;
-		       int minix = -1;
-		       int sgn = 0;
-		       for (int ix2=0; ix2<3; ++ix2)
-			 {
-			   Point dir(0.0, 0.0, 0.0);
-			   dir[ix2] = 1.0;
-			   double ang1 = dir.angle(ncones[sfix1].centre());
-			   double ang2 = dir.angle(ncones[sfix2].centre());
-			   if (ang1 < minang || M_PI-ang1 < minang)
-			     {
-			       minang = ang1;
-			       minix = ix2;
-			       sgn = (ang1 < M_PI-ang1) ? -1 : 1;
-			     }
-			   if (ang2 < minang || M_PI-ang2 < minang)
-			     {
-			       minang = ang2;
-			       minix = ix2;
-			       sgn = (ang2 < M_PI-ang2) ? -1 : 1;
-			     }
-			 }
-		       std::cout << "Ruled direction: " << minix << std::endl;
-		       shared_ptr<SplineCurve> rulecv(crv->geometryCurve());
-		       shared_ptr<SplineCurve> subrule(rulecv->subCurve(edgs[kr]->tMin(),
-									edgs[kr]->tMax()));
-		       ruledInfo rinfo(minix, sgn, sfix1, sfix2, subrule);
-		       ruled_info.push_back(rinfo);
-		     }
-		 }
-	     }
-
-	  DirectionCone sidecone = connmod[ki]->getSurface(0)->normalCone();
-	  for (int ka=1; ka<numsf; ++ka)
-	    sidecone.addUnionWith(connmod[ki]->getSurface(ka)->normalCone());
-
-	  int stop_break = 1;
+	  double mean = sharp_bounds[ix][ki];
+	  for (kj=ki+1; kj<sharp_bounds[ix].size(); ++kj)
+	    {
+	      if (sharp_bounds[ix][kj] > sharp_bounds[ix][ki]+tol_)
+		break;
+	      mean += sharp_bounds[ix][kj];
+	    }
+	  if (kj - ki > 1)
+	    {
+	      mean /= (double)(kj-ki);
+	      sharp_bounds[ix][ki] = mean;
+	      sharp_bounds[ix].erase(sharp_bounds[ix].begin()+ki+1,
+				     sharp_bounds[ix].begin()+kj);
+	      kj = ki+1;
+	    }
 	}
       
+      for (ki=0; ki<sharp_bounds[ix].size(); )
+	{
+	  for (kj=0; kj<planar_par[ix].size(); ++kj)
+	    {
+	      if (fabs(sharp_bounds[ix][ki]-planar_par[ix][kj]) < tol_)
+		{
+		  sharp_bounds[ix].erase(sharp_bounds[ix].begin()+ki,
+					 sharp_bounds[ix].begin()+ki+1);
+		  break;
+		}
+	    }
+	  if (kj == planar_par[ix].size())
+	    ++ki;
+	}
+    }
+  
+#ifdef DEBUG
+ std::ofstream edgof("planar_edgs.g2");
+ for (int ix=0; ix<3; ++ix)
+   {
+     for (size_t ki=0; ki<planar[ix].size(); ++ki)
+       {
+	 shared_ptr<ParamCurve> crv = planar[ix][ki]->geomCurve();
+	 if (crv.get())
+	   {
+	     shared_ptr<SplineCurve> crv2(crv->geometryCurve());
+	     crv2->writeStandardHeader(edgof);
+	     crv2->write(edgof);
+	   }
+       }
+   }
+#endif
+
+ // Check for a base direction
+  for (ix=0; ix<3; ++ix)
+    {
+      if (planar_par[ix].size() + sharp_bounds[ix].size() > 0)
+	continue;   // Edges in potential direction
+
+      int ka;
+      for (ka=0; ka<2; ++ka)
+	{
+	  if (acc_cones[ix][ka].dimension() > 0)
+	    {
+	      if (acc_cones[ix][ka].greaterThanPi())
+		break;
+	      if (acc_cones[ix][ka].angle() > anglim)
+		break;
+	    }
+	}
+      if (ka < 2)
+	continue; // Too high curvature
+
+      return ix;  // Direction found
+    }
+  
+
+  // Collect splitting information
+  vector<edgeInfo> split_info;
+  vector<ruledInfo> ruled_info;
+  for (size_t ki=0; ki<concave.size(); ++ki)
+    {
+      // Identify associated surfaces
+      ftEdgeBase *twin = concave[ki]->twin();
+      if (!twin)
+	continue;
+     shared_ptr<ParamSurface> surf1 = concave[ki]->face()->asFtSurface()->surface();
+      shared_ptr<ParamSurface> surf2 = twin->face()->asFtSurface()->surface();
+      int sfix1=-1, sfix2=-1;
+      for (size_t kj=0; kj<sfs.size(); ++kj)
+	{
+	  if (sfs[kj].get() == surf1.get())
+	    sfix1 = (int)kj;
+	  else if (sfs[kj].get() == surf2.get())
+	    sfix2 = (int)kj;
+	}
+
+      // Find ruled direction
+      double minang = M_PI;
+      int minix = -1;
+      int sgn = 0;
+      for (int ix2=0; ix2<3; ++ix2)
+	{
+	  Point dir(0.0, 0.0, 0.0);
+	  dir[ix2] = 1.0;
+	  double ang1 = dir.angle(ncones[sfix1].centre());
+	  double ang2 = dir.angle(ncones[sfix2].centre());
+	  if (ang1 < minang || M_PI-ang1 < minang)
+	    {
+	      minang = ang1;
+	      minix = ix2;
+	      sgn = (ang1 < M_PI-ang1) ? -1 : 1;
+	    }
+	  if (ang2 < minang || M_PI-ang2 < minang)
+	    {
+	      minang = ang2;
+	      minix = ix2;
+	      sgn = (ang2 < M_PI-ang2) ? -1 : 1;
+	    }
+	}
+#ifdef DEBUG
+      std::cout << "Ruled direction: " << minix << std::endl;
+#endif
+      shared_ptr<ParamCurve> crv = concave[ki]->geomCurve();
+      shared_ptr<SplineCurve> rulecv(crv->geometryCurve());
+      shared_ptr<SplineCurve> subrule(rulecv->subCurve(concave[ki]->tMin(),
+						       concave[ki]->tMax()));
+      ruledInfo rinfo(minix, sgn, sfix1, sfix2, subrule);
+      ruled_info.push_back(rinfo);
     }
 
+  for (ix=0; ix<3; ++ix)
+    {
+      for (size_t ki=0; ki<planar_par[ix].size(); ++ki)
+	{
+	  // Check if the edge is associated a candidate side surface
+	  // Identify associated surfaces
+	  ftEdgeBase *twin = planar[ix][ki]->twin();
+	  if (!twin)
+	    continue;
+	  shared_ptr<ParamSurface> surf1 = planar[ix][ki]->face()->asFtSurface()->surface();
+	  shared_ptr<ParamSurface> surf2 = twin->face()->asFtSurface()->surface();
+	  int sfix1=-1, sfix2=-1;
+	  size_t kj;
+	  for (kj=0; kj<sfs.size(); ++kj)
+	    {
+	      if (sfs[kj].get() == surf1.get())
+		sfix1 = (int)kj;
+	      else if (sfs[kj].get() == surf2.get())
+		sfix2 = (int)kj;
+	    }
+
+	  for (kj=0; kj<cand_sidesfs.size(); ++kj)
+	    if (sfix1 == cand_sidesfs[kj] || sfix2 == cand_sidesfs[kj])
+	      break;
+	  
+	  int prio = (kj == cand_sidesfs.size()) ? 2 : 0;
+	  
+
+	  edgeInfo info(ix, planar_par[ix][ki], prio);
+	  split_info.push_back(info);
+	}
+
+      for (size_t ki=0; ki<sharp_bounds[ix].size(); ++ki)
+	{
+	  edgeInfo info(ix, sharp_bounds[ix][ki], 1);
+	  split_info.push_back(info);
+	}
+    }
+  
  if (ruled_info.size() > 0)
    {
      // Should merge curves if possible or select best curve if more than one exists.
@@ -1272,232 +1337,96 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
      return -1;
    }
  
- // Identify surfaces that occur in more than one direction
- vector<size_t> multiple;
- for (size_t ki=0; ki<sfs.size(); ++ki)
-   {
-     int nmb = 0;
-     for (int ix=0; ix<3; ++ix)
-       {
-	 for (size_t kj=0; kj<cand[ix].size(); ++kj)
-	   if (cand[ix][kj] == ki)
-	     nmb++;
-       }
-     if (nmb > 1)
-       multiple.push_back(ki);
-   }
-
- // Check if multiply occuring surfaces have too large curvature
- size_t ki;
- for (ki=0; ki<multiple.size(); ++ki)
-   if (ncones[ki].angle() > anglim)
-     break;
- if (ki == multiple.size())
-   {
-     // Associate the multiple surfaces to one direction only
-     vector<size_t> cand2[3];
-     for (ix=0; ix<3; ++ix)
-       cand2[ix].insert(cand2[ix].end(), cand[ix].begin(), cand[ix].end());
-     for (ki=0; ki<multiple.size(); ++ki)
-       {
-	 double minang = std::numeric_limits<double>::max();
-	 int minix = -1;
-	 for (ix=0; ix<3; ++ix)
-	   {
-	     Point dir(0.0, 0.0, 0.0);
-	     dir[ix] = 1.0;
-	     size_t kj;
-	     for (kj=0; kj<cand2[ix].size(); ++kj)
-	       if (cand2[ix][kj] == multiple[ki])
-		 break;
-
-	     if (kj < cand2[ix].size())
-	       {
-		 double ang = dir.angle(ncones[cand2[ix][kj]].centre());
-		 ang = std::min(ang, M_PI-ang);
-		 if (ang < minang)
-		   {
-		     minang = ang;
-		     minix = ix;
-		   }
-	       }
-	   }
-
-	 // Remove the multiple surface from the other directions
-	 for (ix=0; ix<3; ++ix)
-	   {
-	     if (ix == minix)
-	       continue;
-	     for (size_t kj=0; kj<cand2[ix].size(); ++kj)
-	       if (cand2[ix][kj] == multiple[ki])
-		 {
-		   cand2[ix].erase(cand2[ix].begin()+kj);
-		   break;
-		 }
-	   }
-       }
- 
-     // There is potential for a legal height direction. Check.
-     // Should also check for edges. Not done
-     int ix2 = -1;
-     size_t nmb_conn = 0;
-     double bbdiff = std::numeric_limits<double>::max();
-     Point ll2 = ll;
-     Point ur2 = ur;
-
-     for (ix=0; ix<3; ++ix)
-       {
-	 size_t kj;
-	 vector<shared_ptr<ParamSurface> > cand_sfs;
-	 double bmin = std::numeric_limits<double>::max();
-	 double bmax = std::numeric_limits<double>::lowest();
-	 for ( kj=0; kj<cand2[ix].size(); ++kj)
-	   {
-	     cand_sfs.push_back(sfs[cand2[ix][kj]]);
-	     BoundingBox sfbox = sfs[cand2[ix][kj]]->boundingBox();
-	     bmin = std::min(bmin, sfbox.low()[ix]);
-	     bmax = std::max(bmax, sfbox.high()[ix]);
-	   }
-	 ll2[ix] = bmin;
-	 ur2[ix] = bmax;
-	 
-	 shared_ptr<SurfaceModel> sfmod(new SurfaceModel(tptol.gap, tptol.gap, tptol.neighbour,
-							 tptol.kink, tptol.bend, cand_sfs));
-	 vector<shared_ptr<SurfaceModel> > connmod = sfmod->getConnectedModels();
-	 if (connmod.size() > 2)
-	   continue;  // Not a basedir candidate
-
-	 // Check for equality with basedir direction
-	 Point dir(0.0, 0.0, 0.0);
-	 dir[ix] = 1.0;
-	 for (kj=0; kj<connmod.size(); ++kj)
-	   {
-	     int nmbsfs = connmod[kj]->nmbEntities();
-	     int ka;
-	     for (ka=0; ka<nmbsfs; ++ka)
-	       {
-		 shared_ptr<ParamSurface> surf = connmod[kj]->getSurface(ka);
-		 DirectionCone sfcone = surf->normalCone();
-		 if (sfcone.angle() > angtol)
-		   break;
-		 double ang = dir.angle(sfcone.centre());
-		 ang = std::min(ang, M_PI-ang);
-		 if (ang > angtol)
-		   break;
-	       }
-	     if (ka < nmbsfs)
-	       break;
-	   }
-	 if (kj < connmod.size())
-	   continue;
-	 
-	 double lendiff = 0.0;
-	 for (kj=0; kj<connmod.size(); ++kj)
-	   {
-	     BoundingBox bbmod = sfmod->boundingBox();
-	     double bblen = bbmod.low().dist(bbmod.high());
-	     lendiff = (kj == 0) ? bblen : fabs(bblen - lendiff);
-	   }
-		 
-	 if (connmod.size() > nmb_conn ||
-	     (connmod.size() == nmb_conn && lendiff < bbdiff))
-	   {
-	     ix2 = ix;
-	     nmb_conn = connmod.size();
-	     bbdiff = lendiff;
-	   }
-       }
-     if (ix2 >= 0)
-       {
-	 // Check for identified edges in remaining directions
-	 vector<edgeInfo> split_info2;
-	 int nmbdir = 0;
-	 for (size_t kr=0; kr<split_info.size(); ++kr)
-	   {
-	     if (split_info[kr].splitdir_ == ix2)
-	       nmbdir++;
-	     // int ix3 = split_info[kr].splitdir_;
-	     for (int ix3=0; ix3<3; ++ix3)
-	       {
-	     	 if (ix3 == ix2)
-	     	   continue;
-		 int found = 0;
-		 for (size_t kj=0; kj<cand[ix3].size(); ++kj)
-		   {
-		     if ((int)cand[ix3][kj] == split_info[kr].sfix1_ ||
-			 (int)cand[ix3][kj] == split_info[kr].sfix2_)
-		       found++;
-		   }
-		 if (found > 1)
-		   split_info2.push_back(split_info[kr]);
-	       }
-	     if (split_info[kr].convex_)
-	       split_info2.push_back(split_info[kr]);
-	   }
-	 if (split_info2.size() == 0 || nmbdir == 0)
-	   {
-	     // Check if sorted out multiple faces belong to sharp edges
-	     // configuration in the other groups
-	     int num_sharp = 0;
-	     shared_ptr<SurfaceModel> shell = body->getShell(0); // Only outer shell
-	     for (size_t kr=0; kr<multiple.size(); ++kr)
-	       {
-		 for (size_t kj=0; kj<cand[ix2].size(); ++kj)
-		   {
-		     if (cand[ix2][kj] == multiple[kr])
-		       {
-			 int sfix1 = shell->getIndex(sfs[multiple[kr]].get());
-			 shared_ptr<ftSurface> face1 = shell->getFace(sfix1);
-			 for (int ix3=0; ix3<3; ++ix3)
-			   {
-			     if (ix2 == ix3)
-			       continue;
-			     size_t kh;
-			     for (kh=0; kh<cand[ix3].size(); ++kh)
-			       {
-				 if (multiple[kr] == cand[ix3][kh])
-				   continue;
-				 int sfix2 = shell->getIndex(sfs[cand[ix3][kh]].get());
-				 shared_ptr<ftSurface> face2 = shell->getFace(sfix2);
-				 bool adj, smooth;
-				 adj = face1->isAdjacent(face2.get(), smooth);
-				 if (adj && (!smooth))
-				   break;
-			       }
-			     if (kh < cand[ix3].size())
-			       num_sharp++;
-			   }
-		       }
-		   }
-	       }
-	     if (num_sharp <= 1 || split_info2.size() == 0)
-	       {
-		 if (cand2[ix2].size() > 1)
-		   {
-		     ll[ix2] = ll2[ix2];
-		     ur[ix2] = ur2[ix2];
-		   }
-		 return ix2;
-	       }
-	   }
-	 split_info = split_info2;
-       }
-   }
   
  if (split_info.size() > 0)
    {
-     // Select the candidate with the largest opening angle
-     double minang = split_info[0].angle_;
-     size_t minix = 0;
-     for (size_t ki=1; ki<split_info.size(); ++ki)
-       if (split_info[ki].angle_ < minang || split_info[ki].convex_)
+     // Select the middlemost candidate, prefer planar curves
+     double maxfrac = 0.0;
+     size_t maxix = -1;
+     int maxprio = -1;
+     for (size_t ki=0; ki<split_info.size(); ++ki)
+       {
+	 int dir = split_info[ki].splitdir_;
+	 double val = split_info[ki].splitval_;
+	 double frac = std::min(val-ll[dir], ur[dir]-val)/(ur[dir]-ll[dir]);
+	 if (split_info[ki].prio_ > maxprio ||
+	     (split_info[ki].prio_ == maxprio && frac > maxfrac))
 	 {
-	   minang = split_info[ki].angle_;
-	   minix = ki;
+	   maxprio = split_info[ki].prio_;
+	   maxfrac = frac;
+	   maxix = ki;
 	 }
-     splitdir = split_info[minix].splitdir_;
-     splitval = split_info[minix].splitval_;
+       }
+
+     splitdir = split_info[maxix].splitdir_;
+     splitval = split_info[maxix].splitval_;
    }
 
   return -1;  // No suitable direction found
 }
+
+//==============================================================================
+void
+CutCellQuad3D::fetchSharpEdges(shared_ptr<Body> body, vector<ftEdge*>& convex,
+			       vector<ftEdge*>& concave)
+//==============================================================================
+{
+  int numshells = body->nmbOfShells();
+  int nmb_samples = 10;
+  for (int ka=0; ka<numshells; ++ka)
+    {
+      shared_ptr<SurfaceModel> shell = body->getShell(ka);
+
+      // Collect all sharp edges
+      vector<ftEdge*> sharp_edges;
+      shell->getCorners(sharp_edges);
+
+      // Sort into convex and concave edges (majority vote)
+      for (size_t ki=0; ki<sharp_edges.size(); ++ki)
+	{
+	  if (!sharp_edges[ki]->twin())
+	    {
+	      sharp_edges.erase(sharp_edges.begin()+ki);
+	      continue;  // Gaps are not expected and not treated
+	    }
+
+	  int nmb_concave = 0;
+	  int nmb_convex = 0;
+	  double t1 = sharp_edges[ki]->tMin();
+	  double t2 = sharp_edges[ki]->tMax();
+	  double del = (t2 - t1)/(double)(nmb_samples-1);
+	  double par;
+	  int kr;
+	  for (kr=0, par=t1; kr<nmb_samples; ++kr, par+=del)
+	    {
+	      Point pos1 = sharp_edges[ki]->point(par);
+	      Point norm1 = sharp_edges[ki]->normal(par);
+	      Point tan1 = sharp_edges[ki]->tangent(par);
+	      Point vec1 = tan1.cross(norm1);
+	      
+	      double clo_t, clo_dist;
+	      Point clo_pt;
+	      sharp_edges[ki]->twin()->closestPoint(pos1, clo_t, clo_pt,
+						    clo_dist);
+	      Point norm2 = sharp_edges[ki]->twin()->normal(clo_t);
+	      Point tan2 = sharp_edges[ki]->twin()->tangent(clo_t);
+	      Point vec2 = tan2.cross(norm2);
+	      double ang2 = vec1.angle(norm2);
+	      double ang3 = vec2.angle(norm1);
+	      if (ang2 + ang3 > M_PI)
+		nmb_concave++;
+	      else
+		nmb_convex++;
+	      int stop_break;
+	    }
+	  if (nmb_convex >= nmb_concave)
+	    convex.push_back(sharp_edges[ki]);
+	  else
+	    concave.push_back(sharp_edges[ki]);
+	}
+     
+    }
+}  
+
+
+

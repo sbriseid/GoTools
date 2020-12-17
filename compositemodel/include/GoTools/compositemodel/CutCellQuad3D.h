@@ -115,6 +115,9 @@ namespace Go
 			  shared_ptr<SurfaceModel>& mod2,
 			  shared_ptr<SurfaceModel>& mod3,
 			  double tol);
+
+    void fetchSharpEdges(shared_ptr<Body> body, std::vector<ftEdge*>& convex,
+			 std::vector<ftEdge*>& concave);
    };
 } // end namespace Go
 

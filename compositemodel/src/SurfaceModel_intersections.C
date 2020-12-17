@@ -780,6 +780,7 @@ shared_ptr<SurfaceModel> SurfaceModel::trimWithPlane(const ftPlane& plane)
 	  double pt_dist;
  	  bool inside = model2->isInside(pnt, normal, pt_dist);
 	  shared_ptr<ParamSurface> tmp_surf(surf->clone());
+	  tmp_surf->setFlagCode(surf->getFlagCode());
 	  shared_ptr<ftSurface> tmp_face(new ftSurface(tmp_surf, -1));
 	  if (faces_[ki]->asFtSurface()->hasBoundaryConditions())
 	    {
@@ -910,6 +911,7 @@ shared_ptr<SurfaceModel> SurfaceModel::trimWithPlane(const ftPlane& plane)
 	  double pt_dist;
 	  bool inside = isInside(pnt, normal, pt_dist);
 	  shared_ptr<ParamSurface> tmp_surf(surf->clone());
+	  tmp_surf->setFlagCode(surf->getFlagCode());
 	  shared_ptr<ftSurface> tmp_face(new ftSurface(tmp_surf, -1));
 	  if (faces[ki]->asFtSurface()->hasBoundaryConditions())
 	    {
@@ -1147,11 +1149,15 @@ shared_ptr<SurfaceModel> SurfaceModel::trimWithPlane(const ftPlane& plane)
 	  if (inside)
 	    {
 	      shared_ptr<ParamSurface> tmp_surf = shared_ptr<ParamSurface>(surf->clone());
+	      tmp_surf->setFlagCode(surf->getFlagCode());
 	      inside1.push_back(tmp_surf);
 	    }
 			      
 	  else
-      	    outside1.push_back(shared_ptr<ParamSurface>(surf->clone()));
+	    {
+	      outside1.push_back(shared_ptr<ParamSurface>(surf->clone()));
+	      outside1[outside1.size()-1]->setFlagCode(surf->getFlagCode());
+	    }
 	}
       else
 	{
@@ -1240,6 +1246,7 @@ shared_ptr<SurfaceModel> SurfaceModel::trimWithPlane(const ftPlane& plane)
 	  if (inside)
 	    {
 	      shared_ptr<ParamSurface> tmp_surf = shared_ptr<ParamSurface>(surf->clone());
+	      tmp_surf->setFlagCode(surf->getFlagCode());
 	      inside2.push_back(tmp_surf);
 	    }
 	}
