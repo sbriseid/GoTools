@@ -36,7 +36,7 @@
  * This file may be used in accordance with the terms contained in a
  * written agreement between you and SINTEF ICT. 
  */
-#define DEBUG
+//#define DEBUG
 
 #include "GoTools/compositemodel/CellDivision.h"
 #include "GoTools/utils/Point.h"

@@ -44,7 +44,7 @@
 #include <iostream>
 #include <fstream>
 
-#define DEBUG
+//#define DEBUG
 
 using std::vector;
 using std::pair;
@@ -637,14 +637,15 @@ CutCellQuad::createCutCell(vector<shared_ptr<CurveLoop> >& bd_loops,
 	if (len2 > len1)
 	  std::swap(split_cvs[ki], split_cvs[kj]);
       }
-  
+#ifdef DEBUG  
   std::ofstream ofcv("split_cvs.g2");
   for (size_t ki=0; ki<split_cvs.size(); ++ki)
     {
       split_cvs[ki]->writeStandardHeader(ofcv);
       split_cvs[ki]->write(ofcv);
     }
-
+#endif
+  
   if (split_cvs.size() == 0)
     {
       // Touch situation

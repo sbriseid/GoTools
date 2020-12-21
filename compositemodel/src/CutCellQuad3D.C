@@ -50,7 +50,7 @@
 #include "GoTools/creators/CutCellQuad.h"
 #include <fstream>
 
-#define DEBUG
+//#define DEBUG
 
 using std::vector;
 using std::set;
@@ -126,13 +126,13 @@ int CutCellQuad3D::cellStat(const Point& ll, const Point& ur, int& coinc)
 	    {
 	      if (!sfbb.overlaps(sidebb[kr]))
 		continue;
-
+#ifdef DEBUG
 	      std::ofstream of("curr_sfs.g2");
 	      sf->writeStandardHeader(of);
 	      sf->write(of);
 	      cell_sfs[kr]->writeStandardHeader(of);
 	      cell_sfs[kr]->write(of);
-
+#endif
 	      // Possible intersection. Check for coincidence
 	      int stat = ident.identicalSfs(sf, cell_sfs[kr], tol_);
 	      if (stat != 0)
@@ -305,6 +305,7 @@ void CutCellQuad3D::splitCell(shared_ptr<Body> body,
 	if (nmbbd > 0)
 	  {
 	    vector<shared_ptr<ftEdge> > bdedg = split_mod[ki]->getBoundaryEdges();
+#ifdef DEBUG
 	    std::ofstream of2("ededg.g2");
 	    for (size_t kr=0; kr<bdedg.size(); ++kr)
 	      {
@@ -313,6 +314,7 @@ void CutCellQuad3D::splitCell(shared_ptr<Body> body,
 		splcv->writeStandardHeader(of2);
 		splcv->write(of2);
 	      }
+#endif
       
 	    THROW("Cut cell not closed");
 	  }

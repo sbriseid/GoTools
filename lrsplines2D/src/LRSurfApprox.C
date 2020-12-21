@@ -420,12 +420,12 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   FILE *fp = fopen("acc_stat.txt","w");
   fprintf(fp, "Max iterations = %d, tolerance = %4.2f, no pts: %d \n",max_iter, aepsge_,nmb_pts_);
   fprintf(fp,"iter, maxdist, average dist, no. pts. out, no. coefs, rel. improvement, no. pts.in, approx efficiency, rel element without-element div, rel element under-element div, max inner knots, average inner knots, average out, no. el.  \n");
-  bool alter = false;
+  bool alter = true;
   int div = 1; //(alter) ? 2 : 1;
   int currdiv = (alter) ? 1 : 3;
   int refstrat = 1;
   double stratfac = -100.0; //0.1; //0.02;
-  int ref = 2;
+  int ref = 1;
 
   if (srf_->dimension() == 3 && initial_surface_)
     {
@@ -609,7 +609,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  if (threshold_prev > 0.0 && threshold/threshold_prev > 0.9)
 	    threshold = 0.9*threshold_prev;
 	  threshold = std::max(aepsge_, threshold);
-	  //threshold = aepsge_;
+	  threshold = aepsge_;
 	  std::cout << "Threshold: " << threshold << std::endl;
 	  int nmb_refs;
 	  if (ref == 1)
