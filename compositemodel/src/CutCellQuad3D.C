@@ -350,7 +350,7 @@ void CutCellQuad3D::createCutCell(const Point& ll, const Point& ur,
   vector<shared_ptr<SurfaceModel> > sub_mod = cell_mod->splitSurfaceModels(outer);
 
   // Set code for surface origin
-  int nmb1 = sub_mod[0]->nmbEntities();
+  int nmb1 = (sub_mod[0].get()) ? sub_mod[0]->nmbEntities() : 0;
   for (int ki=0; ki<nmb1; ++ki)
     {
       shared_ptr<ParamSurface> sf = sub_mod[0]->getSurface(ki);
@@ -359,7 +359,8 @@ void CutCellQuad3D::createCutCell(const Point& ll, const Point& ur,
     }
   // Collect faces being internal to both surface models
   Identity identity;
-  if (sub_mod[2]->nmbEntities() > 0)
+  int nmb2 = (sub_mod[2].get()) ? sub_mod[2]->nmbEntities() : 0;
+  if (nmb2 > 0)
     {
       vector<shared_ptr<ftSurface> > addfaces;
       int nmb2 = sub_mod[2]->nmbEntities();
@@ -391,14 +392,20 @@ void CutCellQuad3D::createCutCell(const Point& ll, const Point& ur,
 	{
 	  for (size_t kr=0; kr<addfaces.size(); ++kr)
 	    sub_mod[2]->removeFace(addfaces[kr]);
-	  sub_mod[0]->append(addfaces);
+	  if (nmb1 > 0)
+	    sub_mod[0]->append(addfaces);
+	  else
+	    sub_mod[0] = shared_ptr<SurfaceModel>(new SurfaceModel(top.gap, top.gap,
+								   top.neighbour,
+								   top.kink, top.bend,
+								   addfaces));
 	}
     }
 
   // Voids
 #ifdef DEBUG
   std::ofstream of("cutcell.g2");
-  int nmb = sub_mod[0]->nmbEntities();
+  int nmb = (sub_mod[0].get()) ? sub_mod[0]->nmbEntities() : 0;
   for (int ki=0; ki<nmb; ++ki)
     {
       shared_ptr<ParamSurface> sf = sub_mod[0]->getSurface(ki);
