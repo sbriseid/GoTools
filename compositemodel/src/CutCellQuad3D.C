@@ -50,7 +50,7 @@
 #include "GoTools/creators/CutCellQuad.h"
 #include <fstream>
 
-//#define DEBUG
+#define DEBUG
 
 using std::vector;
 using std::set;
@@ -265,7 +265,7 @@ void CutCellQuad3D::splitCell(shared_ptr<Body> body,
   // of the new volume pieces. These surfaces must be removed
   removeCoincFaces(split_mod[0], split_mod[1], split_mod[2], top.gap);
 
-  int nmb = split_mod[2]->nmbEntities();
+  int nmb = split_mod[2].get() ? split_mod[2]->nmbEntities() : 0;
   for (int ki=0; ki<nmb; ++ki)
     {
       shared_ptr<ftSurface> face1 = split_mod[2]->getFace(ki);
@@ -274,9 +274,30 @@ void CutCellQuad3D::splitCell(shared_ptr<Body> body,
       surf2->swapParameterDirection();
       
       shared_ptr<ftSurface> face1_2(new ftSurface(surf1, -1));
-      split_mod[0]->append(face1_2, true, false, true);
+      if (split_mod[0].get())
+	split_mod[0]->append(face1_2, true, false, true);
+      else
+	{
+	  vector<shared_ptr<ftSurface> > faces;
+	  faces.push_back(face1_2);
+	  split_mod[0] = shared_ptr<SurfaceModel>(new SurfaceModel(top.gap, top.gap,
+								   top.neighbour,
+								   top.kink, top.bend,
+								   faces));
+	}
+
       shared_ptr<ftSurface> face2(new ftSurface(surf2, -1));
-      split_mod[1]->append(face2, true, false, true);
+      if (split_mod[1].get())
+	split_mod[1]->append(face2, true, false, true);
+      else
+	{
+	  vector<shared_ptr<ftSurface> > faces;
+	  faces.push_back(face2);
+	  split_mod[1] = shared_ptr<SurfaceModel>(new SurfaceModel(top.gap, top.gap,
+								   top.neighbour,
+								   top.kink, top.bend,
+								   faces));
+	}
     }
 
   if (body->nmbOfShells() > 1)
@@ -284,8 +305,8 @@ void CutCellQuad3D::splitCell(shared_ptr<Body> body,
 
   std::ofstream of1("submod1.g2");
   std::ofstream of2("submod2.g2");
-  int nmb1 = split_mod[0]->nmbEntities();
-  int nmb2 = split_mod[1]->nmbEntities();
+  int nmb1 = split_mod[0].get() ? split_mod[0]->nmbEntities() : 0;
+  int nmb2 = split_mod[1].get() ? split_mod[1]->nmbEntities() : 0;
   for (int ki=0; ki<nmb1; ++ki)
     {
       shared_ptr<ParamSurface> sf = split_mod[0]->getSurface(ki);
@@ -301,6 +322,9 @@ void CutCellQuad3D::splitCell(shared_ptr<Body> body,
   
   for (int ki=0; ki<2; ++ki)
     {
+      if (!split_mod[ki].get())
+	continue;
+      
         int nmbbd = split_mod[ki]->nmbBoundaries();
 	if (nmbbd > 0)
 	  {
@@ -920,13 +944,10 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
   int numfaces = body->nmbOfFaces();
   vector<shared_ptr<ParamSurface> > sfs(numfaces);
   vector<DirectionCone> ncones(numfaces);
-  vector<shared_ptr<DirectionCone> > orthcone[3];
-  vector<shared_ptr<DirectionCone> > alongcone[3];
   int curved[3];
+  vector<pair<double,double> > minmaxang(3*numfaces);
   for (int kc=0; kc<3; ++kc)
     {
-      orthcone[kc].resize(numfaces);
-      alongcone[kc].resize(numfaces);
       curved[kc] = 0;
     }
   int ix = 0;
@@ -938,18 +959,12 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
 	{
 	  sfs[ix] = shell->getSurface(kb);
 	  ncones[ix] = sfs[ix]->normalCone();
-	  shared_ptr<DirectionCone> tmp1[3], tmp2[3];
-	  //sfs[ix]->normalCones(orthcone[0][ix], orthcone[1][ix], orthcone[2][ix]);
-	  sfs[ix]->normalCones(tmp1, tmp2);
+	  pair<double,double> dirang[3];
+	  sfs[ix]->dirNormAngles(dirang);
 	  for (int kc=0; kc<3; ++kc)
 	    {
-	      if (!tmp1[kc].get())
-		tmp1[kc] = shared_ptr<DirectionCone>(new DirectionCone(Point(0.0, 0.0, 0.0)));
-	      if (!tmp2[kc].get())
-		tmp2[kc] = shared_ptr<DirectionCone>(new DirectionCone(Point(0.0, 0.0, 0.0)));
-	      orthcone[kc][ix] = tmp1[kc];
-	      alongcone[kc][ix] = tmp2[kc];
-	      if (orthcone[kc][ix]->angle() > angtol)
+	      minmaxang[3*ix+kc] = dirang[kc];
+	      if (dirang[kc].second-dirang[kc].first > angtol)
 		curved[kc]++;
 	    }
 	  ++ix;
@@ -978,9 +993,10 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
       for (size_t ki=0; ki<ncones.size(); ++ki)
 	{
 	  // Check normal cone overlap
-	  bool overlap1 = alongcone[ix][ki]->containsDirection(dir);
-	  bool overlap2 = alongcone[ix][ki]->containsDirection(dir2);
-	  if (overlap1 || overlap2)
+	  // bool overlap1 = ncones[ki].containsDirection(dir);
+	  // bool overlap2 = ncones[ki].containsDirection(dir2);
+	  bool overlap = (fabs(ncones[ki].centre()*dir) > numtol);
+	  if (overlap)
 	    {
 	      cand[ix].push_back(ki);
 	      if (ncones[ki].angle() > angtol)
@@ -998,8 +1014,10 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
    }
 
   // Fetch sharp edges
- vector<ftEdge*> convex, concave;
+ vector<ftEdge*> convex, concave, all_cvs;
  fetchSharpEdges(body, convex, concave);
+ all_cvs.insert(all_cvs.end(), convex.begin(), convex.end());
+ all_cvs.insert(all_cvs.end(), concave.begin(), concave.end());
  
 #ifdef DEBUG
   std::ofstream ofconv("convex.g2");
@@ -1032,18 +1050,18 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
      // All boundary surfaces are planar
      for (ix=0; ix<3; ++ix)
        {
-	 Point dir(0.0, 0.0, 0.0);
-	 dir[ix] = 1.0;
-	 Point dir2 = -dir;
-	 int nmb_dir = 0;
-	 for (size_t ki=0; ki<cand[ix].size(); ++ki)
-	   {
-	     if (ncones[cand[ix][ki]].containsDirection(dir) ||
-		 ncones[cand[ix][ki]].containsDirection(dir2))
-	       nmb_dir++;
-	   }
+  	 Point dir(0.0, 0.0, 0.0);
+  	 dir[ix] = 1.0;
+  	 Point dir2 = -dir;
+  	 int nmb_dir = 0;
+  	 for (size_t ki=0; ki<cand[ix].size(); ++ki)
+  	   {
+  	     if (ncones[cand[ix][ki]].containsDirection(dir) ||
+  		 ncones[cand[ix][ki]].containsDirection(dir2))
+  	       nmb_dir++;
+  	   }
        if (nmb_dir == 2)
-	 return ix;  
+  	 return ix;  
        }
    }
 
@@ -1051,7 +1069,7 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
   for (ix=0; ix<3; ++ix)
     {
       if (nonlin[ix] > 0)
-	continue;
+  	continue;
       
       // Check if the side surface normal coincides with the coordinate directions
       Point dir(0.0, 0.0, 0.0);
@@ -1059,13 +1077,13 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
       Point dir2 = -dir;
       size_t ki;
       for (ki=0; ki<cand[ix].size(); ++ki)
-	{
-	  if (dir.angle(ncones[cand[ix][ki]].centre()) > angtol &&
-	      dir2.angle(ncones[cand[ix][ki]].centre()) > angtol)
-	    break;
-	}
+  	{
+  	  if (dir.angle(ncones[cand[ix][ki]].centre()) > angtol &&
+  	      dir2.angle(ncones[cand[ix][ki]].centre()) > angtol)
+  	    break;
+  	}
       if (ki == cand[ix].size())
-	return ix;   // The configuration corresponds to a linear sweep
+  	return ix;   // The configuration corresponds to a linear sweep
     }
 
   // A further search for a simple parameter direction or planar splits
@@ -1073,7 +1091,7 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
   vector<vector<ftEdge*> > planar(3);
   vector<vector<double> > planar_par(3);
   vector<vector<double> > sharp_bounds(3);
-  DirectionCone acc_cones[3][2];
+  double acc_coneangle[6];
   vector<int> cand_sidesfs;
   for (ix=0; ix<3; ++ix)
     {
@@ -1108,12 +1126,63 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
 	  if (high2 - low2 > tol_)
 	    {
 	      // Not planar, remember end positions of curve
-	      Point pos1 = crv->point(crv->startparam());
-	      Point pos2 = crv->point(crv->endparam());
-	      if (pos1[ix] > low+tol_ && pos1[ix] < high-tol_)
-		sharp_bounds[ix].push_back(pos1[ix]);
-	      if (pos2[ix] > low+tol_ && pos2[ix] < high-tol_)
-		sharp_bounds[ix].push_back(pos2[ix]);
+	      vector<Point> der1(2), der2(2);
+	      crv->point(der1, planar[ix][ki]->tMin(), 1);
+	      crv->point(der2, planar[ix][ki]->tMax(), 1);
+	      if (der1[0][ix] > low+tol_ && der1[0][ix] < high-tol_)
+		{
+		  // Check for a smooth transisition
+		  size_t kj;
+		  for (kj=0; kj<all_cvs.size(); ++kj)
+		    {
+		      if (all_cvs[kj] == planar[ix][ki])
+			continue;
+		      shared_ptr<ParamCurve> crv2 = all_cvs[kj]->geomCurve();
+		      vector<Point> der3(2), der4(2);
+		      crv2->point(der3, all_cvs[kj]->tMin(), 1);
+		      crv2->point(der4, all_cvs[kj]->tMax(), 1);
+
+		      double d1 = der1[0].dist(der3[0]);
+		      double d2 = der1[0].dist(der4[0]);
+		      double a1 = der1[1].angle(der3[1]);
+		      a1 = std::min(a1, M_PI-a1);
+		      double a2 = der1[1].angle(der4[1]);
+		      a2 = std::min(a2, M_PI-a2);
+		      if (d1 < tol_ && a1 < angtol)
+			break;
+		      if (d2 < tol_ && a2 < angtol)
+			break;
+		    }
+		  if (kj == all_cvs.size())
+		    sharp_bounds[ix].push_back(der1[0][ix]);
+		}
+	      if (der2[0][ix] > low+tol_ && der2[0][ix] < high-tol_)
+		{
+		  // Check for a smooth transisition
+		  size_t kj;
+		  for (kj=0; kj<all_cvs.size(); ++kj)
+		    {
+		      if (all_cvs[kj] == planar[ix][ki])
+			continue;
+		      shared_ptr<ParamCurve> crv2 = all_cvs[kj]->geomCurve();
+		      vector<Point> der3(2), der4(2);
+		      crv2->point(der3, all_cvs[kj]->tMin(), 1);
+		      crv2->point(der4, all_cvs[kj]->tMax(), 1);
+
+		      double d1 = der2[0].dist(der3[0]);
+		      double d2 = der2[0].dist(der4[0]);
+		      double a1 = der2[1].angle(der3[1]);
+		      a1 = std::min(a1, M_PI-a1);
+		      double a2 = der2[1].angle(der4[1]);
+		      a2 = std::min(a2, M_PI-a2);
+		      if (d1 < tol_ && a1 < angtol)
+			break;
+		      if (d2 < tol_ && a2 < angtol)
+			break;
+		    }
+		  if (kj == all_cvs.size())
+		    sharp_bounds[ix].push_back(der2[0][ix]);
+		}
 
 	      planar[ix].erase(planar[ix].begin() + ki);
 	    }
@@ -1127,33 +1196,21 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
 	    }
 	}
 
-      // Compute accumulated normal cone along candidate direction of remaining surfaces
+      // Compute accumulated normal cone angle along candidate direction of remaining surfaces
+      acc_coneangle[2*ix] = std::numeric_limits<double>::max();
+      acc_coneangle[2*ix+1] = std::numeric_limits<double>::lowest();
       for (int ix2=0; ix2<3; ++ix2)
 	{
 	  if (ix2 == ix)
 	    continue;
-	  int ix3, ix4;
-	  for (ix3=0, ix4=0; ix3<3; ++ix3)
+
+	  for (size_t ki=0; ki<cand[ix2].size(); ++ki)
 	    {
-	      if (ix3 == ix2)
-		continue;
-	      for (size_t ki=0; ki<cand[ix2].size(); ++ki)
-		{
-		  if (fabs(orthcone[ix3][cand[ix2][ki]]->centre()*dir) < numtol)
-		    continue;
-		  if (acc_cones[ix][ix4].dimension() == 0 ||
-		      acc_cones[ix][ix4].centre().length() < tol_)
-		    acc_cones[ix][ix4] = *(orthcone[ix3][cand[ix2][ki]]);
-		  else if (orthcone[ix3][cand[ix2][ki]]->centre().length() > tol_)
-		    {
-		      Point centre1 = acc_cones[ix][ix4].centre();
-		      Point centre2 = orthcone[ix3][cand[ix2][ki]]->centre();
-		      double ang1 = acc_cones[ix][ix4].angle();
-		      double ang2 = orthcone[ix3][cand[ix2][ki]]->angle();
-		      acc_cones[ix][ix4].addUnionWith(*(orthcone[ix3][cand[ix2][ki]]));
-		    }
-		}
-	      ++ix4;
+	      int sfix = cand[ix2][ki];
+	      acc_coneangle[2*ix] = std::min(acc_coneangle[2*ix],
+					     minmaxang[3*sfix+ix].first);
+	      acc_coneangle[2*ix+1] = std::max(acc_coneangle[2*ix+1],
+					       minmaxang[3*sfix+ix].second);
 	    }
 	}
     }
@@ -1224,18 +1281,7 @@ CutCellQuad3D::selectBaseDir(Point& ll, Point& ur,
       if (planar_par[ix].size() + sharp_bounds[ix].size() > 0)
 	continue;   // Edges in potential direction
 
-      int ka;
-      for (ka=0; ka<2; ++ka)
-	{
-	  if (acc_cones[ix][ka].dimension() > 0)
-	    {
-	      if (acc_cones[ix][ka].greaterThanPi())
-		break;
-	      if (acc_cones[ix][ka].angle() > anglim)
-		break;
-	    }
-	}
-      if (ka < 2)
+      if (acc_coneangle[2*ix+1] - acc_coneangle[2*ix] > anglim)
 	continue; // Too high curvature
 
       return ix;  // Direction found
