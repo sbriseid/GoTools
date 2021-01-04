@@ -10,7 +10,7 @@
 #include "GoTools/lrsplines2D/SSurfTraceIsocontours.h"
 #include "GoTools/lrsplines2D/TrimCrvUtils.h"
 
-#define DEBUG0
+//#define DEBUG0
 //#define DEBUG
 //#define DEBUG2
 
