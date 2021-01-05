@@ -635,7 +635,15 @@ void merge_segments(map<double, CurveVec>& mergemap, // map whose segments shoul
 	  else
 	    finished_curves.push_back(entry1.icurve);
 	} else {
-	  IsectCurve new_curve = join_isectcurves(entry1.icurve, entry2.icurve, entry1.at_start, entry2.at_start);
+	  IsectCurve new_curve;
+	  try {
+	    new_curve = join_isectcurves(entry1.icurve, entry2.icurve, entry1.at_start, entry2.at_start);
+	  }
+	  catch (...)
+	    {
+	      i += 2;
+	      continue;
+	    }
 #ifdef DEBUG
 	  new_curve.first->writeStandardHeader(of1);
 	  new_curve.first->write(of1);

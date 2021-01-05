@@ -485,23 +485,7 @@ int LRBSpline2D::endmult_v(bool atstart) const
 }
 
 //==============================================================================
-bool LRBSpline2D::useKnot(Direction2D d, int ix, int start, int end) const
-//==============================================================================
-{
-  BSplineUniLR *uni1 = (d == XFIXED) ? bspline_u_ : bspline_v_;
-  BSplineUniLR *uni2 = (d == XFIXED) ? bspline_v_ : bspline_u_;
-  if (!uni1->useKnot(ix))
-    return false;
-  if (!uni2->useKnot(start))
-    return false;
-  if (!uni2->useKnot(end))
-    return false;
-  return true;
-}
-
-//==============================================================================
 Point LRBSpline2D::getGrevilleParameter() const
-//==============================================================================
 {
   double upar = bspline_u_->getGrevilleParameter();
   double vpar = bspline_v_->getGrevilleParameter();
