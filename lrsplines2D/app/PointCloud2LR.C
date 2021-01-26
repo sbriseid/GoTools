@@ -572,7 +572,7 @@ int main(int argc, char *argv[])
   //     mba = 0;
   //   }
   int order = degree + 1; 
-  int nmb_coef = std::max(order, 14);
+  int nmb_coef = order+1; //std::max(order, 14);
   double mba_coef = 0.0;
   if (initmba)
     mba_coef = 0.5*(extent[2*(del-1)] + extent[2*(del-1)+1]);

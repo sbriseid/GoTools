@@ -802,7 +802,8 @@ void LRSplineUtils::iteratively_split2 (vector<LRBSpline2D*>& bsplines,
 					LRSplineSurface::BSplineMap& bmap,
 					double domain[],
 					vector<unique_ptr<BSplineUniLR> >& bspline_vec1,
-					vector<unique_ptr<BSplineUniLR> >& bspline_vec2)
+					vector<unique_ptr<BSplineUniLR> >& bspline_vec2,
+					bool support)
 //------------------------------------------------------------------------------
 {
   // The following set is used to keep track over unique b-spline functions.   
@@ -821,7 +822,7 @@ void LRSplineUtils::iteratively_split2 (vector<LRBSpline2D*>& bsplines,
   // are already in it
   auto insert_bfun_to_set = [&tmp_set](LRBSpline2D* b,
 				       LRSplineSurface::BSplineMap& bmap,
-				       double domain[])->bool
+				       double domain[], bool support)->bool
     {
       auto it = tmp_set.find(b);
       bool overlap = (domain == NULL) ? false : b->overlaps(domain);
@@ -871,34 +872,37 @@ void LRSplineUtils::iteratively_split2 (vector<LRBSpline2D*>& bsplines,
 	  // combine b with the function already present
 	  other->gamma() += b->gamma();
 	  other->coefTimesGamma() += b->coefTimesGamma();
-	  // We update the support of b with its replacement.
-	  std::vector<Element2D*>::iterator it2 = b->supportedElementBegin();
-	  for (; it2 < b->supportedElementEnd(); ++it2)
+
+	  if (support)
 	    {
-	      // Note that in subsequent divisions, the new bspline may point to
-	      // elements which is not in the support of the already existing one
-	      // Thus, check for overlap
-	      if (other->overlaps((*it2)))
+	      // We update the support of b with its replacement.
+	      std::vector<Element2D*>::iterator it2 = b->supportedElementBegin();
+	      for (; it2 < b->supportedElementEnd(); ++it2)
 		{
-		  // If there exists a support function already (such as b) it is overwritten.
-		  (*it2)->addSupportFunction(other);
-		  other->addSupport(*it2);
+		  // Note that in subsequent divisions, the new bspline may point to
+		  // elements which is not in the support of the already existing one
+		  // Thus, check for overlap
+		  if (other->overlaps((*it2)))
+		    {
+		      // If there exists a support function already (such as b) it is overwritten.
+		      (*it2)->addSupportFunction(other);
+		      other->addSupport(*it2);
+		    }
+		  else
+		    {
+		      //std::cout << "No overlap, element " << *it2 << ", bspline " << b << std::endl;
+		      int stop_break = 1;
+		    }
 		}
-	      else
+
+	      // Finally we remove all elements from b.
+	      while (b->nmbSupportedElements() > 0)
 		{
-		  //std::cout << "No overlap, element " << *it2 << ", bspline " << b << std::endl;
-		  int stop_break = 1;
+		  auto it2 = b->supportedElementBegin();
+		  (*it2)->removeSupportFunction(b);
+		  b->removeSupport(*it2);
 		}
 	    }
-
-	  // Finally we remove all elements from b.
-	  while (b->nmbSupportedElements() > 0)
-	    {
-	      auto it2 = b->supportedElementBegin();
-	      (*it2)->removeSupportFunction(b);
-	      b->removeSupport(*it2);
-	    }
-
 	  return false;
 	}
     };
@@ -1019,49 +1023,59 @@ void LRSplineUtils::iteratively_split2 (vector<LRBSpline2D*>& bsplines,
 	// LRSplineSurface::BSKey key2 = LRSplineSurface::generate_key(*b_split_1);
 	// auto iter = bsplines.size();
 	// Since the elements have not yet been split, the support is the same.
-	b_split_1->setSupport(elements);
-	b_split_2->setSupport(elements);
+	if (support)
+	  {
+	    b_split_1->setSupport(elements);
+	    b_split_2->setSupport(elements);
+	  }
 
-    	if (insert_bfun_to_set(b_split_1, bmap, domain)) // @@sbr deb_iter==0 && ki == 20. ref==4.
+    	if (insert_bfun_to_set(b_split_1, bmap, domain, support)) // @@sbr deb_iter==0 && ki == 20. ref==4.
 	  {
 	    //std::cout << "deb_iter: " << deb_iter << ", ki" << ki << ", b_split_1: " << b_split_1 << std::endl;
 	    // A new LRBspline is created, remember it
 	    added_basis.push_back(unique_ptr<LRBSpline2D>(b_split_1));
-	    // Let the elements know about the new bsplines
-	    for (size_t kr=0; kr<elements.size(); ++kr)
-	      if (b_split_1->overlaps(elements[kr]))
-		elements[kr]->addSupportFunction(b_split_1);
-	      else
-		{
+	    if (support)
+	      {
+		// Let the elements know about the new bsplines
+		for (size_t kr=0; kr<elements.size(); ++kr)
+		  if (b_split_1->overlaps(elements[kr]))
+		    elements[kr]->addSupportFunction(b_split_1);
+		  else
+		    {
 #if 0//ndef NDEBUG
-		  MESSAGE("No overlap!"); // @@sbr201212 This should not happen.
+		      MESSAGE("No overlap!"); // @@sbr201212 This should not happen.
 #endif
-		  b_split_1->removeSupport(elements[kr]);
-		  elements[kr]->removeSupportFunction(b_split_1);
-		}
+		      b_split_1->removeSupport(elements[kr]);
+		      elements[kr]->removeSupportFunction(b_split_1);
+		    }
+	      }
 	  }
 	else
 	  { // Memory management.
 	    delete b_split_1;
 	  }
 
-    	if (insert_bfun_to_set(b_split_2, bmap, domain))
+    	if (insert_bfun_to_set(b_split_2, bmap, domain, support))
 	  {
 	    //std::cout << "deb_iter: " << deb_iter << ", ki" << ki << ", b_split_2: " << b_split_2 << std::endl;
 	    // A new LRBspline is created, remember it
 	    added_basis.push_back(unique_ptr<LRBSpline2D>(b_split_2));
-	    // Let the elements know about the new bsplines
-	    for (size_t kr=0; kr<elements.size(); ++kr)
-	      if (b_split_2->overlaps(elements[kr]))
-		elements[kr]->addSupportFunction(b_split_2);
-	      else
-		{
+
+	    if (support)
+	      {
+		// Let the elements know about the new bsplines
+		for (size_t kr=0; kr<elements.size(); ++kr)
+		  if (b_split_2->overlaps(elements[kr]))
+		    elements[kr]->addSupportFunction(b_split_2);
+		  else
+		    {
 #if 0//ndef NDEBUG
-		  MESSAGE("No overlap!"); // @@sbr201212 This should not happen.
+		      MESSAGE("No overlap!"); // @@sbr201212 This should not happen.
 #endif
-		  b_split_2->removeSupport(elements[kr]);
-		  elements[kr]->removeSupportFunction(b_split_2);
-		}
+		      b_split_2->removeSupport(elements[kr]);
+		      elements[kr]->removeSupportFunction(b_split_2);
+		    }
+	      }
 	  }
 	else
 	  { // Memory management.
@@ -1071,16 +1085,19 @@ void LRSplineUtils::iteratively_split2 (vector<LRBSpline2D*>& bsplines,
     	split_occurred = true;
       } else {
      	// this function was not split.  Keep it.
-     	bool was_inserted = insert_bfun_to_set(*b, bmap, domain);
+     	bool was_inserted = insert_bfun_to_set(*b, bmap, domain, support);
 	if (!was_inserted)
 	  {
-	    // Remove bspline from element
-	    for (size_t kr=0; kr<elements.size(); ++kr)
+	    if (support)
 	      {
+		// Remove bspline from element
+		for (size_t kr=0; kr<elements.size(); ++kr)
+		  {
 #ifdef DEBUG
-		//	    std::cout << "DEBUG: ki = " << ki << ", kr = " << kr << ", deb_iter = " << deb_iter << std::endl;
+		    //	    std::cout << "DEBUG: ki = " << ki << ", kr = " << kr << ", deb_iter = " << deb_iter << std::endl;
 #endif
-		elements[kr]->removeSupportFunction(*b);
+		    elements[kr]->removeSupportFunction(*b);
+		  }
 	      }
 	    //	    MESSAGE("DEBUG: We should remove basis function from added_basis!");
 	    // Remove the B-spline also from the bmap if present
@@ -1163,16 +1180,20 @@ void LRSplineUtils::iteratively_split2 (vector<LRBSpline2D*>& bsplines,
 	  // combine b with the function already present
 	  (it->second)->gamma() += b->gamma();
 	  (it->second)->coefTimesGamma() += b->coefTimesGamma();
-	  // We update the support of b with its replacement.
-	  std::vector<Element2D*>::iterator it2 = b->supportedElementBegin();
-	  for (; it2 < b->supportedElementEnd(); ++it2)
-	    {
-	      // If there exists a support function already (such as b) it is overwritten.
-	      (*it2)->addSupportFunction(it->second.get());
-	      (it->second)->addSupport(*it2);
 
-	      // Remove b-spline from element
-	      (*it2)->removeSupportFunction(b);
+	  if (support)
+	    {
+	      // We update the support of b with its replacement.
+	      std::vector<Element2D*>::iterator it2 = b->supportedElementBegin();
+	      for (; it2 < b->supportedElementEnd(); ++it2)
+		{
+		  // If there exists a support function already (such as b) it is overwritten.
+		  (*it2)->addSupportFunction(it->second.get());
+		  (it->second)->addSupport(*it2);
+
+		  // Remove b-spline from element
+		  (*it2)->removeSupportFunction(b);
+		}
 	    }
 	  //#endif
 

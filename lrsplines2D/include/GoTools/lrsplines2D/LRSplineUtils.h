@@ -135,7 +135,8 @@ namespace Go
 			 LRSplineSurface::BSplineMap& bmap,
 			 double domain[], 
 			 std::vector<std::unique_ptr<BSplineUniLR> >& bspline_vec1,
-			 std::vector<std::unique_ptr<BSplineUniLR> >& bspline_vec2);
+			 std::vector<std::unique_ptr<BSplineUniLR> >& bspline_vec2,
+			 bool support);
 
     std::tuple<int, int, int, int>
       refine_mesh(Direction2D d, double fixed_val, double start, double end, 

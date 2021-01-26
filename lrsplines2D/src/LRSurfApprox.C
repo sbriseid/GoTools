@@ -388,8 +388,8 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	omp_for_elements << std::endl;
 #endif
 #else
-    const bool omp_for_elements = true; // 201503 The omp version seems to be faster even when run sequentially.
-    const bool omp_for_mba_update = true;//false; // 201503 The omp version seems to be faster even when run sequentially.
+    const bool omp_for_elements = false; //true; // 201503 The omp version seems to be faster even when run sequentially.
+    const bool omp_for_mba_update = false; //true;//false; // 201503 The omp version seems to be faster even when run sequentially.
 #endif
 
 #ifdef DEBUG
@@ -419,7 +419,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   bool alter = true;
   int div = 1; //(alter) ? 2 : 1;
   int currdiv = (alter) ? 1 : 3;
-  int refstrat = 2;
+  int refstrat = 1;
   double stratfac = -100.0; //0.1; //0.02;
   int ref = 1;
 
@@ -605,7 +605,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  if (threshold_prev > 0.0 && threshold/threshold_prev > 0.9)
 	    threshold = 0.9*threshold_prev;
 	  threshold = std::max(aepsge_, threshold);
-	  //threshold = aepsge_;
+	  threshold = aepsge_;
 	  std::cout << "Threshold: " << threshold << std::endl;
 	  int nmb_refs;
 	  if (ref == 1)
@@ -3225,8 +3225,23 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold, int refstrat
 	}
     }
 
-  srf_->refine2(refs_x, true);
-  srf_->refine2(refs_y, true);
+  srf_->refine(refs_x, true);
+  srf_->refine(refs_y, true);
+  // for (size_t kr=0; kr<refs_x.size(); kr += 50)
+  //   {
+  //     vector<LRSplineSurface::Refinement2D> refs_curr(refs_x.begin()+kr,
+  // 						      (kr+50 < refs_x.size() ? refs_x.begin()+kr+50 :
+  // 						       refs_x.end()));
+  //     srf_->refine(refs_curr, true);
+  //   }
+  // for (size_t kr=0; kr<refs_y.size(); kr += 50)
+  //   {
+  //     vector<LRSplineSurface::Refinement2D> refs_curr(refs_y.begin()+kr,
+  // 						      (kr+50 < refs_y.size() ? refs_y.begin()+kr+50 :
+  // 						       refs_y.end()));
+  //     srf_->refine(refs_curr, true);
+  //   }
+
   // for (kr=0; kr<refs_x.size(); ++kr)
   //   {
   //     srf_->refine(refs_x[kr], true /*false*/);
