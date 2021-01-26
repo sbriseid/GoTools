@@ -64,6 +64,7 @@
 //#define DEBUG2
 //#define DEBUG_HIST
 //#define DEBUG_SURF
+#define DEBUG_DIST
 
 using std::vector;
 using std::set;
@@ -420,7 +421,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   FILE *fp = fopen("acc_stat.txt","w");
   fprintf(fp, "Max iterations = %d, tolerance = %4.2f, no pts: %d \n",max_iter, aepsge_,nmb_pts_);
   fprintf(fp,"iter, maxdist, average dist, no. pts. out, no. coefs, rel. improvement, no. pts.in, approx efficiency, rel element without-element div, rel element under-element div, max inner knots, average inner knots, average out, no. el.  \n");
-  bool alter = true;
+  bool alter = false;
   int div = 1; //(alter) ? 2 : 1;
   int currdiv = (alter) ? 1 : 3;
   int refstrat = 1;
@@ -559,6 +560,38 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
       std::cout << "Number of significant points outside tolerance(" << sign_aepsge_ << "): " << outsideeps_sign_ << std::endl;
     }
 
+#ifdef DEBUG_DIST
+  std::ofstream r_out("residual0.txt");
+  int dim = srf_->dimension();
+  int del2 = dim + 3; // Parameter pair, point and distance
+  for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
+       it != srf_->elementsEnd(); ++it)
+    {
+      if (!it->second->hasDataPoints())
+	continue;
+      int del = it->second->getNmbValPrPoint();
+      if (del == 0)
+	del = del2;
+      vector<double>& points = it->second->getDataPoints();
+      vector<double>& sign_points = it->second->getSignificantPoints();
+      int nmb_pts = (int)points.size()/del;
+      int nmb_sign = (int)sign_points.size()/del;
+      int nmb_all = nmb_pts + nmb_sign;
+      double *curr;
+      int ka, kb;
+      for (ka=0, curr=&points[0]; ka<nmb_all; ++ka)
+	{
+	  for (kb=0; kb<del2; ++kb)
+	    r_out << curr[kb] << " ";
+	  r_out << std::endl;
+	  if (ka == nmb_pts-1 && nmb_all > nmb_pts)
+	    curr = &sign_points[0];
+	  else
+	    curr += del;
+	}
+    }
+#endif
+  
   if (write_feature_)
     {
       std::ofstream f_out("cellinfo0.txt");
@@ -881,7 +914,43 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	    }
 	}
       
-      if (write_feature_)
+#ifdef DEBUG_DIST
+      std::string body = "residual";
+      std::string extension = ".txt";
+      std::string ver = std::to_string(ki+1);
+      std::string outfile = body + ver + extension;
+      std::ofstream r_out2(outfile.c_str());
+      int dim = srf_->dimension();
+      int del2 = dim + 3; // Parameter pair, point and distance
+      for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
+	   it != srf_->elementsEnd(); ++it)
+	{
+	  if (!it->second->hasDataPoints())
+	    continue;
+	  int del = it->second->getNmbValPrPoint();
+	  if (del == 0)
+	    del = del2;
+	  vector<double>& points = it->second->getDataPoints();
+	  vector<double>& sign_points = it->second->getSignificantPoints();
+	  int nmb_pts = (int)points.size()/del;
+	  int nmb_sign = (int)sign_points.size()/del;
+	  int nmb_all = nmb_pts + nmb_sign;
+	  double *curr;
+	  int ka, kb;
+	  for (ka=0, curr=&points[0]; ka<nmb_all; ++ka)
+	    {
+	      for (kb=0; kb<del2; ++kb)
+		r_out2 << curr[kb] << " ";
+	      r_out2 << std::endl;
+	      if (ka == nmb_pts-1 && nmb_all > nmb_pts)
+		curr = &sign_points[0];
+	      else
+		curr += del;
+	    }
+	}
+#endif
+
+  if (write_feature_)
         {
          std::string body = "cellinfo";
          std::string extension = ".txt";
@@ -3693,7 +3762,7 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   int nmb_fixed = 0;
   //nmb_split = nmb_perm;
   min_nmb_pts = 0;
-  double average_threshold = std::max(0.01*average_nmb, average_nmb_out);
+  double average_threshold = 0.0; //std::max(0.01*average_nmb, average_nmb_out);
   average_threshold = std::min(average_threshold, 0.9*prev_thresh_);
   prev_thresh_ = average_threshold;
   std::cout << "Average threshold: " << average_threshold << std::endl;
@@ -3745,7 +3814,7 @@ int LRSurfApprox::refineSurf(int iter, int& dir, double threshold)
   std::cout << "Remaining elements with outside points: " << elem_out.size() << std::endl;
 #endif
 
-  bool elemref = false; //true;
+  bool elemref = true;
   if (elemref)
     {
       // Removing affected elements

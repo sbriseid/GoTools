@@ -525,7 +525,7 @@ int main(int argc, char *argv[])
   for (size_t kj=0; kj<tolerances.size(); ++kj)
     tolerances[kj].translateBox(-mid[0], -mid[1]);
 
-  if (true)//use_stdd)
+  if (/*true)/*/use_stdd)
     {
       double avheight = 0.0;
       for (ki=0; ki<nmb_pts; ++ki)
