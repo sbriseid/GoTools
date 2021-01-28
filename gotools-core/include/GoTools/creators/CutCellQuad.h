@@ -56,8 +56,8 @@ namespace Go
 		double tol);
 
     // Define quadrature information
-    void setQuadratureInfo(std::vector<double>& quadpar,
-			   std::vector<double> weights,
+    void setQuadratureInfo(const std::vector<double>& quadpar,
+			   const std::vector<double>& weights,
 			   double min_cell_size)
     {
       quadpar_ = quadpar;
@@ -70,11 +70,12 @@ namespace Go
 
     // Compute quadrature
     void quadrature(const Point& ll, const Point& ur,
-		    std::vector<std::vector<double> >& quadraturepoints,
-		    std::vector<std::vector<double> >& pointsweights,
+		    std::vector<double>& quadraturepoints,
+		    std::vector<double>& pointsweights,
 		    std::vector<std::vector<shared_ptr<ParamCurve> > >& unresolved_cells,
-		    std::vector<std::vector<double> >& curvequads,
-		    std::vector<std::vector<double> >& crvptweights,
+		    std::vector<double>& curvequads,
+		    std::vector<double>& curvenorms,
+		    std::vector<double>& crvptweights,
 		    std::vector<std::vector<shared_ptr<ParamCurve> > >& short_curves,
 		    int stat = -1);
 
@@ -86,6 +87,7 @@ namespace Go
     std::vector<double> quadpar_;
     std::vector<double> weights_;
     double min_cell_size_;
+    shared_ptr<CurveBoundedDomain> cutcelldom_;
 
     // Sort boundary curves
     void sortBoundary(std::vector<shared_ptr<ParamCurve> >& bd_curves,
@@ -111,11 +113,12 @@ namespace Go
 
     void
       quadraturePoints(std::vector<shared_ptr<CurveLoop> >& cell_loops,
-		       std::vector<std::vector<double> >& quadraturepoints,
-		       std::vector<std::vector<double> >& pointsweights,
+		       std::vector<double>& quadraturepoints,
+		       std::vector<double>& pointsweights,
 		       std::vector<std::vector<shared_ptr<ParamCurve> > >& unresolved_cells,
-		       std::vector<std::vector<double> >& curvequads,
-		       std::vector<std::vector<double> >& crvptweights,
+		       std::vector<double>& curvequads,
+		       std::vector<double>& curvenorms,
+		       std::vector<double>& crvptweights,
 		       std::vector<std::vector<shared_ptr<ParamCurve> > >& short_curves);
     
     
@@ -132,6 +135,7 @@ namespace Go
       void
       computeQuadraturePoints(std::vector<shared_ptr<ParamCurve> >& bd_seg,
 			      std::vector<double>& quadraturepoints,
+			      std::vector<double>& quadraturenorms,
 			      std::vector<double>& weights);
     
     void splitPars(std::vector<shared_ptr<CurveLoop> >& cell_loops,
@@ -164,6 +168,12 @@ namespace Go
 
     void checkSplits2(std::vector<double>& splitpar, double minp,
 		      double maxp, double lim);
+
+    bool checkSideCvs(std::vector<shared_ptr<ParamCurve> >& cvs);
+
+    void computeDirCurvature(std::vector<shared_ptr<ParamCurve> > cvs,
+			     double& curv1, double& curv2);
+
 
   };
 } // end namespace Go

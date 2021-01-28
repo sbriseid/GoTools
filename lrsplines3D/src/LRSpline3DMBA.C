@@ -63,7 +63,7 @@ using namespace Go;
 void LRSpline3DMBA::MBADistAndUpdate(LRSplineVolume *vol)
 //==============================================================================
 {
-  std::cout << "MBADistAndUpdate" << std::endl;
+  //std::cout << "MBADistAndUpdate" << std::endl;
 
 //   // We start the timer.
 // #ifdef _OPENMP
@@ -262,7 +262,7 @@ void LRSpline3DMBA::MBADistAndUpdate_omp(LRSplineVolume *vol, double eps,
 					 double delta)
 //==============================================================================
 {
-  std::cout << "MBADistAndUpdate_omp" << std::endl;
+  //std::cout << "MBADistAndUpdate_omp" << std::endl;
   double tol = 1.0e-12;  // Numeric tolerance
 
   double umax = vol->endparam_u();

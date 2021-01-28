@@ -44,6 +44,8 @@
 #include <iostream>
 #include <fstream>
 
+//#define DEBUG
+
 using std::vector;
 using std::pair;
 using std::make_pair;
@@ -74,7 +76,7 @@ int CutCellQuad::cellStat(const Point& ll, const Point& ur)
 
   // Check for intersections between the boundary curves and the curve model
   double eps = 1.0e-10;
-  shared_ptr<CurveBoundedDomain> domain(new CurveBoundedDomain(loops_));
+  shared_ptr<CurveBoundedDomain> domain(new CurveBoundedDomain(loops_[0]));
   int nmb_outside = 0;
   for (size_t ki=0; ki<4; ++ki)
     {
@@ -98,17 +100,57 @@ int CutCellQuad::cellStat(const Point& ll, const Point& ur)
   // Inside/outside test
   Vector2D mid(0.5*(ll[0]+ur[0]), 0.5*(ll[1]+ur[1]));
   bool inside = domain->isInDomain(mid, tol_);
+
+  if (inside)
+    {
+      RectDomain celldom(Vector2D(ll[0], ll[1]), Vector2D(ur[0], ur[1]));
+
+      // Check for intersection with trimming loop
+      for (size_t ki=1; ki<loops_.size(); ++ki)
+	{
+	  shared_ptr<CurveBoundedDomain> domain2(new CurveBoundedDomain(loops_[ki]));
+	  for (size_t ki=0; ki<4; ++ki)
+	    {
+	      vector<double> start_end_par;
+	      domain2->findPcurveInsideSegments(*cell_bd[ki], tol_, start_end_par, false);
+	      if (start_end_par.size() > 2)
+		return 2;
+	      
+	      if (start_end_par.size() == 0)
+		nmb_outside++;
+
+	      double t1 = cell_bd[ki]->startparam();
+	      double t2 = cell_bd[ki]->endparam();
+	      for (size_t kj=0; kj<start_end_par.size(); ++kj)
+		if (start_end_par[kj] > t1 + eps && start_end_par[kj] < t2 - eps)
+		  return 2;
+	    }
+	  if (nmb_outside > 0 && nmb_outside < 4)
+	    return 2;
+	}
+
+      // Check for totally included trimming loop
+     for (size_t ki=1; ki<loops_.size(); ++ki)
+	{
+	  shared_ptr<ParamCurve> cv = (*loops_[ki])[0];
+	  Point pos = cv->point(cv->startparam());
+	  if (celldom.isInDomain(Vector2D(pos[0],pos[1]), tol_))
+	    return 3;
+	}
+    }
+  
   return (inside) ? 1 : 0;
 }
 
 //==============================================================================
 void
 CutCellQuad::quadrature(const Point& ll, const Point& ur,
-			vector<vector<double> >& quadraturepoints,
-			vector<vector<double> >& pointsweights,
+			vector<double>& quadraturepoints,
+			vector<double>& pointsweights,
 			vector<vector<shared_ptr<ParamCurve> > >& unresolved_cells,
-			vector<vector<double> >& curvequads,
-			vector<vector<double> >& crvptweights,
+			vector<double>& curvequads,
+			vector<double>& curvenorms,
+			vector<double>& crvptweights,
 			vector<vector<shared_ptr<ParamCurve> > >& short_curves,
 			int stat)
 //==============================================================================
@@ -120,15 +162,17 @@ CutCellQuad::quadrature(const Point& ll, const Point& ur,
   cell_bd[2] = shared_ptr<SplineCurve>(new SplineCurve(ur, Point(ll[0],ur[1])));
   cell_bd[3] = shared_ptr<SplineCurve>(new SplineCurve(Point(ll[0],ur[1]), ll));
 
+#ifdef DEBUG
   std::ofstream ofbd("cell_bd.g2");
   for (int kk=0; kk<4; ++kk)
     {
       cell_bd[kk]->writeStandardHeader(ofbd);
       cell_bd[kk]->write(ofbd);
     }
+#endif
   
-  shared_ptr<CurveBoundedDomain> domain(new CurveBoundedDomain(loops_));
-  if (stat < 0 || stat > 2)
+  shared_ptr<CurveBoundedDomain> domain(new CurveBoundedDomain(loops_[0]));
+  if (stat < 0 || stat > 3)
     {
       double eps = 1.0e-10;
       int nmb_outside = 0;
@@ -159,11 +203,55 @@ CutCellQuad::quadrature(const Point& ll, const Point& ur,
       if (nmb_outside > 0 && nmb_outside < 4)
 	stat = 2;
       
-      if (stat != 2)
+      if (stat < 3)
 	{
 	  Vector2D mid(0.5*(ll[0]+ur[0]), 0.5*(ll[1]+ur[1]));
 	  bool inside = domain->isInDomain(mid, tol_);
-	  stat = (inside) ? 1 : 0;
+	  if (inside)
+	    {
+	      RectDomain celldom(Vector2D(ll[0], ll[1]), Vector2D(ur[0], ur[1]));
+		
+	      // Check for intersection with trimming loop
+	      for (size_t ki=1; ki<loops_.size(); ++ki)
+		{
+		  shared_ptr<CurveBoundedDomain> domain2(new CurveBoundedDomain(loops_[ki]));
+		  for (size_t ki=0; ki<4; ++ki)
+		    {
+		      vector<double> start_end_par;
+		      domain2->findPcurveInsideSegments(*cell_bd[ki], tol_, start_end_par, false);
+		      if (start_end_par.size() > 2)
+			stat = 2;
+	      
+		      if (start_end_par.size() == 0)
+			nmb_outside++;
+		      
+		      double t1 = cell_bd[ki]->startparam();
+		      double t2 = cell_bd[ki]->endparam();
+		      for (size_t kj=0; kj<start_end_par.size(); ++kj)
+			if (start_end_par[kj] > t1 + eps && start_end_par[kj] < t2 - eps)
+			  stat = 2;
+		    }
+		  if (nmb_outside > 0 && nmb_outside < 4)
+		    stat = 2;
+
+		  if (stat == 2)
+		    break;
+		}
+	      
+	      if (stat != 2)
+		{
+		  // Check for totally included trimming loop
+		  for (size_t ki=1; ki<loops_.size(); ++ki)
+		    {
+		      shared_ptr<ParamCurve> cv = (*loops_[ki])[0];
+		      Point pos = cv->point(cv->startparam());
+		      if (celldom.isInDomain(Vector2D(pos[0],pos[1]), tol_))
+			stat = 3;
+		    }
+		}
+	    }
+	  if (stat < 2)
+	    stat = (inside) ? 1 : 0;
 	}
     }
 
@@ -189,16 +277,14 @@ CutCellQuad::quadrature(const Point& ll, const Point& ur,
 	  quadpar2[ki] = ll[1] + quadpar_[ki]*del2;
 	  wgt2[ki] = weights_[ki]*del2;
 	}
-      quadraturepoints.resize(1);
-      quadraturepoints[0].resize(2*quadpar_.size()*quadpar_.size());
-      pointsweights.resize(1);
-      pointsweights[0].resize(quadpar_.size()*quadpar_.size());
+      quadraturepoints.resize(2*quadpar_.size()*quadpar_.size());
+      pointsweights.resize(quadpar_.size()*quadpar_.size());
       for (size_t kj=0; kj<quadpar_.size(); ++kj)
 	for (size_t ki=0; ki<quadpar_.size(); ++ki)
 	  {
-	    quadraturepoints[0][2*(kj*quadpar_.size()+ki)] = quadpar1[ki];
-	    quadraturepoints[0][2*(kj*quadpar_.size()+ki)+1] = quadpar2[kj];
-	    pointsweights[0][kj*quadpar_.size()+ki] = wgt1[ki]*wgt2[kj];
+	    quadraturepoints[2*(kj*quadpar_.size()+ki)] = quadpar1[ki];
+	    quadraturepoints[2*(kj*quadpar_.size()+ki)+1] = quadpar2[kj];
+	    pointsweights[kj*quadpar_.size()+ki] = wgt1[ki]*wgt2[kj];
 	  }
 
       // Check for coincidence between a piece of the boundary loop and the
@@ -218,42 +304,60 @@ CutCellQuad::quadrature(const Point& ll, const Point& ur,
 	    short_curves.push_back(bd_segs[ki]);
 	  else
 	    {
-	      vector<double> crvquads;
-	      vector<double> crvptwgts;
-	      computeQuadraturePoints(bd_segs[ki], crvquads, crvptwgts);
-	      curvequads.push_back(crvquads);
-	      crvptweights.push_back(crvptwgts);
+	      computeQuadraturePoints(bd_segs[ki], curvequads, curvenorms, crvptweights);
 	    }
 	}
     }
   else
     {
       // Cut cell
+#ifdef DEBUG
       std::cout << "Cut cell" << std::endl;
-
-      // Create cut cell representation
+#endif
       vector<vector<shared_ptr<CurveLoop> > > cut_bd;
-      createCutCell(loops_, cell_bd, cut_bd, true);
+      vector<shared_ptr<ParamCurve> > cell_bd2(cell_bd.begin(), cell_bd.end());
+      shared_ptr<CurveLoop> cell_loop(new CurveLoop(cell_bd2, tol_));
+      cutcelldom_ = shared_ptr<CurveBoundedDomain>(new CurveBoundedDomain(cell_loop));
+	  
+      if (stat == 2)
+	{
+	  // Create cut cell representation
+	  createCutCell(loops_, cell_bd, cut_bd, true);
+	}
+      else
+	{
+	  cut_bd.resize(1);
+	  cut_bd[0].push_back(cell_loop);
+
+	  // Identify internal trimming loops inside the cell
+	  RectDomain celldom(Vector2D(ll[0], ll[1]), Vector2D(ur[0], ur[1]));
+	  for (size_t ki=1; ki<loops_.size(); ++ki)
+	    {
+	      shared_ptr<ParamCurve> cv = (*loops_[ki])[0];
+	      Point pos = cv->point(cv->startparam());
+	      if (celldom.isInDomain(Vector2D(pos[0],pos[1]), tol_))
+		cut_bd[0].push_back(loops_[ki]);
+	    }
+	}
 
       for (size_t ki=0; ki<cut_bd.size(); ++ki)
 	{
 	  quadraturePoints(cut_bd[ki], quadraturepoints, pointsweights, unresolved_cells,
-			   curvequads, crvptweights, short_curves);
+			   curvequads, curvenorms, crvptweights, short_curves);
 	}
     }
-
+  
+#ifdef DEBUG
   std::ofstream ofq("quadpts.g2");
-  for (size_t ki=0; ki<quadraturepoints.size(); ++ki)
+  ofq << "400 1 0 4 100 100 55 255" << std::endl;
+  ofq << pointsweights.size() << std::endl;
+  for (size_t kj=0; kj<quadraturepoints.size(); kj+=2)
     {
-      ofq << "400 1 0 4 100 100 55 255" << std::endl;
-      ofq << quadpar_.size()*quadpar_.size() << std::endl;
-      for (size_t kj=0; kj<quadraturepoints[ki].size(); kj+=2)
-	{
-	  Point pt(quadraturepoints[ki][kj], quadraturepoints[ki][kj+1], 0.0);
-	  ofq << pt << std::endl;
-	}
+      Point pt(quadraturepoints[kj], quadraturepoints[kj+1], 0.0);
+      ofq << pt << std::endl;
     }
   int stop_break = 1;
+#endif
 }
 
 
@@ -283,26 +387,27 @@ void CutCellQuad::sortBoundary(vector<shared_ptr<ParamCurve> >& bd_curves,
   // Sort curves into loops and turn direction of curves if necessary.
   // Two curves should meet at every end point (possibly the two ends of
   // a closed curve).
+  double tol = tol_; //1.5*tol_;
   size_t ix = 0;
   vector<vector<shared_ptr<ParamCurve> > > loop_cvs;
   vector<Point> endloop;
   for (size_t ki=0; ki<bd_curves.size(); ++ki)
     {
       size_t kj;
-      if (endpt[2*ki].dist(endpt[2*ki+1]) <= tol_)
+      if (endpt[2*ki].dist(endpt[2*ki+1]) <= tol)
 	kj = loop_cvs.size();  // Closed curve
       else
 	{
 	  for (kj=0; kj<loop_cvs.size(); ++kj)
 	    {
-	      if (endloop[2*kj].dist(endloop[2*kj+1]) <= tol_)
+	      if (endloop[2*kj].dist(endloop[2*kj+1]) <= tol)
 		continue;  // Loop already closed
 	  
 	      double d1 = endloop[2*kj].dist(endpt[2*ki]);
 	      double d2 = endloop[2*kj].dist(endpt[2*ki+1]);
 	      double d3 = endloop[2*kj+1].dist(endpt[2*ki]);
 	      double d4 = endloop[2*kj+1].dist(endpt[2*ki+1]);
-	      if (d1 <= tol_ || d2 <= tol_)
+	      if (d1 <= tol || d2 <= tol)
 		{
 		  if (d1 < d2)
 		    {
@@ -314,7 +419,7 @@ void CutCellQuad::sortBoundary(vector<shared_ptr<ParamCurve> >& bd_curves,
 		  loop_cvs[kj].insert(loop_cvs[kj].begin(), bd_curves[ki]);
 		  break;
 		}
-	      else if (d3 <= tol_ || d4 <= tol_)
+	      else if (d3 <= tol || d4 <= tol)
 		{
 		  if (d4 < d3)
 		    {
@@ -343,7 +448,7 @@ void CutCellQuad::sortBoundary(vector<shared_ptr<ParamCurve> >& bd_curves,
   // two curves. Closed single curves loops can mess up the topology computations
   for (size_t kj=0; kj<loop_cvs.size(); ++kj)
     {
-      if (endloop[2*kj].dist(endloop[2*kj+1]) > tol_)
+      if (endloop[2*kj].dist(endloop[2*kj+1]) > tol)
 	THROW("Boundary loop not closed");
 
       if (loop_cvs[kj].size() == 1)
@@ -425,6 +530,13 @@ CutCellQuad::identifyBdCvs(vector<shared_ptr<CurveLoop> >& bd_loops,
 	  for (size_t kj=0; kj<par_start_end.size(); kj+=2)
 	    bd_cvs.push_back(shared_ptr<ParamCurve>(cv->subCurve(par_start_end[kj],
 								 par_start_end[kj+1])));
+	  if (par_start_end.size() == 0)
+	    {
+	      // Check internal point
+	      Point pos = cv->ParamCurve::point(0.5*(cv->startparam()+cv->endparam()));
+	      if (cell_domain->isInDomain(Vector2D(pos[0],pos[1]), tol_))
+		bd_cvs.push_back(cv);
+	    }
 	}
     }
 
@@ -525,14 +637,15 @@ CutCellQuad::createCutCell(vector<shared_ptr<CurveLoop> >& bd_loops,
 	if (len2 > len1)
 	  std::swap(split_cvs[ki], split_cvs[kj]);
       }
-  
+#ifdef DEBUG  
   std::ofstream ofcv("split_cvs.g2");
   for (size_t ki=0; ki<split_cvs.size(); ++ki)
     {
       split_cvs[ki]->writeStandardHeader(ofcv);
       split_cvs[ki]->write(ofcv);
     }
-
+#endif
+  
   if (split_cvs.size() == 0)
     {
       // Touch situation
@@ -562,7 +675,7 @@ CutCellQuad::createCutCell(vector<shared_ptr<CurveLoop> >& bd_loops,
   vector<vector<shared_ptr<ParamCurve> > > trim_cvs =
     BoundedUtils::getBoundaryLoops(bd_loops, split_cvs, tol_, min_loop_tol,
 				   min_loop_tol, par_eps);
-
+#ifdef DEBUG
   std::ofstream of("cut_bd.g2");
   for (size_t ki=0; ki<trim_cvs.size(); ++ki)
     for (size_t kj=0; kj<trim_cvs[ki].size(); ++kj)
@@ -570,9 +683,12 @@ CutCellQuad::createCutCell(vector<shared_ptr<CurveLoop> >& bd_loops,
 	trim_cvs[ki][kj]->writeStandardHeader(of);
 	trim_cvs[ki][kj]->write(of);
       }
+#endif
 
   vector<shared_ptr<ParamCurve> > cell_bd2(cell_bd.begin(), cell_bd.end());
   sortLoops(trim_cvs, cell_bd2, trim_loops, test_inside);
+
+#ifdef DEBUG
   std::cout << "Number of cell pieces: " << trim_loops.size() << std::endl;
 
   
@@ -589,6 +705,7 @@ CutCellQuad::createCutCell(vector<shared_ptr<CurveLoop> >& bd_loops,
       }
 
   int stop_break = 1;
+#endif
 }
 
 
@@ -685,14 +802,16 @@ CutCellQuad::sortLoops(vector<vector<shared_ptr<ParamCurve> > >& loop_cvs,
 //==============================================================================
 void
 CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
-			      vector<vector<double> >& quadraturepoints,
-			      vector<vector<double> >& pointsweights,
+			      vector<double>& quadraturepoints,
+			      vector<double>& pointsweights,
 			      vector<vector<shared_ptr<ParamCurve> > >& unresolved_cells,
-			      vector<vector<double> >& curvequads,
-			      vector<vector<double> >& crvptweights,
+			      vector<double>& curvequads,
+			      vector<double>& curvenorms,
+			      vector<double>& crvptweights,
 			      vector<vector<shared_ptr<ParamCurve> > >& short_curves)
 //==============================================================================
 {
+  #ifdef DEBUG
   std::ofstream of2("cell_curr.g2");
   for (size_t ki=0; ki<cell_loops.size(); ++ki)
     {
@@ -703,7 +822,8 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
 	  (*cell_loops[ki])[ka]->write(of2);
 	}
     }
-
+#endif
+  
   // Cell domain
   shared_ptr<CurveBoundedDomain> cvdom(new CurveBoundedDomain(cell_loops));
   RectDomain domain = cvdom->containingDomain();
@@ -721,10 +841,14 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
       return;   // Cell not handled
     }
 
+  // First check if a height direction can be found directly
+  int basedir = (cell_loops.size() > 1) ? -1 : heightDirection(cell_loops[0], domain);;
+
   // Collect split points and select parameter direction
   vector<double> splitpar;
-  int basedir = -1;
-  splitPars(cell_loops, cvdom, domain, splitpar, basedir);
+  //int basedir = -1;
+  if (basedir <  0)
+    splitPars(cell_loops, cvdom, domain, splitpar, basedir);
 
   if (splitpar.size() > 0)
     {
@@ -764,16 +888,16 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
       for (size_t ki=0; ki<trim_loops.size(); ++ki)
 	{
 	  quadraturePoints(trim_loops[ki], quadraturepoints, pointsweights, unresolved_cells,
-			   curvequads, crvptweights, short_curves);
+			   curvequads, curvenorms, crvptweights, short_curves);
 	  int stop_break = 1;
 	}
     }
   else
     {
-      // Find height direction, 1 = runs in u, 2 = runs in v
-      // There should be only the outer loop left now
-      if (basedir < 0)
-	basedir = heightDirection(cell_loops[0], domain);
+      // // Find height direction, 1 = runs in u, 2 = runs in v
+      // // There should be only the outer loop left now
+      // if (basedir < 0)
+      // 	basedir = heightDirection(cell_loops[0], domain);
  
       // Compute quadrature points
       vector<double> quadpts;
@@ -793,8 +917,8 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
 	  unresolved_cells.push_back(unresolved_cvs);
 	  return;   // Cell not handled
  	}
-      quadraturepoints.push_back(quadpts);
-      pointsweights.push_back(ptsweights);
+      quadraturepoints.insert(quadraturepoints.end(), quadpts.begin(), quadpts.end());
+      pointsweights.insert(pointsweights.end(), ptsweights.begin(), ptsweights.end());
 
       // Quadrature points corresponding to boundary curves
       vector<vector<shared_ptr<ParamCurve> > > bd_segs;
@@ -812,10 +936,12 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
 	      else
 		{
 		  vector<double> crvquads;
+		  vector<double> crvnorms;
 		  vector<double> crvptwgts;
-		  computeQuadraturePoints(bd_segs[ki], crvquads, crvptwgts);
-		  curvequads.push_back(crvquads);
-		  crvptweights.push_back(crvptwgts);
+		  computeQuadraturePoints(bd_segs[ki], crvquads, crvnorms, crvptwgts);
+		  curvequads.insert(curvequads.end(), crvquads.begin(), crvquads.end());
+		  curvenorms.insert(curvenorms.end(), crvnorms.begin(), crvnorms.end());
+		  crvptweights.insert(crvptweights.end(), crvptwgts.begin(), crvptwgts.end());
 		}
 	    }
 	}
@@ -826,6 +952,7 @@ CutCellQuad::quadraturePoints(vector<shared_ptr<CurveLoop> >& cell_loops,
 void
 CutCellQuad::computeQuadraturePoints(vector<shared_ptr<ParamCurve> >& bd_seg,
 				     vector<double>& quadraturepoints,
+				     vector<double>& quadraturenorms,
 				     vector<double>& weights)
 //==============================================================================
 {
@@ -862,10 +989,171 @@ CutCellQuad::computeQuadraturePoints(vector<shared_ptr<ParamCurve> >& bd_seg,
       bd_seg[ix]->point(quadder, quadpar[ki], 1);
       quadraturepoints.push_back(quadder[0][0]);
       quadraturepoints.push_back(quadder[0][1]);
+      Point quadnorm(quadder[1][1], -quadder[1][0]);
+      (void)quadnorm.normalize_checked();
+      quadraturenorms.push_back(quadnorm[0]);
+      quadraturenorms.push_back(quadnorm[1]);
       weights.push_back(wgt[ki]*quadder[1].length());
      }
  }
 
+//==============================================================================
+int CutCellQuad::heightDirection(shared_ptr<CurveLoop> cell_loop,
+				 const RectDomain& domain)
+//==============================================================================
+{
+  int basedir = -1;  // Default is height direction not found
+
+  // Distribute curves according to coincidence with the bounding box of the
+  // cut cell domain
+  vector<vector<shared_ptr<ParamCurve> > > sorted_curves;
+  sorted_curves.resize(5);  // left, right, lower, upper, not along domain boundary
+  int nmbcvs = cell_loop->size();
+  double umaxlen = 0.0, vmaxlen = 0.0;
+  for (int ka=0; ka<nmbcvs; ++ka)
+    {
+      shared_ptr<ParamCurve> cv = (*cell_loop)[ka];
+      Point dir;
+      if (cv->isLinear(dir, angtol_))
+  	{
+  	  Point pt1 = cv->point(cv->startparam());
+  	  Point pt2 = cv->point(cv->endparam());
+  	  int bd_ix = domain.whichBoundary(Vector2D(pt1[0],pt1[1]),
+  					   Vector2D(pt2[0],pt2[1]), tol_);
+  	  if (bd_ix == 0 || bd_ix == 1)
+  	    {
+	      vmaxlen = std::max(vmaxlen, fabs(pt1[1]-pt2[1]));
+	      sorted_curves[bd_ix].push_back(cv);
+  	    }
+  	  else if (bd_ix == 2 || bd_ix == 3)
+  	    {
+	      umaxlen = std::max(umaxlen, fabs(pt1[0]-pt2[0]));
+	      sorted_curves[bd_ix].push_back(cv);
+  	    }
+	  else
+	    {
+	      sorted_curves[4].push_back(cv);
+	    }
+  	}
+      else
+	{
+	  sorted_curves[4].push_back(cv);
+	}
+    }
+
+  if (sorted_curves[0].size() > 0 && sorted_curves[1].size() > 0 && sorted_curves[2].size() > 0 &&
+      sorted_curves[3].size() > 0 && sorted_curves[4].size() == 0)
+    {
+      // Height direction defined from size of baseline
+      return (umaxlen >= vmaxlen) ? 0 : 1;
+    }
+
+  if (sorted_curves[0].size() > 0 && sorted_curves[1].size() > 0)
+    {
+      // Potential for height direction along vertical edge
+      // Collect remaining curves and sort into continuous sequences
+      vector<shared_ptr<ParamCurve> > cvs;
+      for (int ka=2; ka<5; ++ka)
+	if (sorted_curves[ka].size() > 0)
+	  cvs.insert(cvs.end(), sorted_curves[ka].begin(), sorted_curves[ka].end());
+      if (checkSideCvs(cvs))
+	basedir = 1;
+      int stop_break1 = 1;
+    }
+
+  if (sorted_curves[2].size() > 0 && sorted_curves[3].size() > 0)
+    {
+      // Potential for height direction along horizontal edge
+      vector<shared_ptr<ParamCurve> > cvs;
+      for (int ka=0; ka<3; ++ka)
+	{
+	  if (ka == 2)
+	    ka = 4;
+	  if (sorted_curves[ka].size() > 0)
+	    cvs.insert(cvs.end(), sorted_curves[ka].begin(), sorted_curves[ka].end());
+	}
+      if (checkSideCvs(cvs))
+	basedir = 2;
+      int stop_break2 = 1;
+    }
+
+  return basedir;
+}
+
+//==============================================================================
+bool CutCellQuad::checkSideCvs(vector<shared_ptr<ParamCurve> >& cvs)
+//==============================================================================
+{
+  // Sort curves. The curves are oriented correctly, but the sequence is not organized
+  vector<vector<shared_ptr<ParamCurve> > > cv_seq;
+  for (size_t ki=0; ki<cvs.size(); ++ki)
+    {
+      Point pos1 = cvs[ki]->point(cvs[ki]->startparam());
+      Point pos2 = cvs[ki]->point(cvs[ki]->endparam());
+      size_t kj;
+      for (kj=0; kj<cv_seq.size(); ++kj)
+	{
+	  Point p1 = cv_seq[kj][0]->point(cv_seq[kj][0]->startparam());
+	  Point p2 = cv_seq[kj][cv_seq[kj].size()-1]->point(cv_seq[kj][cv_seq[kj].size()-1]->endparam());
+	  double d1 = pos2.dist(p1);
+	  double d2 = pos1.dist(p2);
+	  if (d1 <= d2 && d1 < tol_)
+	    {
+	      cv_seq[kj].insert(cv_seq[kj].begin(), cvs[ki]);
+	      break;
+	    }
+	  else if (d2 < tol_)
+	    {
+	      cv_seq[kj].push_back(cvs[ki]);
+	      break;
+	    }
+	}
+      if (kj == cv_seq.size())
+	{
+	  vector<shared_ptr<ParamCurve> > tmp;
+	  tmp.push_back(cvs[ki]);
+	  cv_seq.push_back(tmp);
+	}
+    }
+
+  if (cv_seq.size() != 2)
+    return false;  // Not a clear configuration
+
+  // For each group of curves, check for corners 
+  for (size_t ki=0; ki<cv_seq.size(); ++ki)
+    {
+      for (size_t kj=1; kj<cv_seq[ki].size(); ++kj)
+	{
+	  vector<Point> der1(2), der2(2);
+	  cv_seq[ki][kj-1]->point(der1, cv_seq[ki][kj-1]->endparam(), 1);
+	  cv_seq[ki][kj]->point(der2, cv_seq[ki][kj]->startparam(), 1);
+	  double ang = der1[1].angle(der2[1]);
+	  if (ang > angtol_)
+	    return false;
+	}
+    }
+
+  // Check for high curvature
+  double anglim = M_PI/6.0;
+   for (size_t ki=0; ki<cv_seq.size(); ++ki)
+    {
+      if (cv_seq[ki].size() == 0)
+	continue;
+      DirectionCone cone = cv_seq[ki][0]->directionCone();
+      for (size_t kj=1; kj<cv_seq[ki].size(); ++kj)
+	{
+	  DirectionCone cone2 = cv_seq[ki][kj]->directionCone();
+	  cone.addUnionWith(cone2);   // NB! Bug! Fix!
+	}
+      if (cone.angle() > anglim)
+	return false;
+    }
+
+   
+  return true;
+}
+
+#if 0
 //==============================================================================
 int CutCellQuad::heightDirection(shared_ptr<CurveLoop> cell_loop,
 				 const RectDomain& domain)
@@ -943,6 +1231,7 @@ int CutCellQuad::heightDirection(shared_ptr<CurveLoop> cell_loop,
     }
   return basedir;
 }
+#endif
 
 //==============================================================================
 void
@@ -970,7 +1259,7 @@ CutCellQuad::computeQuadraturePoints(shared_ptr<CurveBoundedDomain> cvdom,
 
   // Fetch constant parameter curves
   quadraturepoints.resize(2*quadpar_.size()*quadpar_.size());
-  pointsweights.resize(2*quadpar_.size()*quadpar_.size());
+  pointsweights.resize(quadpar_.size()*quadpar_.size());
   for (size_t ki=0; ki<quadpar1.size(); ++ki)
     {
       Point pt1, pt2;
@@ -1050,7 +1339,8 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
       if (ki == 0)
 	nmb_outer_corner = nmb_corner;
     }
-
+  
+#ifdef DEBUG
   if (corner.size() > 0)
     {
       std::ofstream cp("corner.g2");
@@ -1059,12 +1349,16 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
       for (size_t ki=0; ki<corner.size(); ki+=3)
 	cp << corner[ki] << "  0.0" << std::endl;
     }
-
+#endif
+  
   // Search for non-monotone parameter direction of trimming curves
   // Fetch also the bounding box containing the curves that are not parallel with
   // the parameter axis
-  vector<Point> turnpts1, turnpts2;
-  vector<Point> angpts;
+  vector<vector<Point> > turnpts1, turnpts2;
+  vector<vector<Point> > angpts;
+  turnpts1.resize(cell_loops.size());
+  turnpts2.resize(cell_loops.size());
+  angpts.resize(cell_loops.size());
   BoundingBox cvbox;
   for (size_t ki=0; ki<cell_loops.size(); ++ki)
     {
@@ -1083,7 +1377,7 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
 	    }
 	  else
 	    {
-	      fetchTurningPoints(cv, turnpts1, turnpts2, angpts);
+	      fetchTurningPoints(cv, turnpts1[ki], turnpts2[ki], angpts[ki]);
 	    }
 	  if (bd_ix < 0)
 	    {
@@ -1095,11 +1389,55 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
 	    }
 	}
     }
-  corner.insert(corner.end(), angpts.begin(), angpts.end());
+
+  size_t nangpts = angpts[0].size();
+  for (size_t ki=1; ki<angpts.size(); ++ki)
+    nangpts += angpts[ki].size();
+  
+#ifdef DEBUG
+  if (nangpts > 0)
+    {
+      std::ofstream cp("angpts.g2");
+      cp << "400 1 0 4 100 155 0 255" << std::endl;
+      cp << nangpts/3 << std::endl;
+      for (size_t kj=0; kj<angpts.size(); ++kj)
+	for (size_t ki=0; ki<angpts[kj].size(); ki+=3)
+	  cp << angpts[kj][ki] << "  0.0" << std::endl;
+    }
+#endif
+  
+  size_t nturn1 = turnpts1[0].size();
+  size_t nturn2 = turnpts2[0].size();
+  for (size_t ki=1; ki<turnpts1.size(); ++ki)
+    {
+      nturn1 += turnpts1[ki].size();
+      nturn2 += turnpts2[ki].size();
+    }
+
+#ifdef DEBUG
+  if (nturn1+nturn2 > 0)
+    {
+      std::ofstream cp("turnpts.g2");
+      cp << "400 1 0 4 0 155 100 255" << std::endl;
+      cp << nturn1+nturn2 << std::endl;
+      for (size_t kj=0; kj<turnpts1.size(); ++kj)
+	{
+	  for (size_t ki=0; ki<turnpts1[kj].size(); ++ki)
+	    cp << turnpts1[kj][ki] << "  0.0" << std::endl;
+	  for (size_t ki=0; ki<turnpts2[kj].size(); ++ki)
+	    cp << turnpts2[kj][ki] << "  0.0" << std::endl;
+	}
+    }
+#endif
+  
+  for (size_t ki=1; ki<angpts.size(); ++ki)
+    corner.insert(corner.end(), angpts[ki].begin(), angpts[ki].end());
 
   vector<double> candpar;
-  int preferdir = (turnpts1.size() > 0 && turnpts2.size() == 0) ? 2 :
-    ((turnpts2.size() > 0 && turnpts1.size() == 0) ? 1 : 0);
+  // int preferdir = (turnpts1.size() > 0 && turnpts2.size() == 0) ? 2 :
+  //   ((turnpts2.size() > 0 && turnpts1.size() == 0) ? 1 : 0);
+  int preferdir = (nturn1>0 && nturn2 == 0) ? 2 :
+    ((nturn2 > 0 && nturn1 == 0) ? 1 : 0);
   defineSplits1(corner, cvdom, nmb_outer_corner, domain, cvbox,
 		preferdir, splitpar, dir, candpar);
 
@@ -1166,9 +1504,83 @@ void CutCellQuad::splitPars(vector<shared_ptr<CurveLoop> >& cell_loops,
 	}
     }
 
-  if (splitpar.size() == 0 && turnpts1.size() + turnpts2.size() > 0)
+  // if (splitpar.size() == 0 && turnpts1.size() + turnpts2.size() > 0)
+  //   {
+  //     defineSplits2(turnpts1, turnpts2, cvdom, domain, splitpar, dir, candpar);
+  //   }
+
+  if (dir == 1 && splitpar.size() == 0 && nturn1+nturn2+nangpts > 0)
     {
-      defineSplits2(turnpts1, turnpts2, cvdom, domain, splitpar, dir, candpar);
+      vector<double> tmppar;
+      for (size_t ki=0; ki<angpts.size(); ++ki)
+	{
+	  for (size_t kj=0; kj<angpts[ki].size(); kj+=3)
+	    tmppar.push_back(angpts[ki][kj][0]);
+	  for (size_t kj=0; kj<turnpts1[ki].size(); ++kj)
+	    tmppar.push_back(turnpts1[ki][kj][0]);
+	}
+      double mid = 0.5*(domain.umin()+domain.umax());
+      if (tmppar.size() == 0)
+	splitpar.push_back(mid);
+      else
+	{
+	  std::sort(tmppar.begin(), tmppar.end());
+	  size_t ix = tmppar.size()/2; 
+	  if (tmppar.size()%2 == 0 && fabs(tmppar[ix-1]-mid) < fabs(tmppar[ix]-mid))
+	    --ix;
+	  splitpar.push_back(tmppar[ix]);
+	}
+    }
+  else if (dir == 2 && splitpar.size() == 0 && nturn1+nturn2+nangpts > 0)
+    {
+      vector<double> tmppar;
+      for (size_t ki=0; ki<angpts.size(); ++ki)
+	{
+	  for (size_t kj=0; kj<angpts[ki].size(); kj+=3)
+	    tmppar.push_back(angpts[ki][kj][1]);
+	  for (size_t kj=0; kj<turnpts2[ki].size(); ++kj)
+	    tmppar.push_back(turnpts2[ki][kj][1]);
+	}
+      double mid = 0.5*(domain.vmin()+domain.vmax());
+      if (tmppar.size() == 0)
+	splitpar.push_back(mid);
+      else
+	{
+	  std::sort(tmppar.begin(), tmppar.end());
+	  size_t ix = tmppar.size()/2; 
+	  if (tmppar.size()%2 == 0 && fabs(tmppar[ix-1]-mid) < fabs(tmppar[ix]-mid))
+	    --ix;
+	  splitpar.push_back(tmppar[ix]);
+	}
+    }
+
+  if (dir < 0 && splitpar.size() == 0)
+    {
+      // Subdivide in direction with highest curvature
+      vector<shared_ptr<ParamCurve> > cvs;
+        for (size_t ki=0; ki<cell_loops.size(); ++ki)
+	  {
+	    cvs.insert(cvs.end(), cell_loops[ki]->begin(), cell_loops[ki]->end());
+	  }
+      double curv1, curv2;
+      computeDirCurvature(cvs, curv1, curv2);
+      curv1 -= 2.0*(domain.umax() - domain.umin());
+      curv2 -= 2.0*(domain.vmax() - domain.vmin());
+      if (curv1 <= tol_ && curv2 <= tol_)
+	{
+	  // No subdivision
+	  dir = (domain.umax() - domain.umin() >= domain.vmax() - domain.vmin()) ? 1 : 2;
+	}
+      else if (curv1 >= curv2)
+	{
+	  splitpar.push_back(0.5*(domain.vmin()+domain.vmax()));
+	  dir = 2;
+	}
+      else
+	{
+	  splitpar.push_back(0.5*(domain.umin()+domain.umax()));
+	  dir = 1;
+	}
     }
   int stop_break = 1;
 }
@@ -1184,6 +1596,7 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 				vector<double>& candpar)
 //==============================================================================
 {
+  double pihalf = 0.5*M_PI;
   double umin = domain.umin();
   double umax = domain.umax();
   double vmin = domain.vmin();
@@ -1208,13 +1621,25 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
       double vang2 = corner[ki+2].angle(vdir);
       vang2 = std::min(vang2, M_PI-vang2);
       if (on_u == 1 && (uang1<angtol_ || uang2<angtol_))
-	split_u1.push_back(corner[ki][0]);
+	{
+	  if (fabs(std::max(uang1,uang2)-pihalf) > angtol_)
+	    split_u1.push_back(corner[ki][0]);
+	}
       else if (on_u == 2 && (uang1<angtol_ || uang2<angtol_))
-	split_u2.push_back(corner[ki][0]);
+	{
+	  if (fabs(std::max(uang1,uang2)-pihalf) > angtol_)
+	    split_u2.push_back(corner[ki][0]);
+	}
       else if (on_v == 1 && (vang1<angtol_ || vang2<angtol_))
-	split_v1.push_back(corner[ki][1]);
+	{
+	  if (fabs(std::max(vang1,vang2)-pihalf) > angtol_)
+	    split_v1.push_back(corner[ki][1]);
+	}
       else if (on_v == 2 && (vang1<angtol_ || vang2<angtol_))
-	split_v2.push_back(corner[ki][1]);
+	{
+	  if (fabs(std::max(vang1,vang2)-pihalf) > angtol_)
+	    split_v2.push_back(corner[ki][1]);
+	}
       else
 	{
 	  Point pt1 = corner[ki] + 2*tol_*udir;
@@ -1239,13 +1664,14 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 
   size_t num_u = split_u1.size() + split_u2.size() + split_uin.size();
   size_t num_v = split_v1.size() + split_v2.size() + split_vin.size();
+  int preferdir2 = preferdir;
   if (cvbox.dimension() == 2)
     {
       double uboxlen = cvbox.high()[0] - cvbox.low()[0];
       double vboxlen = cvbox.high()[1] - cvbox.low()[1];
       double boxfraclim = 0.9;
       if (preferdir == 0 && std::min(uboxlen,vboxlen)/std::max(uboxlen,vboxlen) < boxfraclim)
-	preferdir = (uboxlen < vboxlen) ? 2 : 1;
+	preferdir2 = (uboxlen < vboxlen) ? 2 : 1;
     }
   if (num_u == 0 && num_v > 0)
     {
@@ -1256,7 +1682,14 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	  Vector2D pt2(umax, split_v2[0]);
 	  samecv = cvdom->onSmoothBdSeg(pt1, pt2, tol_, angtol_);
 	}
-      if (((split_v1.size() == 1 && split_v2.size() == 1 && samecv) ||
+      if (preferdir == 1)
+	{
+	  dir = 1;
+	  candpar.insert(candpar.end(), split_v1.begin(), split_v1.end());
+	  candpar.insert(candpar.end(), split_v2.begin(), split_v2.end());
+	  std::sort(candpar.begin(), candpar.end());
+	}
+      else if (((split_v1.size() == 1 && split_v2.size() == 1 && samecv) ||
 	   (split_v1.size()+split_v2.size() == 1 && nmb_outer_corner <= 4)) &&
 	  split_vin.size() == 0 && split_vout.size() == 0)
 	{
@@ -1268,15 +1701,23 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
       else if (split_v1.size() > 0 && split_v2.size() > 0)
 	{
 	  dir = 2;
+	  double lim = 0.2*(vmax-vmin);
+	  double mindist = vmax - vmin;
+	  for (size_t ki=0; ki<split_v1.size(); ++ki)
+	    for (size_t kj=0; kj<split_v2.size(); ++kj)
+	      {
+		double dd = fabs(split_v1[ki]-split_v2[kj]);
+		mindist = std::min(mindist, dd);
+	      }
 	  splitpar.insert(splitpar.end(), split_v1.begin(), split_v1.end());
 	  splitpar.insert(splitpar.end(), split_v2.begin(), split_v2.end());
 	  if (split_uin.size() > 0)
 	    splitpar.insert(splitpar.end(), split_vin.begin(), split_vin.end());
 	  std::sort(splitpar.begin(), splitpar.end());
-	  bool OK = checkSplits(splitpar, 0.2*(vmax-vmin));
-	  if (!OK)
+	  if (splitpar.size() > 0)
+	    checkSplits2(splitpar, vmin, vmax, lim);
+	  if (splitpar.size() == 0 || mindist < lim)
 	    {
-	      splitpar.clear();
 	      splitpar.push_back(0.5*(umin+umax));
 	      dir = 1;
 	    }
@@ -1302,7 +1743,14 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	  Vector2D pt2(split_u2[0], vmax);
 	  samecv = cvdom->isOnSameBdCrv(pt1, pt2, tol_);
 	}
-      if (((split_u1.size() == 1 && split_u2.size() == 1 && samecv) ||
+      if (preferdir == 2)
+      	{
+	  dir = 2;
+	  candpar.insert(candpar.end(), split_u1.begin(), split_u1.end());
+	  candpar.insert(candpar.end(), split_u2.begin(), split_u2.end());
+	  std::sort(candpar.begin(), candpar.end());
+	}
+      else if (((split_u1.size() == 1 && split_u2.size() == 1 && samecv) ||
 	   (split_u1.size()+split_u2.size() == 1 && nmb_outer_corner <= 4)) &&
 	  split_uin.size() == 0 && split_vout.size() == 0)
 	{
@@ -1314,6 +1762,14 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
       else if (split_u1.size() > 0 && split_u2.size() > 0)
 	{
 	  dir = 1;
+	  double lim = 0.2*(umax-umin);
+	  double mindist = umax - umin;
+	  for (size_t ki=0; ki<split_u1.size(); ++ki)
+	    for (size_t kj=0; kj<split_u2.size(); ++kj)
+	      {
+		double dd = fabs(split_u1[ki]-split_u2[kj]);
+		mindist = std::min(mindist, dd);
+	      }
 	  splitpar.insert(splitpar.end(), split_u1.begin(), split_u1.end());
 	  splitpar.insert(splitpar.end(), split_u2.begin(), split_u2.end());
 	  if (split_uin.size() > 0)
@@ -1321,10 +1777,10 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	  std::sort(splitpar.begin(), splitpar.end());
 	  
 	  // Check for close split parameters
-	  bool OK = checkSplits(splitpar, 0.2*(umax-umin));
-	  if (!OK)
+	  if (splitpar.size() > 1)
+	    checkSplits2(splitpar, umin, umax, 0.2*(umax-umin));
+	  if (splitpar.size() == 0 || mindist < lim)
 	    {
-	      splitpar.clear();
 	      splitpar.push_back(0.5*(vmin+vmax));
 	      dir = 2;
 	    }
@@ -1352,7 +1808,7 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
     }
   else if (num_u > 0 && num_v > 0)
     {
-      if (split_uin.size() > 0 && !(split_vin.size() > 0 && preferdir == 2))
+      if (split_uin.size() > 0 && !(split_vin.size() > 0 && preferdir2 == 2))
 	{
 	  dir = 1;
 	  splitpar = split_uin;
@@ -1381,6 +1837,16 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	{
 	  dir = 2;
 	  splitpar = split_v1;
+	}
+      else if (num_u == 1 && split_v1.size() > 0 && split_v2.size() > 0)
+	{
+	  dir = 1;
+	  splitpar = (split_u1.size() > 0) ? split_u1 : split_u2;
+	}
+      else if (num_v == 1 && split_u1.size() > 0 && split_u2.size() > 0)
+	{
+	  dir = 2;
+	  splitpar = (split_v1.size() > 0) ? split_v1 : split_v2;
 	}
       else if (num_u == 1 && num_v > 1)
 	{
@@ -1462,6 +1928,10 @@ void CutCellQuad::defineSplits1(const vector<Point>& corner,
 	}
 
       std::sort(splitpar.begin(), splitpar.end());
+      if (dir == 1 && splitpar.size() > 1)
+	checkSplits2(splitpar, umin, umax, 0.2*(umax-umin));
+      else if (dir == 2 && splitpar.size() > 1)
+	checkSplits2(splitpar, vmin, vmax, 0.2*(vmax-vmin));
       if (split_uin.size() == 0 && split_vin.size() == 0 && preferdir == 0)
 	{
 	  // Check split parameters
@@ -1742,9 +2212,11 @@ void CutCellQuad::checkSplits2(vector<double>& splitpar, double minp, double max
 //==============================================================================
 {
   double midp = 0.5*(minp + maxp);
-   if (splitpar[0] - minp < lim)
+  double dd1 = splitpar[0] - minp;
+  double dd2 = maxp - splitpar[splitpar.size()-1];
+  if (dd1 < lim && (dd1 < dd2 || splitpar.size() > 2))
     splitpar.erase(splitpar.begin(), splitpar.begin()+1);
-  if (splitpar.size() > 0 && maxp - splitpar[splitpar.size()-1] < lim)
+  if (dd2 < lim && splitpar.size() > 0)
     splitpar.pop_back();
   for (size_t ki=1; ki<splitpar.size(); )
     {
@@ -1821,6 +2293,28 @@ void CutCellQuad::fetchTurningPoints(shared_ptr<ParamCurve> cv,
 	    }
 	  if (sgn != 0)
 	    prev_sgn = sgn;
+	}
+    }
+}
+
+//==============================================================================
+void CutCellQuad::computeDirCurvature(vector<shared_ptr<ParamCurve> > cvs,
+				      double& curv1, double& curv2)
+//==============================================================================
+{
+  curv1 = curv2 = 0.0;
+  for (size_t ki=0; ki<cvs.size(); ++ki)
+    {
+      shared_ptr<SplineCurve> splcv(cvs[ki]->geometryCurve());
+      vector<double>::iterator c1 = splcv->coefs_begin();
+      vector<double>::iterator c2 = c1 + 2;
+      int numcf = splcv->numCoefs();
+      for (int ki=1; ki<numcf; ++ki, c1+=2, c2+=2)
+	{
+	  double dd1 = *(c2) - *(c1);
+	  double dd2 = *(c2+1) - *(c1+1);
+	  curv1 += fabs(dd1);
+	  curv2 += fabs(dd2);
 	}
     }
 }

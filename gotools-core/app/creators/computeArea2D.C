@@ -187,24 +187,22 @@ int main(int argc, char** argv)
 	  {
 	    vector<vector<shared_ptr<ParamCurve> > > unresolved_cells;
 	    vector<vector<shared_ptr<ParamCurve> > > short_cvs;
-	    vector<vector<double> > quadpt;
-	    vector<vector<double> > ptweights;
-	    vector<vector<double> > bdquad;
-	    vector<vector<double> > bdweights;
+	    vector<double> quadpt;
+	    vector<double> ptweights;
+	    vector<double> bdquad;
+	    vector<double> bdnorm;
+	    vector<double> bdweights;
 	    quad.quadrature(ll, ur, quadpt, ptweights, unresolved_cells,
-			    bdquad, bdweights, short_cvs, stat);
+			    bdquad, bdnorm, bdweights, short_cvs, stat);
   
-	    for (size_t kk=0; kk<quadpt.size(); ++kk)
+	    outfile << "400 1 0 4 100 100 55 255" << std::endl;
+	    outfile << ptweights.size() << std::endl;
+	    for (size_t kr=0; kr<quadpt.size(); kr+=2)
 	      {
-		outfile << "400 1 0 4 100 100 55 255" << std::endl;
-		outfile << quadval.size()*quadval.size() << std::endl;
-		for (size_t kr=0; kr<quadpt[kk].size(); kr+=2)
-		  {
-		    Point pt(quadpt[kk][kr], quadpt[kk][kr+1], 0.0);
-		    outfile << pt << std::endl;
-		    
-		    area += ptweights[kk][kr/2];
-		  }
+		Point pt(quadpt[kr], quadpt[kr+1], 0.0);
+		outfile << pt << std::endl;
+		
+		area += ptweights[kr/2];
 	      }
 
 	    for (size_t kk=0; kk<unresolved_cells.size(); ++kk)
@@ -216,19 +214,25 @@ int main(int argc, char** argv)
 
 	    if (bdquad.size() > 0)
 	      {
-		for (size_t kk=0; kk<bdquad.size(); ++kk)
+		outfile << "400 1 0 4 155 0 100 255" << std::endl;
+		outfile << bdweights.size() << std::endl;
+		double tmp = 0.0;
+		for (size_t kr=0; kr<bdquad.size(); kr+=2)
 		  {
-		    outfile << "400 1 0 4 155 0 100 255" << std::endl;
-		    outfile << bdquad[kk].size()/2 << std::endl;
-		    double tmp = 0.0;
-		    for (size_t kr=0; kr<bdquad[kk].size(); kr+=2)
-		      {
-			Point pt(bdquad[kk][kr], bdquad[kk][kr+1], 0.0);
-			outfile << pt << std::endl;
-			
-			tmp += bdweights[kk][kr/2];
-		      }
-		    ferenc += tmp;
+		    Point pt(bdquad[kr], bdquad[kr+1], 0.0);
+		    outfile << pt << std::endl;
+		    
+		    tmp += bdweights[kr/2];
+		  }
+		ferenc += tmp;
+
+		outfile << "410 1 0 4 155 0 100 255" << std::endl;
+		outfile << bdweights.size() << std::endl;
+		for (size_t kr=0; kr<bdquad.size(); kr+=2)
+		  {
+		    Point pt1(bdquad[kr], bdquad[kr+1], 0.0);
+		    Point pt2(bdquad[kr]+bdnorm[kr], bdquad[kr+1]+bdnorm[kr+1], 0.0);
+		    outfile << pt1 << " " << pt2 << std::endl;
 		  }
 
 		for (size_t kk=0; kk<short_cvs.size(); ++kk)

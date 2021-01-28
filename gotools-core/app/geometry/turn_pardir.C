@@ -37,51 +37,57 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#include "GoTools/compositemodel/SurfaceModel.h"
-#include "GoTools/compositemodel/ftSurface.h"
-#include "GoTools/compositemodel/CompositeModelFactory.h"
-#include "GoTools/compositemodel/RegularizeFaceSet.h"
+#include <iostream>
 #include <fstream>
+#include "GoTools/geometry/GoTools.h"
+#include "GoTools/geometry/ParamSurface.h"
+#include "GoTools/geometry/ObjectHeader.h"
+#include "GoTools/geometry/Factory.h"
 
-//using namespace std;
+using std::cin;
+using std::cout;
+using std::endl;
+using std::string;
+using std::ifstream;
+using std::ofstream;
+
 using namespace Go;
 
-int main( int argc, char* argv[] )
+int main(int argc, char* argv[])
 {
-  if (argc != 3) {
-    std::cout << "Input parameters : Input file(g2), output file" << std::endl;
-    exit(-1);
-  }
+    if(argc != 3) {
+	std::cout << "usage: filein fileout" << std::endl;
+	return -1;
+    }
 
-  // Read input arguments
-  std::ifstream file1(argv[1]);
-  ALWAYS_ERROR_IF(file1.bad(), "Input file not found or file corrupt");
 
-  std::ofstream file2(argv[2]);
-
-  double gap =  2.569728643917E-06; //0.0001; // 0.001;
-  double neighbour = 10.0*gap; //0.001; // 0.01;
-  double kink = 0.01;
-  double approxtol = 0.5*neighbour; //0.001;
-
-  CompositeModelFactory factory(approxtol, gap, neighbour, kink, 10.0*kink);
-
-  CompositeModel *model = factory.createFromG2(file1);
-
-  shared_ptr<SurfaceModel> sfmodel =  
-    shared_ptr<SurfaceModel>(dynamic_cast<SurfaceModel*>(model));
-
-   if (sfmodel)
-  {
-    sfmodel->simplifyShell();
+    std::ifstream input(argv[1]);
+    if (input.bad()) {
+	std::cerr << "File error (no file or corrupt file specified)."
+		  << std::endl;
+	return 1;
+    }
     
-    int nmb = sfmodel->nmbEntities();
-    for (int ki=0; ki<nmb; ++ki)
-      {
-	shared_ptr<ParamSurface> surf = sfmodel->getSurface(ki);
-	surf->writeStandardHeader(file2);
-	surf->write(file2);
-      }
-  }
-}
+    std::ofstream out(argv[2]);
 
+   GoTools::init();
+
+   shared_ptr<ObjectHeader> header(new ObjectHeader());
+
+    header->read(input);
+    shared_ptr<GeomObject> geom_obj(Factory::createObject(header->classType()));
+    shared_ptr<ParamSurface> surf =
+      dynamic_pointer_cast<ParamSurface,GeomObject>(geom_obj);
+    surf->read(input);
+    if (!surf.get())
+      {
+	std::cout << "Object one is not a surface" << std::endl;
+	exit(1);
+      }
+
+    surf->turnOrientation();
+
+    surf->writeStandardHeader(out);
+    surf->write(out);
+
+}

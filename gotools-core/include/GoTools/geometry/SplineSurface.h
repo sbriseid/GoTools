@@ -505,8 +505,7 @@ class GO_API SplineSurface : public ParamSurface
     ///         to this surface.
     virtual DirectionCone normalCone() const;
 
-    virtual void normalCones(shared_ptr<DirectionCone> orth_cone[],
-			     shared_ptr<DirectionCone> along_cone[]) const;
+    virtual void dirNormAngles(std::pair<double,double>  minmaxang[]) const;
     
     /* virtual void normalCones(DirectionCone& cone_orthx, */
     /* 			     DirectionCone& cone_orthy, */

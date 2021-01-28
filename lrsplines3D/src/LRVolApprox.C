@@ -59,6 +59,7 @@
 
 //#define DEBUG
 //#define DEBUG0
+//#define DEBUG_REF
 
 using std::vector;
 using std::cout;
@@ -143,7 +144,7 @@ LRVolApprox::LRVolApprox(shared_ptr<LRSplineVolume>& vol,
     maxout_(-10000.0), avout_(0.0), aepsge_(epsge), smoothweight_(0.0),
     repar_(repar), check_close_(closest_dist), 
     fix_corner_(false), to3D_(-1), check_init_accuracy_(check_init_accuracy), 
-    grid_(false), has_min_constraint_(false), 
+    grid_(false), initial_volume_(true), has_min_constraint_(false), 
     has_max_constraint_(false), has_local_constraint_(false),
     outfrac_(0.0), write_feature_(false), verbose_(false)
 {
@@ -487,7 +488,8 @@ shared_ptr<LRSplineVolume> LRVolApprox::getApproxVol(double& maxdist,
   int m_itermax = 2; //4; //3; //2;
   for (int m_iter=1; m_iter<m_itermax; ++m_iter)
     {
-  cout << "Running MBA a second time... " << endl;
+      if (verbose_)
+	cout << "Running MBA a second time... " << endl;
   if (omp_for_mba_update && vol_->dimension() == 1)
     {
       // double delta = (avdist_ < mineps) ? 0.0 : 0.001;
@@ -532,14 +534,11 @@ shared_ptr<LRSplineVolume> LRVolApprox::getApproxVol(double& maxdist,
     std::cout << "Compute accuracy" << std::endl;
 #endif
 
-    if (verbose_)
-      {
-	// Compute accuracy in data points
-	if (omp_for_elements)
-	  computeAccuracy_omp(ghost_elems);
-	else
-	  computeAccuracy(ghost_elems);
-      }
+    // Compute accuracy in data points
+    if (omp_for_elements)
+      computeAccuracy_omp(ghost_elems);
+    else
+      computeAccuracy(ghost_elems);
 
     // Compute accuracy in data points
     if (verbose_)
@@ -654,15 +653,21 @@ shared_ptr<LRSplineVolume> LRVolApprox::getApproxVol(double& maxdist,
 	      threshold = 0.9*threshold_prev;
 	    threshold = std::max(mineps, threshold);
 	    threshold = aepsge_;
+#ifdef DEBUG_REF
 	    std::cout << "Level " << level+1 << ", threshold = " << threshold << std::endl;
+#endif
 	    //int nmb_refs = refineVol3(level+1, currdiv, threshold);
 	    int nmb_refs = refineVol(level+1, currdiv, threshold);
 	    if (nmb_refs == 0)
 	      {
+#ifdef DEBUG_REF
 		std::cout << "No refinements performed" << std::endl;
+#endif
 		break;  // No refinements performed
 	      }
+#ifdef DEBUG_REF
 	    std::cout << "Distribute data points" << std::endl;
+#endif
 	    LRSpline3DUtils::distributeDataPoints(vol_.get(), points_, 
 						  true, true);
 	    threshold_prev = threshold;
@@ -826,9 +831,9 @@ shared_ptr<LRSplineVolume> LRVolApprox::getApproxVol(double& maxdist,
 	avdist_all_prev_ = avdist_all_;
 	outsideeps_prev_ = outsideeps_;
            
-	//#ifdef DEBUG0
+#ifdef DEBUG0
 	std::cout << "Compute accuracy" << std::endl;
-	//#endif
+#endif
 
 	  ghost_elems.clear();
 	  if (omp_for_elements)
@@ -863,8 +868,9 @@ shared_ptr<LRSplineVolume> LRVolApprox::getApproxVol(double& maxdist,
 	  outsideeps_prev = outsideeps_;
 	  max_prev = maxdist_;
 	  av_prev = avdist_all_;
-
+#ifdef DEBUG_REF
 	  std::cout << "epsfrac: " << epsfrac << std::endl;
+#endif
 	  if (prev_.get() && maxdist_ > maxdist_prev_ &&
 	      outsideeps_ >= outsideeps_prev_)
 	    {
@@ -1328,7 +1334,6 @@ void LRVolApprox::computeAccuracy_omp(vector<Element3D*>& ghost_elems)
   // Note that only points more distant from the surface than the tolerance
   // are considered in avdist_ 
 
-  std::cout << "Compute accuracy OMP" << std::endl;
   // Initiate accuracy information
   maxdist_ = 0.0;
   avdist_ = 0.0;
@@ -2123,8 +2128,9 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
   
   int choice = 0;  // Strategy for knot insertion in one single B-spline
   int totdeg = vol_->degree(XDIR)*vol_->degree(YDIR)*vol_->degree(ZDIR);
-
+#ifdef DEBUG_REF
   std::ofstream of("error_elems.txt");
+#endif
   double maxerrfac = 0.8;
 
   double mineps = std::min(aepsge_, threshold);
@@ -2148,6 +2154,7 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
       it->second->getAccuracyInfo(av_err, max_err, nmb_out);
       if (nmb_out > 0)
 	{
+#ifdef DEBUG_REF
 	  if (max_err > maxerrfac*maxdist_ && max_err > 0.5*(aepsge_ + maxdist_))
 	    {
 	      of << it->second.get() << ", " << max_err << ", " << nmb_pts << ", " << nmb_out << ", " << av_err << std::endl;
@@ -2156,6 +2163,7 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
 	      of << it->second->wmin() << ", " << it->second->wmax() << std::endl;
 	      of << std::endl;
 	    }
+#endif
 	  double wgt = nmb_out + max_err + av_err;
 	  // if ((double)nmb_pts < nmb_frac*av_nmb)//20)
 	  //   wgt /= 2.0;
@@ -2177,10 +2185,11 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
   vector<LRSplineVolume::Refinement3D> refs_x, refs_y, refs_z;
   double elem_frac = 0.1; //0.005; //0.01;
    size_t kr = 0;
+#ifdef DEBUG_REF
   std::cout << "Number of elements: " << num_elem << std::endl;
   std::cout << "Number of elements without points: " << nmb_no_elem << std::endl;
   std::cout << "Fraction of outside elements: " << (double)elem_out.size()/(double)num_elem << std::endl;
-
+#endif
   std::set<Element3D*> elems;
   int num_bspl = vol_->numBasisFunctions();
   int nmb_refs = 0;
@@ -2190,9 +2199,11 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
     {
   int group_fac = 3;
   wgt_fac = 0.75;
+#ifdef DEBUG_REF
       std::ofstream ofout("outfrac.txt");
       ofout << "Number of B-splines: " << num_bspl << std::endl;
-
+#endif
+      
   // Construct indexed bspline array and collect related accuracy information
   vector<LRBSpline3D*> bsplines(num_bspl);
   vector<double> error(num_bspl, 0.0);
@@ -2290,6 +2301,7 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
   frac_av_out /= (double)num_bspl;
   frac_nmb_out /= (double)num_bspl;
 
+#ifdef DEBUG_REF
   std::cout << "Number of Bsplines: " << num_bspl << std::endl;
   std::cout << "Number of selected Bsplines: " << nmb_perm << std::endl;
   std::cout << "Average number of points: " << average_nmb << std::endl;
@@ -2298,13 +2310,16 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
   std::cout << "Elements with outside points: " << elem_out.size() << std::endl;
   std::cout << "Average distribution of outside distance (above - below): " << frac_av_out << std::endl;
   std::cout << "Average distribution of number of outside points (above - below): " << frac_nmb_out << std::endl;
-
+#endif
+  
  // Sort bsplines according to average error weighted with the domain size
   // int ki, kj;
   // for (ki=0; ki<num_bspl; ++ki)
   //   bspl_perm[ki] = ki;
 
+#ifdef DEBUG_REF
   std::cout << "Before sorting B-splines " << std::endl;
+#endif
   // Do the sorting
   quicksort(&error2[0], &bspl_perm[0], 0, nmb_perm-1);
   // for (ki=0; ki<num_bspl; ++ki)
@@ -2326,6 +2341,7 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
   // 	  std::swap(bspl_perm[ki], bspl_perm[kj]);
   //     }
 
+#ifdef DEBUG_REF
   std::ofstream of("sorted_bsplines.txt");
   for (int kaa=0; kaa<nmb_perm; ++kaa)
     {
@@ -2339,6 +2355,7 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
     }
   
   std::cout << "After sorting B-splines " << std::endl;
+#endif
   // Split the most important B-splines, but only if the maximum
   // error is larger than the tolerance
   // We only split half the BSplines? Reduction factor...
@@ -2381,9 +2398,10 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
 	acc_err_pos[bspl_perm[ki]]/(double)nmb_out_pos[bspl_perm[ki]] : 0.0;
       double av_neg = (nmb_out_neg[bspl_perm[ki]] > 0) ?
 	acc_err_neg[bspl_perm[ki]]/(double)nmb_out_neg[bspl_perm[ki]] : 0.0;
-      ofout << acc_err_pos[bspl_perm[ki]] << " " << nmb_out_pos[bspl_perm[ki]] << " " << av_pos << " ";
+#ifdef DEBUG_REF
+     ofout << acc_err_pos[bspl_perm[ki]] << " " << nmb_out_pos[bspl_perm[ki]] << " " << av_pos << " ";
        ofout << acc_err_neg[bspl_perm[ki]] << " " << nmb_out_neg[bspl_perm[ki]] << " " << av_neg  << std::endl;
-
+#endif
 
       // How to split
       vector<Element3D*> elem_div;
@@ -2395,18 +2413,22 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
       elems.insert(elem_div.begin(), elem_div.end());
       //defineRefs(bsplines[bspl_perm[kr]], refs, choice);
     }
+#ifdef DEBUG_REF
   std::cout << "nmb_refs: " << nmb_refs << ", nmb_split: " << nmb_split;
   std::cout << ", nmb basis out: " << nmb_basis_out << std::endl;
   std::cout << "nmb1 = " << nmb1_ << ", nmb2 = " << nmb2_;
   std::cout << ", nmb3 = " << nmb3_ << std::endl;
+#endif
   nmb1_ = nmb2_ = nmb3_ = 0;
     }
 
  bool elemref = true;
  if (elemref)
    {
+#ifdef DEBUG_REF
  std::cout << "Removing affected elements. elems.size(): " << elems.size();
  std::cout << ", elem_out.size(): " << elem_out.size() << std::endl;
+#endif
  std::vector<Element3D*> elems2(elems.begin(), elems.end());
  for (kr=0; kr<elems2.size(); ++kr)
    {
@@ -2417,14 +2439,18 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
      if (kh < elem_out.size())
        elem_out.erase(elem_out.begin() + kh);
    }
+#ifdef DEBUG_REF
  std::cout << "End removing affected elements. elem_out.size(): " << elem_out.size() << std::endl;
   
  std::cout << "Number of refinements: " << refs_x.size()+refs_y.size()+refs_z.size() << std::endl;
  std::cout << "Remaining elements with outside points: " << elem_out.size() << std::endl;
-
+#endif
+ 
       // Sort remaining elements
       double frac = wgt_fac*av_wgt*(double)elem_out.size()/(double)num_elem; //0.6*av_wgt;
+#ifdef DEBUG_REF
       std::cout << "frac = " << frac << std::endl;
+#endif
       std::sort(elem_out.begin(), elem_out.end(), compare_elems);
       if (elem_out.size() > 0)
 	{
@@ -2439,10 +2465,12 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
 		  maxdistwgt = elem_out[kr].second;
 		}
 	    }
+#ifdef DEBUG_REF
 	  std::cout << "minwgt: " << elem_out[elem_out.size()-1].second << ", maxwgt: ";
 	  std::cout << elem_out[0].second << ", average: " << av_wgt << std::endl;
 	  std::cout << "median wgt: " << elem_out[elem_out.size()/2].second;
 	  std::cout << ", maximum dist: " << maxeldist << ", wgt " << maxdistwgt << std::endl;
+#endif
 	}
       double maxeldist = 0.0;
       int nmb_dismissed = 0;
@@ -2488,10 +2516,12 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
       // 	  maxeldist = std::max(elem_out[kr].first->getMaxError(), maxeldist);
       // 	}
       // std::cout << "Remaining maximum dist: " << maxeldist;
+#ifdef DEBUG_REF
       std::cout << "Number of elements not split: " << nmb_dismissed << std::endl;
 
       std::cout << "nmb_refs: " << nmb_refs << std::endl;
- std::cout << "Number of refinements: " << refs_x.size()+refs_y.size()+refs_z.size() << std::endl;
+      std::cout << "Number of refinements: " << refs_x.size()+refs_y.size()+refs_z.size() << std::endl;
+#endif
    }
       // // Flag coefficient if not necessary to update
      //  for (; kr<bspl_perm.size(); ++kr)
@@ -2533,22 +2563,30 @@ int LRVolApprox::refineVol(int iter, int& dir, double threshold)
   // {
   //   vol_->refine(refs[kr], true );
   // }
+#ifdef DEBUG_REF
  std::cout << "ref_x = " << ref_x_ << ", ref_y = " << ref_y_;
  std::cout << ", ref_z = " << ref_z_ << std::endl;
  std::cout << "nmb1 = " << nmb1_ << ", nmb2 = " << nmb2_;
  std::cout << ", nmb3 = " << nmb3_ << std::endl;
  std::cout << "Refine x " << std::endl;
+#endif
  if (refs_x.size() > 0)
    vol_->refine(refs_x, true);
+#ifdef DEBUG_REF
  std::cout << "Refine y " << std::endl;
+#endif
  if (refs_y.size() > 0)
    vol_->refine(refs_y, true);
+#ifdef DEBUG_REF
  std::cout << "Refine z " << std::endl;
+#endif
  if (refs_z.size() > 0)
    vol_->refine(refs_z, true);
 
+#ifdef DEBUG_REF
   std::cout << "Refs x: " << refs_x.size() << ", y: " << refs_y.size();
   std::cout << ", z: " << refs_z.size() << std::endl;
+#endif
   return (int)refs_x.size() + refs_y.size() + refs_z.size();
 }
 #if 1 

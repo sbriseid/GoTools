@@ -37,7 +37,7 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#define DEBUG1
+//#define DEBUG1
 
 //#define SBR_DBG
 
@@ -474,6 +474,9 @@ BoundedUtils::trimWithPlane(const shared_ptr<ParamSurface>& surf,
     }
 
     return_sfs = createTrimmedSurfs(loop_curves, bounded_sf->underlyingSurface(), epsge);
+    int flag_code = bounded_sf->getFlagCode();
+    for (size_t kj=0; kj<return_sfs.size(); ++kj)
+      return_sfs[kj]->setFlagCode(flag_code);
 
     return return_sfs;
 }
@@ -842,6 +845,9 @@ BoundedUtils::splitWithPlane(const shared_ptr<ParamSurface>& surf,
     }
 
     return_sfs = createTrimmedSurfs(loop_curves, bounded_sf->underlyingSurface(), epsge);
+    int flag_code = bounded_sf->getFlagCode();
+    for (size_t kj=0; kj<return_sfs.size(); ++kj)
+      return_sfs[kj]->setFlagCode(flag_code);
 
     return return_sfs;
 }
@@ -925,6 +931,9 @@ BoundedUtils::splitBetweenParams(const shared_ptr<ParamSurface>& surf,
     // Make surfaces
     vector<shared_ptr<BoundedSurface> > return_sfs = 
       createTrimmedSurfs(loop_curves, bounded_sf->underlyingSurface(), epsge);
+    int flag_code = bounded_sf->getFlagCode();
+    for (size_t kj=0; kj<return_sfs.size(); ++kj)
+      return_sfs[kj]->setFlagCode(flag_code);
 
     return return_sfs;
 }
@@ -997,6 +1006,9 @@ BoundedUtils::splitBetweenParPairs(const shared_ptr<ParamSurface>& surf,
     // Make surfaces
     vector<shared_ptr<BoundedSurface> > return_sfs = 
       createTrimmedSurfs(loop_curves, bounded_sf->underlyingSurface(), epsge);
+    int flag_code = bounded_sf->getFlagCode();
+    for (size_t kj=0; kj<return_sfs.size(); ++kj)
+      return_sfs[kj]->setFlagCode(flag_code);
 
     return return_sfs;
 }
@@ -1230,6 +1242,9 @@ BoundedUtils::trimSurfWithSurf(const shared_ptr<ParamSurface>& sf1,
     }
     vector<shared_ptr<BoundedSurface> > trim_sfs1 =
        createTrimmedSurfs(loop_curves1, under_sf1, epsge);
+    int flag_code = sf1->getFlagCode();
+    for (size_t kj=0; kj<trim_sfs1.size(); ++kj)
+      trim_sfs1[kj]->setFlagCode(flag_code);
     trimmed_sfs.insert(trimmed_sfs.end(), trim_sfs1.begin(), trim_sfs1.end());
 
     try {
@@ -1239,6 +1254,9 @@ BoundedUtils::trimSurfWithSurf(const shared_ptr<ParamSurface>& sf1,
     }
     vector<shared_ptr<BoundedSurface> > trim_sfs2 =
        createTrimmedSurfs(loop_curves2, under_sf2, epsge);
+    flag_code = sf2->getFlagCode();
+    for (size_t kj=0; kj<trim_sfs2.size(); ++kj)
+      trim_sfs2[kj]->setFlagCode(flag_code);
     trimmed_sfs.insert(trimmed_sfs.end(), trim_sfs2.begin(), trim_sfs2.end());
 
     return trimmed_sfs;
@@ -1319,6 +1337,9 @@ BoundedUtils::splitWithTrimSegments(shared_ptr<BoundedSurface> surf,
   // Make trimmed surfaces
   vector<shared_ptr<BoundedSurface> > trim_sfs =
     createTrimmedSurfs(new_loops, surf->underlyingSurface(), eps);
+  int flag_code = surf->getFlagCode();
+  for (ki=0; ki<trim_sfs.size(); ++ki)
+    trim_sfs[ki]->setFlagCode(flag_code);
 
   return trim_sfs;
  }
@@ -1363,6 +1384,9 @@ BoundedUtils::subtractSfPart(shared_ptr<BoundedSurface> surf,
   // Make trimmed surfaces
   vector<shared_ptr<BoundedSurface> > trim_sfs =
     createTrimmedSurfs(new_loops, surf->underlyingSurface(), eps);
+  int flag_code = surf->getFlagCode();
+  for (ki=0; ki<trim_sfs.size(); ++ki)
+    trim_sfs[ki]->setFlagCode(flag_code);
 
   // Remove specified surface part
 
@@ -3314,6 +3338,10 @@ BoundedUtils::trimSurfsWithSurfs(const vector<shared_ptr<ParamSurface> >& sfs1,
 	vector<shared_ptr<BoundedSurface> > trim_sfs =
 	   createTrimmedSurfs(loop_curves, under_sfs1[ki], epsge);
 	trimmed_sfs[0].insert(trimmed_sfs[0].end(), trim_sfs.begin(), trim_sfs.end());
+	int flag_code = sfs1[ki]->getFlagCode();
+	for (size_t kj=0; kj<trim_sfs.size(); ++kj)
+	  trim_sfs[kj]->setFlagCode(flag_code);
+	trimmed_sfs[0].insert(trimmed_sfs[0].end(), trim_sfs.begin(), trim_sfs.end());
     }
     for (ki = 0; ki < int(all_int_segments2.size()); ++ki) {
 	vector<vector<shared_ptr<CurveOnSurface> > > loop_curves;
@@ -3325,6 +3353,9 @@ BoundedUtils::trimSurfsWithSurfs(const vector<shared_ptr<ParamSurface> >& sfs1,
 	}
 	vector<shared_ptr<BoundedSurface> > trim_sfs =
 	   createTrimmedSurfs(loop_curves, under_sfs2[ki], epsge);
+	int flag_code = sfs2[ki]->getFlagCode();
+	for (size_t kj=0; kj<trim_sfs.size(); ++kj)
+	  trim_sfs[kj]->setFlagCode(flag_code);
 	trimmed_sfs[1].insert(trimmed_sfs[1].end(), trim_sfs.begin(), trim_sfs.end());
 
     }
@@ -3744,6 +3775,9 @@ BoundedUtils::trimSurfWithSurfs(shared_ptr<ParamSurface>& sf,
     }
     vector<shared_ptr<BoundedSurface> > trim_sfs =
       createTrimmedSurfs(loop_curves, under_sf, epsge);
+  int flag_code = sf->getFlagCode();
+  for (ki=0; ki<trim_sfs.size(); ++ki)
+    trim_sfs[ki]->setFlagCode(flag_code);
     return trim_sfs;
 }
 

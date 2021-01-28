@@ -70,7 +70,7 @@
 #include "GoTools/topology/FaceConnectivityUtils.h"
 
 //#define DEBUG
-//#define DEBUG_REG
+#define DEBUG_REG
 
 using std::vector;
 using std::make_pair;
@@ -1209,7 +1209,12 @@ void SurfaceModel::swapFaces(int idx1, int idx2)
     {
 	ftEdgeBase* e0 = vec[ki];
 	ftEdgeBase* e1 = e0->twin();
-	ALWAYS_ERROR_IF(e1 == 0, "Unexpected edge type.");
+	//ALWAYS_ERROR_IF(e1 == 0, "Unexpected edge type.");
+	if (e1 == 0)
+	  {
+	    MESSAGE( "Unexpected edge type.");
+	    continue;
+	  }
 	shared_ptr<FaceConnectivity<ftEdgeBase> > info = 
 	  e0->getConnectivityInfo();
 	for (size_t kj=0; kj<info->status_.size(); kj++)
@@ -1249,7 +1254,12 @@ void SurfaceModel::swapFaces(int idx1, int idx2)
     {
 	ftEdgeBase* e0 = vec[ki];
 	ftEdgeBase* e1 = e0->twin();
-	ALWAYS_ERROR_IF(e1 == 0, "Unexpected edge type.");
+	//ALWAYS_ERROR_IF(e1 == 0, "Unexpected edge type.");
+	if (e1 == 0)
+	  {
+	    MESSAGE( "Unexpected edge type.");
+	    continue;
+	  }
 	shared_ptr<FaceConnectivity<ftEdgeBase> > info = 
 	  e0->getConnectivityInfo();
 	for (size_t kj=0; kj<info->status_.size(); kj++)
@@ -3705,10 +3715,11 @@ SurfaceModel::mergeFaces(ftSurface* face1, int pardir1, double parval1,
   //   shared_ptr<SplineSurface>(base1->subSurface(umin1, vmin1, umax1, vmax1));
   // shared_ptr<SplineSurface> sub_base2 =
   //   shared_ptr<SplineSurface>(base2->subSurface(umin2, vmin2, umax2, vmax2));
+  double fuzzy = 1.0e-8;
   vector<shared_ptr<ParamSurface> > tmp_sub1 = 
-    base1->subSurfaces(umin1, vmin1, umax1, vmax1);
+    base1->subSurfaces(umin1, vmin1, umax1, vmax1, fuzzy);
   vector<shared_ptr<ParamSurface> > tmp_sub2 = 
-    base2->subSurfaces(umin2, vmin2, umax2, vmax2);
+    base2->subSurfaces(umin2, vmin2, umax2, vmax2, fuzzy);
   if (tmp_sub1.size() != 1 || tmp_sub2.size() != 1)
     return dummy;
   shared_ptr<ParamSurface> sub_base1 = tmp_sub1[0];

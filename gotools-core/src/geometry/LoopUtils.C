@@ -137,9 +137,9 @@ LoopUtils::loopIsCCW(const vector<shared_ptr<ParamCurve> >& simple_par_loop,
 	  }
       }
 
-    // We choose the mid parameter value on the chosen curve in the loop.
+    // We choose the parameter value close to the middle on the chosen curve in the loop.
     double tpar =
-      0.5*(simple_par_loop[idx]->startparam() + simple_par_loop[idx]->endparam());
+      0.4*simple_par_loop[idx]->startparam() + 0.6*simple_par_loop[idx]->endparam();
 
     vector<Point> pnt(2);
     simple_par_loop[idx]->point(pnt, tpar, 1);

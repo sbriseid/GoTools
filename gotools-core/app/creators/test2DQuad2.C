@@ -74,6 +74,7 @@ int main(int argc, char** argv)
   GoTools::init();
 
   vector<shared_ptr<ParamCurve> > curves;
+  BoundingBox bb;
   while (!infile.eof())
     {
       shared_ptr<ObjectHeader> header(new ObjectHeader());
@@ -85,9 +86,18 @@ int main(int argc, char** argv)
 	dynamic_pointer_cast<ParamCurve,GeomObject>(geom_obj);
       if (cv.get())
 	curves.push_back(cv);
+      BoundingBox cvbox = cv->boundingBox();
+      if (bb.dimension() == 0)
+	bb = cvbox;
+      else
+	bb.addUnionWith(cvbox);
 
       Utils::eatwhite(infile);
     }
+
+  Point ll = bb.low();
+  Point ur = bb.high();
+  std::cout << "Bounding box: " << ll << " " << ur << std::endl;
 
   CutCellQuad quad(curves, tol);
   vector<double> quadval(4);
@@ -142,22 +152,26 @@ int main(int argc, char** argv)
 	  {
 	    vector<vector<shared_ptr<ParamCurve> > > unresolved_cells;
 	    vector<vector<shared_ptr<ParamCurve> > > short_cvs;
-	    vector<vector<double> > quadpt;
-	    vector<vector<double> > ptweights;
-	    vector<vector<double> > bdquad;
-	    vector<vector<double> > bdweights;
-	    quad.quadrature(ll, ur, quadpt, ptweights, unresolved_cells,
-			    bdquad, bdweights, short_cvs, stat);
-  
-	    for (size_t kk=0; kk<quadpt.size(); ++kk)
+	    vector<double> quadpt;
+	    vector<double> ptweights;
+	    vector<double> bdquad;
+	    vector<double> bdnorm;
+	    vector<double> bdweights;
+	    try {
+	      quad.quadrature(ll, ur, quadpt, ptweights, unresolved_cells,
+			      bdquad, bdnorm, bdweights, short_cvs, stat);
+	    }
+	    catch (...)
 	      {
-		outfile << "400 1 0 4 100 100 55 255" << std::endl;
-		outfile << quadval.size()*quadval.size() << std::endl;
-		for (size_t kr=0; kr<quadpt[kk].size(); kr+=2)
-		  {
-		    Point pt(quadpt[kk][kr], quadpt[kk][kr+1], 0.0);
-		    outfile << pt << std::endl;
-		  }
+		std::cout << "Cell failed" << std::endl;
+	      }
+  
+	    outfile << "400 1 0 4 100 100 55 255" << std::endl;
+	    outfile << ptweights.size() << std::endl;
+	    for (size_t kr=0; kr<quadpt.size(); kr+=2)
+	      {
+		Point pt(quadpt[kr], quadpt[kr+1], 0.0);
+		outfile << pt << std::endl;
 	      }
 
 	    for (size_t kk=0; kk<unresolved_cells.size(); ++kk)
@@ -169,15 +183,21 @@ int main(int argc, char** argv)
 
 	    if (bdquad.size() > 0)
 	      {
-		for (size_t kk=0; kk<bdquad.size(); ++kk)
+		outfile << "400 1 0 4 155 0 100 255" << std::endl;
+		outfile << bdweights.size() << std::endl;
+		for (size_t kr=0; kr<bdquad.size(); kr+=2)
 		  {
-		    outfile << "400 1 0 4 155 0 100 255" << std::endl;
-		    outfile << bdquad[kk].size()/2 << std::endl;
-		    for (size_t kr=0; kr<bdquad[kk].size(); kr+=2)
-		      {
-			Point pt(bdquad[kk][kr], bdquad[kk][kr+1], 0.0);
-			outfile << pt << std::endl;
-		      }
+		    Point pt(bdquad[kr], bdquad[kr+1], 0.0);
+		    outfile << pt << std::endl;
+		  }
+
+		outfile << "410 1 0 4 155 0 100 255" << std::endl;
+		outfile << bdweights.size() << std::endl;
+		for (size_t kr=0; kr<bdquad.size(); kr+=2)
+		  {
+		    Point pt1(bdquad[kr], bdquad[kr+1], 0.0);
+		    Point pt2(bdquad[kr]+0.01*bdnorm[kr], bdquad[kr+1]+0.01*bdnorm[kr+1], 0.0);
+		    outfile << pt1 << " " << pt2 << std::endl;
 		  }
 
 		for (size_t kk=0; kk<short_cvs.size(); ++kk)

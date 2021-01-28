@@ -48,7 +48,7 @@
 #include <stdexcept>
 #include <fstream>
 
-#define DEBUG
+//#define DEBUG
 
 using namespace Go;
 using std::vector;
@@ -1153,6 +1153,8 @@ findPcurveInsideSegments(const SplineCurve& curve,
     for (ki=0; ki<int(loops_.size()); ki++) 
       {
 	int nmb_cvs = loops_[ki]->size();
+	if (nmb_cvs == 0)
+	  continue;
 	shared_ptr<ParamCurve> par_crv1 = getParameterCurve(ki, nmb_cvs-1);
 	double par1 = par_crv1->endparam();
 	Point pos1 = par_crv1->point(par1);

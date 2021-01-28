@@ -464,6 +464,37 @@ class LRSurfApprox
       average_outside = avout_;
     }
 
+    /// Refinement strategy
+    /// category1: 1 = full span, 2 = minimum span l, 3 = minimum span u,
+    ///            4 = minimum span c, 5 = structured mesh, 6 = restricted mesh
+    ///            7 = restricted mesh with element extension
+    /// alter: 0 = refine in both parameter directions, 1 = refine in alternating directions
+    /// threshold1: 0 = no, 1 = td, 2 = tn, 3 = tk, 4 = td+tk (not all combinations with
+    ///            category exist, if non-existing threshold is set to 0
+    /// swap: Change category to category2 when approximation efficiency is below this level
+    /// category2, threshold2: after swap, as above
+    void setRefinementStrategy(int category1, int alter, int threshold1,
+			       double swap, int category2, int threshold2)
+    {
+      category1_ = category1;
+      category2_ = category2;
+      alter_ = alter;
+      threshold1_ = threshold1;
+      threshold2_ = threshold2;
+      swap_ = swap;
+    }
+
+    void getRefinementStrategy(int& category1, int& alter, int& threshold1,
+			       double& swap, int& category2, int& threshold2)
+    {
+      category1 = category1_;
+      category2 = category2_;
+      threshold1 = threshold1_;
+      threshold2 = threshold2_;
+      alter = alter_;
+      swap = swap_;
+    }
+
      /// Feature output
     void setFeatureOut(int ncell)
     {
@@ -556,6 +587,10 @@ private:
     bool has_var_tol_sign_;
     std::vector<TolBox> tolerances_;
 
+    // Refinement strategy
+    int category1_, category2_, alter_, threshold1_, threshold2_;
+    double swap_;
+    
     // Features output
     bool write_feature_;
     int ncell_;
@@ -590,13 +625,12 @@ private:
 
     //double density);
     /// Refine surface
-    //int refineSurf(int iter);
     int refineSurf(int iter, int& dir, double threshold);
-    int refineSurf2();
-    int refineSurf3(int iter, int& dir, double threshold, int refstrat);
+    int refineSurf3(int iter, int& dir, double threshold);
     int refineSurf4(int& dir, double threshold);
     void getRefineExtension(Element2D *elem, Direction2D fixdir,
-			    int strategy, double& pmin, double& pmax);
+			    int strategy, double& ppar, double& pmin, double& pmax,
+			    std::set<std::pair<Element2D*,std::pair<Direction2D,double> > >& unbalanced_elem);
 
     /// Create initial LR B-spline surface
     void makeInitSurf(int dim);
@@ -653,8 +687,7 @@ private:
 			 std::vector<Element2D*>& elems);
 
     void appendRef(std::vector<LRSplineSurface::Refinement2D>& refs,
-		   LRSplineSurface::Refinement2D& curr_ref, 
-		   double tol);
+		   LRSplineSurface::Refinement2D& curr_ref, double tol);
 
     // Turn function into a 3D surface
     void turnTo3D();

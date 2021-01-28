@@ -12,7 +12,7 @@
 using namespace std;
 using namespace Go;
 
-#define DEBUG
+//#define DEBUG
 
 namespace {
   enum PointStatus {REGULAR = 0, BOUNDARY=1, CYCLIC_END = 3, SINGULAR = 4, END_POINT = 5};
@@ -327,6 +327,12 @@ inline bool is_point_on_boundary(const SplineSurface& surf, const Point& uv)
   const double dsdv2 = pow(ds_dv, 2);
 
   const double n = sqrt(dsdu2 + dsdv2);
+  if (n*n < sing_tol)
+    {
+      status = SINGULAR;
+      return Array4{0.0, 0.0, 0.0, 0.0};
+    }
+  
   const double a = 1.0 / n;
   const double da_dt = pow(a, 4) *
     (d2s_dudv * (dsdu2 - dsdv2) + ds_du * ds_dv * (d2s_dv2 - d2s_du2));
@@ -810,8 +816,17 @@ PandDer extrapolate_point(const SplineSurface& surf, double dt, const PandDer& c
 	const double prod3 = vec[0]*derivs_new[0] + vec[1]*derivs_new[1];
 	if (sprod < 0 || (sgn*prod2 < 0.0 && sgn*prod3 < 0.0) || dist < 0.001*fabs(dt)) {
 	  // the new point is most likely not on the correct curve
-	  dt = dt/2;
-	  break;
+	  if (dt < sing_tol)
+	    {
+	      // No point in a continued search
+	      found = true;
+	      status = is_point_on_boundary(surf, new_point) ? BOUNDARY : SINGULAR;
+	    }
+	  else
+	    {
+	      dt = dt/2;
+	      break;
+	    }
 	} else {
 	  status =  is_point_on_boundary(surf, new_point) ? BOUNDARY : REGULAR;
 	  found = true;

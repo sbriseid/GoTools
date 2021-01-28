@@ -56,10 +56,10 @@ int main( int argc, char* argv[] )
   std::ifstream file1(argv[1]);
   ALWAYS_ERROR_IF(file1.bad(), "Input file not found or file corrupt");
 
-  double gap = 0.01; //0.00001;
-  double neighbour = 0.1;
-  double kink = 0.001;
-  double approxtol = 0.01;
+  double gap = 2.569728643917E-06; //0.001; //0.00001;
+  double neighbour = 1.1*gap;
+  double kink = 1.745329251994E-02; //0.001;
+  double approxtol = 0.001;
 
   CompositeModelFactory factory(approxtol, gap, neighbour, kink, 10.0*kink);
 

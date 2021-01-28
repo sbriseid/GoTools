@@ -300,7 +300,7 @@ void LRApproxApp::pointCloud2Spline(vector<double>& points,
       approx.setSwitchToMBA(tomba);
       approx.setMakeGhostPoints(true);
     }
-  //approx.setVerbose(true);
+  approx.setVerbose(true);
   if (del == 3)
     {
       double zrange = extent[5] - extent[4];
