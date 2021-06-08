@@ -52,6 +52,7 @@
 #include <sstream>
 #include <string>
 #include <array>
+#include <cctype>
 
 using std::vector;
 using std::pair;
