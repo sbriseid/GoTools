@@ -44,6 +44,7 @@
 #include "GoTools/lrsplines2D/LRSplineMBA.h"
 #include "GoTools/lrsplines2D/LRSplineUtils.h"
 #include "GoTools/lrsplines2D/LRFeatureUtils.h"
+#include "GoTools/lrsplines2D/LogLikelyhood.h"
 #include "GoTools/creators/SmoothSurf.h"
 #include "GoTools/geometry/PointCloud.h"
 #include "GoTools/lrsplines2D/LRSplinePlotUtils.h"
@@ -64,7 +65,8 @@
 //#define DEBUG2
 //#define DEBUG_HIST
 //#define DEBUG_SURF
-#define DEBUG_DIST
+//#define DEBUG_DIST
+#define DEBUG_AIC
 
 using std::vector;
 using std::set;
@@ -420,7 +422,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 
   FILE *fp = fopen("acc_stat.txt","w");
   fprintf(fp, "Max iterations = %d, tolerance = %4.2f, no pts: %d \n",max_iter, aepsge_,nmb_pts_);
-  fprintf(fp,"iter, maxdist, average dist, no. pts. out, no. coefs, rel. improvement, no. pts.in, approx efficiency, rel element without-element div, rel element under-element div, max inner knots, average inner knots, average out, no. el.  \n");
+  fprintf(fp,"iter, maxdist, average dist, no. pts. out, no. coefs, no. pts.in, average out, approx efficiency, rel. improvement pts,improvement acc dist, max inner knots, average inner knots, no. el.  \n");
   int div = 1; //(alter) ? 2 : 1;
   int currdiv = (alter_) ? 1 : 3;
 
@@ -560,6 +562,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   std::ofstream r_out("residual0.txt");
   int dim = srf_->dimension();
   int del2 = dim + 3; // Parameter pair, point and distance
+  double stdd = 0.0;
   for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
        it != srf_->elementsEnd(); ++it)
     {
@@ -577,6 +580,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
       int ka, kb;
       for (ka=0, curr=&points[0]; ka<nmb_all; ++ka)
 	{
+	  stdd += (pow(avdist_all_ - curr[del2-1], 2)/(double)(nmb_pts_));
 	  for (kb=0; kb<del2; ++kb)
 	    r_out << curr[kb] << " ";
 	  r_out << std::endl;
@@ -586,6 +590,53 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	    curr += del;
 	}
     }
+  std::cout << "Initial surface, standard deviation of residuals: " << stdd << std::endl;
+#endif
+
+#ifdef DEBUG_AIC
+  FILE *aic = fopen("AIC.txt","w");
+  fprintf(aic,"Iter loglikelyhood1 loglikelyhood2 AIC1 AIC2  loglikelyhoodn1 loglikelyhoodn2 AICn1 AICn2  \n");
+  
+  vector<double> residual;
+  residual.reserve(points_.size()+sign_points_.size());
+  int dim = srf_->dimension();
+  int del2 = dim + 3; // Parameter pair, point and distance
+  for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
+       it != srf_->elementsEnd(); ++it)
+    {
+      if (!it->second->hasDataPoints())
+	continue;
+      int del = it->second->getNmbValPrPoint();
+      if (del == 0)
+	del = del2;
+      vector<double>& points = it->second->getDataPoints();
+      vector<double>& sign_points = it->second->getSignificantPoints();
+      int nmb_pts = (int)points.size()/del;
+      int nmb_sign = (int)sign_points.size()/del;
+      int nmb_all = nmb_pts + nmb_sign;
+      double *curr;
+      int ka, kb;
+      for (ka=0, curr=&points[0]; ka<nmb_all; ++ka)
+	{
+	  residual.push_back(curr[del2-1]);
+	  if (ka == nmb_pts-1 && nmb_all > nmb_pts)
+	    curr = &sign_points[0];
+	  else
+	    curr += del;
+	}
+    }
+
+  double Tny = 5.0;
+  vector<double> initT;
+  double loglh2 = 0, logn2 = 0;
+  double loglh = LogLikelyhood::compute(residual, Tny, true, loglh2, initT);
+  double logn = LogLikelyhood::compute(residual, 50.0, false, logn, initT);
+  double AIC = 2.0*(srf_->numBasisFunctions() - loglh);
+  double AIC2 = 2.0*(srf_->numBasisFunctions() - loglh2);
+  double AICn = 2.0*(srf_->numBasisFunctions() - logn);
+  double AICn2 = 2.0*(srf_->numBasisFunctions() - logn2);
+  fprintf(aic,"0 \t %15.7f \t %15.7f \t %15.7f \t %15.7f \t %15.7f \t %15.7f \t %15.7f  \t %15.7f \n",
+	  loglh, loglh2, AIC, AIC2, logn, logn2, AICn, AICn2);
 #endif
   
   if (write_feature_)
@@ -606,6 +657,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
   int prevcoef = srf_->numBasisFunctions();
   int prevelem = srf_->numElements();
   double av_prev = avdist_all_;
+  double avdist_prev = avdist_;
   double max_prev = maxdist_;
   int outsideeps_prev = outsideeps_;
   int ki;
@@ -892,21 +944,18 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
       if ((ki+1)%div == 0)
 	{
 	  double outfac = (double)(outsideeps_prev-outsideeps_)/(double)(nmbcoef-prevcoef);
-	  fprintf(fp,"%3d \t %9.3f \t %9.3f \t %9d \t %9d \t %9.3f \t %9d \t %9.3f \t %9.3f \t %9.3f \t %9d \t %9.3f \t %9.3f \t %9d \n",
+	  double outfac2 = outsideeps_prev*avdist_prev - outsideeps_*avdist_;
+	  fprintf(fp,"%3d \t %9.3f \t %9.3f \t %9d \t %9d \t %9d \t %9.3f \t %9.3f \t %9.3f \t %9.3f \t %9d \t %9.3f \t  %9d \n",
 		(ki+1)/div, maxdist_, avdist_all_, outsideeps_, nmbcoef,
-		  outfac, nmb_pts_-outsideeps_,
-		  (double)(nmb_pts_-outsideeps_)/(double)nmbcoef,
-		  (double)nmb_none/(double)nmb_div_el, (double)nmb_under/(double)nmb_div_el,
-		  max_inner, av_inner,
-		  // outsideeps_prev-outsideeps_,
-		  // nmbcoef-prevcoef, numelem-prevelem,
-		  // max_prev-maxdist_, av_prev-avdist_all_,
-		  avdist_, numelem);
+		  nmb_pts_-outsideeps_, avdist_, 
+		  (double)(nmb_pts_-outsideeps_)/(double)nmbcoef, outfac, outfac2,
+		  max_inner, av_inner, numelem);
 	  prevcoef = nmbcoef;
 	  prevelem = numelem;
 	  outsideeps_prev = outsideeps_;
 	  max_prev = maxdist_;
 	  av_prev = avdist_all_;
+	  avdist_prev = avdist_;
 	  if (outfac < swap_)
 	    {
 	      category1_ = category2_;
@@ -922,6 +971,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
       std::ofstream r_out2(outfile.c_str());
       int dim = srf_->dimension();
       int del2 = dim + 3; // Parameter pair, point and distance
+      double stdd = 0.0;
       for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
 	   it != srf_->elementsEnd(); ++it)
 	{
@@ -939,6 +989,7 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 	  int ka, kb;
 	  for (ka=0, curr=&points[0]; ka<nmb_all; ++ka)
 	    {
+	      stdd += (pow(avdist_all_ - curr[del2-1], 2)/(double)(nmb_pts_));
 	      for (kb=0; kb<del2; ++kb)
 		r_out2 << curr[kb] << " ";
 	      r_out2 << std::endl;
@@ -948,8 +999,49 @@ void LRSurfApprox::getClassifiedPts(vector<double>& outliers, int& nmb_outliers,
 		curr += del;
 	    }
 	}
+      std::cout << "Iteration " << ki+1 << ", standard deviation of residuals: " << stdd << std::endl;
 #endif
 
+#ifdef DEBUG_AIC
+  vector<double> residual;
+  residual.reserve(points_.size()+sign_points_.size());
+  int dim = srf_->dimension();
+  int del2 = dim + 3; // Parameter pair, point and distance
+  for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
+       it != srf_->elementsEnd(); ++it)
+    {
+      if (!it->second->hasDataPoints())
+	continue;
+      int del = it->second->getNmbValPrPoint();
+      if (del == 0)
+	del = del2;
+      vector<double>& points = it->second->getDataPoints();
+      vector<double>& sign_points = it->second->getSignificantPoints();
+      int nmb_pts = (int)points.size()/del;
+      int nmb_sign = (int)sign_points.size()/del;
+      int nmb_all = nmb_pts + nmb_sign;
+      double *curr;
+      int ka, kb;
+      for (ka=0, curr=&points[0]; ka<nmb_all; ++ka)
+	{
+	  residual.push_back(curr[del2-1]);
+	  if (ka == nmb_pts-1 && nmb_all > nmb_pts)
+	    curr = &sign_points[0];
+	  else
+	    curr += del;
+	}
+    }
+
+  loglh = LogLikelyhood::compute(residual, Tny, true, loglh2, initT);
+  logn = LogLikelyhood::compute(residual, 50, false, logn2, initT);
+  AIC = 2.0*(srf_->numBasisFunctions() - loglh);
+  AIC2 = 2.0*(srf_->numBasisFunctions() - loglh2);
+  AICn = 2.0*(srf_->numBasisFunctions() - logn);
+  AICn2 = 2.0*(srf_->numBasisFunctions() - logn2);
+  fprintf(aic,"%d \t %15.7f \t %15.7f \t %15.7f \t %15.7f \t %15.7f \t %15.7f \t %15.7f \t %15.7f \n",
+	  ki+1, loglh, loglh2, AIC, AIC2, logn, logn2, AICn, AICn2);
+#endif
+  
   if (write_feature_)
         {
          std::string body = "cellinfo";
@@ -1044,8 +1136,8 @@ void LRSurfApprox::performSmooth(LRSurfSmoothLS *LSapprox)
 // #endif
 
   //std::cout << "Smoothing weight: " << smoothweight_ << std::endl;
-  double wgt1 = 0.0;//0.8*smoothweight_;
-  double wgt3 = 0.8*smoothweight_;//0.0; //0.1*smoothweight_; //0.9*smoothweight_; // 0.5*smoothweight_;
+  double wgt1 = 0.0; //0.8*smoothweight_;
+  double wgt3 = 0.0; //0.8*smoothweight_;//0.0; //0.1*smoothweight_; //0.9*smoothweight_; // 0.5*smoothweight_;
   double wgt2 = (1.0 - wgt3 -wgt1)*smoothweight_;
   double fac = 100.0;
 
@@ -1056,7 +1148,7 @@ void LRSurfApprox::performSmooth(LRSurfSmoothLS *LSapprox)
     LSapprox->smoothBoundary(fac*wgt1, fac*wgt2, fac*wgt3);
 
   double approx_weight = 1.0-wgt1-wgt2-wgt3;  
-  const bool use_omp = true;
+  const bool use_omp = false; //true;
   if (use_omp)
   {
     LSapprox->setLeastSquares_omp(approx_weight, significant_fac_);
@@ -3281,12 +3373,12 @@ int LRSurfApprox::refineSurf3(int iter, int& dir, double threshold)
     }
   else
     thresh2 = min_wgt;
-  std::cout << "Num elements: " << num_elem << ", elements out: " << el_out << std::endl;
-  std::cout << "thresh2 = " << thresh2 << std::endl;
-  double thresh3 = (kr < 0.9*num_elem) ? med_wgt2 : min_wgt; //fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
-  std::cout << "min_wgt = " << min_wgt << ", av_wgt = " << av_wgt << ", max_wgt = " << max_wgt << std::endl;
-  std::cout << "num_elem = " << num_elem << ", first = " << kr << ", med_wgt = " << all_wgt[num_elem/2] << ", med_wgt2 = " << all_wgt[((int)kr+num_elem)/2] << std::endl;
-  std::cout << "thresh3 = " << thresh3 << std::endl;
+  // std::cout << "Num elements: " << num_elem << ", elements out: " << el_out << std::endl;
+  // std::cout << "thresh2 = " << thresh2 << std::endl;
+  // double thresh3 = (kr < 0.9*num_elem) ? med_wgt2 : min_wgt; //fac*min_wgt + (1.0-fac)*av_wgt; //min_wgt; 
+  // std::cout << "min_wgt = " << min_wgt << ", av_wgt = " << av_wgt << ", max_wgt = " << max_wgt << std::endl;
+  // std::cout << "num_elem = " << num_elem << ", first = " << kr << ", med_wgt = " << all_wgt[num_elem/2] << ", med_wgt2 = " << all_wgt[((int)kr+num_elem)/2] << std::endl;
+  // std::cout << "thresh3 = " << thresh3 << std::endl;
   
   double choose_fac1 = 0.75;
   double choose_fac2 = 0.05;

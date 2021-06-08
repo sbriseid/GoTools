@@ -383,6 +383,8 @@ double BSplineUniLR::evalBasisFunc(double par) const
 {
   Bder(degree(), par, deriv, &kvec_[0], mesh_->knotsBegin(pardir_),
        der, at_end);
+  // for (int ki=0; ki<=deriv; ++ki)
+  //   der[ki] = evalBasisFunction(par, ki, at_end);
 }
 
 

@@ -245,7 +245,10 @@ void LRSurfSmoothLS::setOptimize(const double weight1, const double weight2,
   int der1 = (weight1 > eps) ? 1 : 0;
   int der2 = (weight2 > eps) ? 1 : 0;
   int der3 = (weight3 > eps) ? 1 : 0;
-
+  // der1 = 1;
+  // der3 = der2 = 0;
+  // double wgt1 = 0.0001;
+  
   if (der1 + der2 + der3 == 0)
     return;   // No smoothing applyed. Nothing to do.
 
@@ -273,7 +276,8 @@ void LRSurfSmoothLS::setOptimize(const double weight1, const double weight2,
       if (der1)
 	{
 	  // Compute contribution of integrals of d_u^2 and d_v^2
-	  computeDer1Integrals(bsplines, nmbGauss, &basis_derivs[0], weight1);
+	  //computeDer1Integrals(bsplines, nmbGauss, &basis_derivs[0], weight1);
+	  computeDer1Integrals(bsplines, nmbGauss, &basis_derivs[0], weight2);
 	}
 			       
       if (der2)
@@ -282,6 +286,7 @@ void LRSurfSmoothLS::setOptimize(const double weight1, const double weight2,
 	  // and d_uu*d_vv
 	  int idx = (der1) ? 2*bsplines.size()*nmbGauss : 0;
 	  computeDer2Integrals(bsplines, nmbGauss, &basis_derivs[idx], weight2);
+	  //computeDer2Integrals(bsplines, nmbGauss, &basis_derivs[idx], wgt1);
 	}
 
       if (der3)
@@ -291,7 +296,9 @@ void LRSurfSmoothLS::setOptimize(const double weight1, const double weight2,
 	  int idx = (der1) ? 2*bsplines.size()*nmbGauss : 0;
 	  if (der2)
 	    idx += 3*bsplines.size()*nmbGauss;
+	  //int idx = 5*bsplines.size()*nmbGauss;
 	  computeDer3Integrals(bsplines, nmbGauss, &basis_derivs[idx], weight3);
+	  //computeDer3Integrals(bsplines, nmbGauss, &basis_derivs[idx], wgt1);
 	}
 
     }
@@ -359,7 +366,7 @@ void LRSurfSmoothLS::smoothBoundary(const double weight1, const double weight2,
 	      if (der2)
 		{
 		  // Compute contribution of integrals of d_tt^2
-		  int idx = (der1) ? bsplines_el.size()*nmbGauss : 0;
+		  int idx = bsplines_el.size()*nmbGauss; //(der1) ? bsplines_el.size()*nmbGauss : 0;
 		  computeDer2LineIntegrals(bsplines_el, nmbGauss, 
 					   &basis_derivs[idx], weight2);
 		}
@@ -367,9 +374,10 @@ void LRSurfSmoothLS::smoothBoundary(const double weight1, const double weight2,
 	      if (der3)
 		{
 		  // Compute contribution of integrals of d_ttt^2
-		  int idx = (der1) ? bsplines_el.size()*nmbGauss : 0;
-		  if (der2)
-		    idx += bsplines_el.size()*nmbGauss;
+		  // int idx = (der1) ? bsplines_el.size()*nmbGauss : 0;
+		  // if (der2)
+		  //   idx += bsplines_el.size()*nmbGauss;
+		  int idx = 2*bsplines_el.size()*nmbGauss;
 		  computeDer3LineIntegrals(bsplines_el, nmbGauss, 
 					   &basis_derivs[idx], weight3);
 		}
@@ -391,6 +399,8 @@ void LRSurfSmoothLS::setLeastSquares(const double weight,
 
   int dim = srf_->dimension();
 
+  bool scaleNotOne = false;
+  
   // For each element
   for (LRSplineSurface::ElementMap::const_iterator it=srf_->elementsBegin();
        it != srf_->elementsEnd(); ++it)
@@ -466,10 +476,14 @@ void LRSurfSmoothLS::setLeastSquares(const double weight,
       int kcond, nc;
       it->second->getLSMatrix(subLSmat, subLSright, kcond);
 
+
       vector<size_t> in_bs(kcond);
       size_t ki, kj, kr, kh;
       for (ki=0, kj=0; ki<nmb; ++ki)
 	{
+	  if (fabs(bsplines[ki]->gamma() - 1.0) > 1.0e-12)
+	    scaleNotOne = true;
+
 	  if (bsplines[ki]->coefFixed())
 	    continue;
 
@@ -503,6 +517,9 @@ void LRSurfSmoothLS::setLeastSquares(const double weight,
 //   std::cout << "time_spent in setLeastSquares(): " << time_spent << std::endl;
 // #endif
 
+  if (scaleNotOne)
+    std::cout << "Scaling factor different from one. " << std::endl;
+  
 }
 
 
@@ -748,6 +765,7 @@ LRSurfSmoothLS::equationSolve(shared_ptr<LRSplineSurface>& surf)
       for (kk=0; kk<dim; kk++)
 	cf[kk] = gright_[kk*ncond_+ki];
       srf_->setCoef(cf, it_bs->second.get());
+      //srf_->setCoefTimesGamma(cf, it_bs->second.get());
       ki++;
     }
 
@@ -1018,7 +1036,7 @@ void LRSurfSmoothLS::fetchBasisDerivs(const vector<LRBSpline2D*>& bsplines,
   for (kj=0; kj<wgs1; ++kj)
     gausspar1[kj] = 0.5*(sample[ix1][kj]*(umax-umin) + umax + umin);
   for (kj=0; kj<wgs2; ++kj)
-    gausspar2[kj] = 0.5*(sample[ix1][kj]*(vmax-vmin) + vmax + vmin);
+    gausspar2[kj] = 0.5*(sample[ix2][kj]*(vmax-vmin) + vmax + vmin);
 
   // Allocate scratch for the results of the basis evaluation. Store only those
   // entries that will be used
@@ -1088,6 +1106,10 @@ void LRSurfSmoothLS::fetchBasisDerivs(const vector<LRBSpline2D*>& bsplines,
 	  curr += bsize;
 	  std::copy(derivs.begin()+ki*nmbb+7*nmbGauss, 
 		    derivs.begin()+ki*nmbb+8*nmbGauss,
+		    basis_derivs.begin()+(curr+ki)*nmbGauss);
+	  curr += bsize;
+	  std::copy(derivs.begin()+ki*nmbb+8*nmbGauss, 
+		    derivs.begin()+ki*nmbb+9*nmbGauss,
 		    basis_derivs.begin()+(curr+ki)*nmbGauss);
 	}
      }
@@ -1325,8 +1347,9 @@ void LRSurfSmoothLS::computeDer1Integrals(const vector<LRBSpline2D*>& bsplines,
 	  if (coef_fixed)
 	    {
 	      // Add contribution to the right side of the equation system
+	      Point coef = bsplines[kj]->Coef();
 	      for (int kk=0; kk<dim; ++kk)
-		gright_[kk*ncond_+ix1] -= val;
+		gright_[kk*ncond_+ix1] -= coef[kk]*val;
 	    }
 	  else
 	    {
@@ -1435,8 +1458,9 @@ void LRSurfSmoothLS::computeDer2Integrals(const vector<LRBSpline2D*>& bsplines,
 	  if (coef_fixed)
 	    {
 	      // Add contribution to the right side of the equation system
+	      Point coef = bsplines[kj]->Coef();
 	      for (int kk=0; kk<dim; ++kk)
-		gright_[kk*ncond_+ix1] -= val;
+		gright_[kk*ncond_+ix1] -= coef[kk]*val;
 	    }
 	  else
 	    {
@@ -1513,6 +1537,8 @@ void LRSurfSmoothLS::computeDer3Integrals(const vector<LRBSpline2D*>& bsplines,
       if (bsplines[ki]->coefFixed())
 	continue;
       double gamma1 = bsplines[ki]->gamma();
+      if (fabs(gamma1-1.0) > 1.0e-10)
+	std::cout << "gamma1 = " << gamma1 << std::endl;
        size_t ix1 = BSmap_.at(bsplines[ki]); // Index in stiffness matrix
       for (kj=ki; kj<bsplines.size(); ++kj)
 	{
@@ -1552,8 +1578,9 @@ void LRSurfSmoothLS::computeDer3Integrals(const vector<LRBSpline2D*>& bsplines,
 	  if (coef_fixed)
 	    {
 	      // Add contribution to the right side of the equation system
+	      Point coef = bsplines[kj]->Coef();
 	      for (int kk=0; kk<dim; ++kk)
-		gright_[kk*ncond_+ix1] -= val;
+		gright_[kk*ncond_+ix1] -= coef[kk]*val;
 	    }
 	  else
 	    {
