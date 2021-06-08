@@ -40,7 +40,6 @@
 #include "GoTools/lrsplines3D/LRSpline3DEvalGrid.h"
 #include "GoTools/lrsplines3D/LRSpline3DBezierCoefs.h"
 
-//#define DEBUG
 
 inline int flat(int i, int j, int k, int l, int I, int J, int K)
 {
@@ -73,14 +72,12 @@ LRSpline3DBezierCoefs::LRSpline3DBezierCoefs(LRSplineVolume& lr_spline)
 
     // Currently only support non-rational LR-splines of degree 2 and 3 
     assert(!lr_spline.rational());
-    assert(order_u_ <= 4 and order_u_ >= 3);
-    assert(order_v_ <= 4 and order_v_ >= 3);
-    assert(order_w_ <= 4 and order_w_ >= 3);
-
-    dim2_ = dim_;
+    assert(order_u_ <= 4 && order_u_ >= 3);
+    assert(order_v_ <= 4 && order_v_ >= 3);
+    assert(order_w_ <= 4 && order_w_ >= 3);
 }
 
-  void LRSpline3DBezierCoefs::computeCoefsFromPts(const double *points, double *coefs, int ind) {
+void LRSpline3DBezierCoefs::computeCoefsFromPts(const double *points, double *coefs) {
   std::vector<double> tmp_vec_x(dim_*order_u_*order_v_*order_w_);
   if (order_u_ == 3) {
     for (int jx=0; jx<order_v_; jx++) {
@@ -151,14 +148,11 @@ LRSpline3DBezierCoefs::LRSpline3DBezierCoefs(LRSplineVolume& lr_spline)
     for(int ix=0; ix<order_u_; ix++) {
       for(int jx=0; jx<order_v_; jx++) {
         for(int d=0; d<dim_; d++) {
-	  if (dim2_ != dim_ && d != ind)
-	    continue;
-	  int d1 = (d == ind) ? 0 : d;
-          coefs[flat(d1,ix,jx,0,dim2_,order_u_,order_v_)] =        tmp_vec_xy[flat(d,ix,jx,0,dim_,order_u_,order_v_)];
-          coefs[flat(d1,ix,jx,1,dim2_,order_u_,order_v_)] = M3_[3]*tmp_vec_xy[flat(d,ix,jx,0,dim_,order_u_,order_v_)]
+          coefs[flat(d,ix,jx,0,dim_,order_u_,order_v_)] =        tmp_vec_xy[flat(d,ix,jx,0,dim_,order_u_,order_v_)];
+          coefs[flat(d,ix,jx,1,dim_,order_u_,order_v_)] = M3_[3]*tmp_vec_xy[flat(d,ix,jx,0,dim_,order_u_,order_v_)]
                                                         + M3_[4]*tmp_vec_xy[flat(d,ix,jx,1,dim_,order_u_,order_v_)]
                                                         + M3_[5]*tmp_vec_xy[flat(d,ix,jx,2,dim_,order_u_,order_v_)];
-          coefs[flat(d1,ix,jx,2,dim2_,order_u_,order_v_)] =        tmp_vec_xy[flat(d,ix,jx,2,dim_,order_u_,order_v_)];
+          coefs[flat(d,ix,jx,2,dim_,order_u_,order_v_)] =        tmp_vec_xy[flat(d,ix,jx,2,dim_,order_u_,order_v_)];
         }
       }
     }
@@ -167,19 +161,16 @@ LRSpline3DBezierCoefs::LRSpline3DBezierCoefs(LRSplineVolume& lr_spline)
     for(int ix=0; ix<order_u_; ix++) {
       for(int jx=0; jx<order_v_; jx++) {
         for(int d=0; d<dim_; d++) {
-	  if (dim2_ != dim_ && d != ind)
-	    continue;
-	  int d1 = (d == ind) ? 0 : d;
-          coefs[flat(d1,ix,jx,0,dim2_,order_u_,order_v_)] =         tmp_vec_xy[flat(d,ix,jx,0,dim_,order_u_,order_v_)];
-          coefs[flat(d1,ix,jx,1,dim2_,order_u_,order_v_)] = M4_[ 4]*tmp_vec_xy[flat(d,ix,jx,0,dim_,order_u_,order_v_)]
+          coefs[flat(d,ix,jx,0,dim_,order_u_,order_v_)] =         tmp_vec_xy[flat(d,ix,jx,0,dim_,order_u_,order_v_)];
+          coefs[flat(d,ix,jx,1,dim_,order_u_,order_v_)] = M4_[ 4]*tmp_vec_xy[flat(d,ix,jx,0,dim_,order_u_,order_v_)]
                                                         + M4_[ 5]*tmp_vec_xy[flat(d,ix,jx,1,dim_,order_u_,order_v_)]
                                                         + M4_[ 6]*tmp_vec_xy[flat(d,ix,jx,2,dim_,order_u_,order_v_)]
                                                         + M4_[ 7]*tmp_vec_xy[flat(d,ix,jx,3,dim_,order_u_,order_v_)];
-          coefs[flat(d1,ix,jx,2,dim2_,order_u_,order_v_)] = M4_[ 8]*tmp_vec_xy[flat(d,ix,jx,0,dim_,order_u_,order_v_)]
+          coefs[flat(d,ix,jx,2,dim_,order_u_,order_v_)] = M4_[ 8]*tmp_vec_xy[flat(d,ix,jx,0,dim_,order_u_,order_v_)]
                                                         + M4_[ 9]*tmp_vec_xy[flat(d,ix,jx,1,dim_,order_u_,order_v_)]
                                                         + M4_[10]*tmp_vec_xy[flat(d,ix,jx,2,dim_,order_u_,order_v_)]
                                                         + M4_[11]*tmp_vec_xy[flat(d,ix,jx,3,dim_,order_u_,order_v_)];
-          coefs[flat(d1,ix,jx,3,dim2_,order_u_,order_v_)] =         tmp_vec_xy[flat(d,ix,jx,3,dim_,order_u_,order_v_)];
+          coefs[flat(d,ix,jx,3,dim_,order_u_,order_v_)] =         tmp_vec_xy[flat(d,ix,jx,3,dim_,order_u_,order_v_)];
         }
       }
     }
@@ -187,11 +178,10 @@ LRSpline3DBezierCoefs::LRSpline3DBezierCoefs(LRSplineVolume& lr_spline)
 }
 
 
-void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
+void LRSpline3DBezierCoefs::getBezierCoefs() {
   // Storage for points and coefs
-  dim2_ = (ind < 0 || ind >= dim_) ? dim_ : 1;
   std::vector<double> points(dim_*order_u_*order_v_*order_w_);
-  std::vector<double> coefs(dim2_*order_u_*order_v_*order_w_);
+  std::vector<double> coefs(dim_*order_u_*order_v_*order_w_);
 
   boxes_.clear();
   LRSpline3DEvalGrid eval_grid(lr_spline_);
@@ -200,7 +190,6 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
   int i = 0;
   for(auto it=eval_grid.elements_begin(); it!=eval_grid.elements_end(); it++, i++) {
     
-#ifdef DEBUG
     // Print percentage
     static int printedPercentage = 0;
     int currPercentage = (int)(100 * (float)i / ((float)eval_grid.numElements() - 1));
@@ -208,7 +197,6 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
       std::cout<< currPercentage <<"\% done    \r" << std::flush;
       printedPercentage = currPercentage;
     }
-#endif
 
     // Get box
     //Go::Point low(it->umin(), it->vmin(), it->wmin()), high(it->umax(), it->vmax(), it->wmax());
@@ -234,47 +222,45 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
     eval_grid.evaluateGrid(*it, &points[0]);
     
     // Compute Bezier coefficients
-    computeCoefsFromPts(&points[0], &coefs[0], ind);
+    computeCoefsFromPts(&points[0], &coefs[0]);
 
     for (size_t ix = 0; ix<coefs.size(); ++ix) {
       bezier_coefs_.push_back(coefs[ix]);
     }
   }
-#ifdef DEBUG
-  std::cout << std::endl;
-#endif
+  std::cout << std::endl; 
   calcMinMaxCoefficientsValue();
 }
 
-  void LRSpline3DBezierCoefs::calcMinMaxCoefficientsValue() {
-  min_coef_value_.resize(dim2_+1);
-  max_coef_value_.resize(dim2_+1);
+void LRSpline3DBezierCoefs::calcMinMaxCoefficientsValue() {
+  min_coef_value_.resize(dim_+1);
+  max_coef_value_.resize(dim_+1);
   int element=0;
   int ox=0;
   int oy=0;
   int oz=0;
   double len = 0;
-  for (int cd=0; cd<(int)dim2_; cd++) {
-    const double tmp = bezier_coefs_[flat(cd,ox,oy,oz,element, (int)dim2_, order_u_, order_v_, order_w_)];
+  for (int cd=0; cd<(int)dim_; cd++) {
+    const double tmp = bezier_coefs_[flat(cd,ox,oy,oz,element, (int)dim_, order_u_, order_v_, order_w_)];
     min_coef_value_[cd] = tmp;
     max_coef_value_[cd] = tmp;
     len += tmp*tmp;
   }
-  min_coef_value_[(int)dim2_] = std::sqrt(len);
-  max_coef_value_[(int)dim2_] = std::sqrt(len);
+  min_coef_value_[(int)dim_] = std::sqrt(len);
+  max_coef_value_[(int)dim_] = std::sqrt(len);
   for(int element=0; element<num_elements_; element++) {
     for(int ox=0; ox<order_u_; ox++) {
       for(int oy=0; oy<order_v_; oy++) { 
 	for(int oz=0; oz<order_w_; oz++) {
 	  double len = 0;
-	  for (int cd=0; cd<(int)dim2_; cd++) {
-            const double tmp = bezier_coefs_[flat(cd,ox,oy,oz,element, (int)dim2_, order_u_, order_v_, order_w_)];
+	  for (int cd=0; cd<(int)dim_; cd++) {
+            const double tmp = bezier_coefs_[flat(cd,ox,oy,oz,element, (int)dim_, order_u_, order_v_, order_w_)];
 	    min_coef_value_[cd] = std::min( min_coef_value_[cd], tmp );
 	    max_coef_value_[cd] = std::max( max_coef_value_[cd], tmp );
 	    len += tmp*tmp;
 	  }
-	  min_coef_value_[(int)dim2_] = std::min(min_coef_value_[(int)dim2_],std::sqrt(len));
-	  max_coef_value_[(int)dim2_] = std::max(max_coef_value_[(int)dim2_],std::sqrt(len));
+	  min_coef_value_[(int)dim_] = std::min(min_coef_value_[(int)dim_],std::sqrt(len));
+	  max_coef_value_[(int)dim_] = std::max(max_coef_value_[(int)dim_],std::sqrt(len));
 	}
       }
     }
@@ -282,14 +268,14 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
 }
 
 
-  void LRSpline3DBezierCoefs::writeToFile(const std::string& filename) {
+void LRSpline3DBezierCoefs::writeToFile(const std::string& filename) {
   std::ofstream ofs;
   ofs.open(filename, std::ios::out | std::ios::binary);
   writeToStream(ofs);
   ofs.close();
 }
 
-  void LRSpline3DBezierCoefs::writeToStream(std::ostream& os) {
+void LRSpline3DBezierCoefs::writeToStream(std::ostream& os) {
   const int dim_dom = 3;
   const int version = 3; // this might need updating later
   const int num_boxes = boxes_.size();
@@ -303,7 +289,7 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
   float max_box_diagonal = static_cast<float>(max_box_diagonal_);
   os.write((char*)&version, sizeof(int));
   os.write((char*)&dim_dom, sizeof(int));
-  os.write((char*)&dim2_, sizeof(int));
+  os.write((char*)&dim_, sizeof(int));
   os.write((char*)&order_u_, sizeof(int));
   os.write((char*)&order_v_, sizeof(int));
   os.write((char*)&order_w_, sizeof(int));
@@ -317,10 +303,9 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
   os.write((char*)&min_box_diagonal, sizeof(float));
   os.write((char*)&max_box_diagonal, sizeof(float));
   
-#ifdef DEBUG
   std::cout << "version " << version << std::endl;
   std::cout << "dim_dom " << dim_dom << std::endl;
-  std::cout << "dim_ " << dim2_ << std::endl;
+  std::cout << "dim_ " << dim_ << std::endl;
   std::cout << "order_u_ " << order_u_ << std::endl;
   std::cout << "order_v_ " << order_v_ << std::endl;
   std::cout << "order_w_ " << order_w_ << std::endl;
@@ -329,7 +314,7 @@ void LRSpline3DBezierCoefs::getBezierCoefs(int ind) {
   std::cout << "high " << highx << " " << highy << " " << highz << std::endl;
   std::cout << "min_box_diagonal " << min_box_diagonal << std::endl;
   std::cout << "max_box_diagonal " << max_box_diagonal << std::endl;
-#endif
+
 
 
   for (size_t ix = 0; ix < min_coef_value_.size(); ix++)

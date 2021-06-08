@@ -63,7 +63,7 @@ public:
 
   LRSpline3DBezierCoefs(LRSplineVolume& lr_spline);
 
-  void getBezierCoefs(int ind=-1);
+  void getBezierCoefs();
 
   void writeToStream(std::ostream& os);
 
@@ -71,7 +71,7 @@ public:
 
 private:
   
-  void computeCoefsFromPts(const double *points, double *coefs, int ind);
+  void computeCoefsFromPts(const double *points, double *coefs);
 
   void calcMinMaxCoefficientsValue();
 
@@ -81,7 +81,6 @@ private:
   int order_v_;
   int order_w_;
   int dim_;
-  int dim2_;
   int num_elements_;
   
   Array<double,6> orig_dom_;

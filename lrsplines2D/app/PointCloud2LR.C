@@ -98,6 +98,7 @@ void print_help_text()
   std::cout << "-signpoints: Filename significant points, same formats as point cloud \n";
   std::cout << "-signtol: Tolerance for significant points, default 0.5*tolerance \n";
   std::cout << "-signpost: Flag for post processing significant points outside tolerance (0=false, 1=true). Default false \n";
+  std::cout << "-verbose <0/1>: Write accuracy information at each iteration level. Default = 0 \n";
   std::cout << "-tolfile: File specifying domains with specific tolerances, global tolerance apply outside domains. PointCloud2LR -tolfile for file format \n";
   std::cout << "-toldoc: Documentation on file format for tolerance domains. \n";
   std::cout << "-featuredoc: Show feature documentation \n";
@@ -230,6 +231,7 @@ int main(int argc, char *argv[])
   int signpost = 0;  // Flag for post procession of significant points
   double minsize = -1.0;
   int feature_out = -1;
+  int verbose = 0;
   
   int initncoef = 10;
   int distribute_ncoef = 0;
@@ -388,6 +390,13 @@ int main(int argc, char *argv[])
 	  if (stat < 0)
 	    return 1;
 	}
+      else if (arg == "-verbose")
+	{
+	  int stat = fetchIntParameter(argc, argv, ki, verbose, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
       else if (arg == "-tolfile")
 	{
 	  int stat = fetchCharParameter(argc, argv, ki, tolfile, 
@@ -498,7 +507,6 @@ int main(int argc, char *argv[])
 	  if (stat < 0)
 	    return 1;
 	  alter = (altdir[0] == 'A') ? 1 : 0;
-	  std::cout << "alter=" << alter << std::endl;
 	}
       else if (arg == "-swap")
 	{
@@ -545,7 +553,6 @@ int main(int argc, char *argv[])
   if (signtol < 0)
     signtol = 0.5*AEPSGE;  // Default value
 
-  std::cout << "mba: " << mba << ", initmba:" << initmba << " tomba: " << tomba << std::endl;
   // Read point cloud
   vector<double> data;
   vector<double> extent(2*del);   // Limits for points in all coordinates
@@ -783,7 +790,6 @@ int main(int argc, char *argv[])
   if (initmba)
     mba_coef = 0.5*(extent[2*(del-1)] + extent[2*(del-1)+1]);
   shared_ptr<LRSurfApprox> approx;
-  std::cout << distribute_ncoef << std::endl;
   if (distribute_ncoef)
     approx = shared_ptr<LRSurfApprox>(new LRSurfApprox(nc[0], order, nc[1], order, data, del-2, 
 						       AEPSGE, initmba ? true : false, mba_coef,
@@ -826,7 +832,7 @@ int main(int argc, char *argv[])
   if (tolerances.size() > 0)
     approx->setVarTolBox(tolerances);
   
-  approx->setVerbose(true);
+  approx->setVerbose(verbose);
 
   // Feature output
   if (feature_out > 0)
@@ -935,6 +941,7 @@ int main(int argc, char *argv[])
 
       infoout << "Total number of points: " << nmb_pts << std::endl;
       infoout << "Number of elements: " << surf->numElements() << std::endl;
+      infoout << "Number of coefficients: " << surf->numBasisFunctions() << std::endl;
       infoout << "Maximum distance: " << maxdist << std::endl;
       infoout << "Average distance: " << avdist_total << std::endl;
       infoout << "Average distance for points outside of the tolerance: " << avdist << std::endl;
@@ -953,6 +960,7 @@ int main(int argc, char *argv[])
     {
       std::cout << "INFO: Total number of points: " << nmb_pts << std::endl;
       std::cout << "INFO: Number of elements: " << surf->numElements() << std::endl;
+      std::cout << "INFO: Number of coefficients: " << surf->numBasisFunctions() << std::endl;
       std::cout << "INFO: Maximum distance: " << maxdist << std::endl;
       std::cout << "INFO: Average distance: " << avdist_total << std::endl;
       std::cout << "INFO: Average distance for points outside of the tolerance: " << avdist << std::endl;

@@ -113,6 +113,16 @@ representAsSurfaceCurves(const std::vector< shared_ptr<ParamCurve> >& curves,
 
 //===========================================================================
 bool
+LoopUtils::loopIsCCW(const vector<shared_ptr<SplineCurve> >& simple_par_loop, 
+		     double space_epsilon, double int_tol)
+//===========================================================================
+{
+  vector<shared_ptr<ParamCurve> > tmp_cvs(simple_par_loop.begin(), simple_par_loop.end());
+  return loopIsCCW(tmp_cvs, space_epsilon, int_tol);
+}
+
+//===========================================================================
+bool
 LoopUtils::loopIsCCW(const vector<shared_ptr<ParamCurve> >& simple_par_loop, 
 		     double space_epsilon, double int_tol)
 //===========================================================================

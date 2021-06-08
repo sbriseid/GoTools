@@ -49,16 +49,13 @@ using namespace std;
 
 int main(int argc, char *argv[])
 {
-  if (argc != 3 && argc != 4)
+  if (argc != 3)
   {
-      std::cout << "Usage: lr_spline_vol.g2 bezier_binary.bb (index)" << std::endl;
+      std::cout << "Usage: lr_spline_vol.g2 bezier_binary.bb" << std::endl;
       return -1;
   }
 
-  std::ifstream ifs(argv[1]);
-  int ind = -1;
-  if (argc == 4)
-    ind = atoi(argv[3]);
+  std::ifstream ifs(argv[1]); 
   
   ObjectHeader oh;
   oh.read(ifs);
@@ -70,7 +67,7 @@ int main(int argc, char *argv[])
   Array<double,6> span = vol->parameterSpan();
   LRSpline3DBezierCoefs bez(*vol);
 
-  bez.getBezierCoefs(ind);
+  bez.getBezierCoefs();
 
   std::cout << "Finished converting volume " << std::endl;
   

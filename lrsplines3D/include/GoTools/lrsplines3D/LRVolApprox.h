@@ -124,10 +124,10 @@ class LRVolApprox
   ///                     parameter value
   /// \param repar Perform reparameterization during iterations
   LRVolApprox(shared_ptr<LRSplineVolume>& vol, std::vector<double>& points, 
-	      double epsge, 
-	      bool closest_dist=true,
-              bool repar=false,
-              bool check_init_accuracy=false);
+	       double epsge, 
+               bool closest_dist=true,
+	       bool repar=false, 
+               bool check_init_accuracy=false);
 
   /// Constructor given a parameterized point set and the size of an initial
   /// spline space
@@ -372,24 +372,6 @@ class LRVolApprox
       average_outside = avout_;
     }
 
-     /// Feature output
-    void setFeatureOut(int ncell1, int ncell2, int ncell3)
-    {
-      write_feature_ = true;
-      ncell1_ = ncell1;
-      ncell2_ = ncell2;
-      ncell3_ = ncell3;
-    }
-
-    void unsetFeatureOut()
-    {
-      write_feature_ = false;
-    }
-
-    void setFeatureLevel(std::vector<int>& levels)
-    {
-      feature_levels_ = levels;
-    }
     
 private:
     shared_ptr<LRSplineVolume> vol_;
@@ -448,11 +430,6 @@ private:
     // Variable tolerance 
     std::vector<TolBox> tolerances_;
 
-    // Features output
-    bool write_feature_;
-    int ncell1_, ncell2_, ncell3_;
-    std::vector<int> feature_levels_;
-    
     // DEBUG
     int ref_x_, ref_y_, ref_z_;
     int nmb1_, nmb2_, nmb3_;
@@ -473,11 +450,7 @@ private:
                                    int nmb, int del, const Element3D* elem);
 
     /// Refine volume
-    void getRefineExtension(Element3D *elem, Direction3D dir,
-			    int strategy, double& pmin2, double& pmax2,
-			    double& pmin3, double& pmax3);
-    int refineVol3(int iter, int& dir, double threshold);
-    int refineVol(int iter, int& dir, double threshold);
+    int refineVol(double threshold);
     void refineVol2();
     
     /// Create initial LR B-spline volume
@@ -513,13 +486,13 @@ private:
                           double& vmin, double& vmax,
                           double& wmin, double& wmax );
 
-    void defineRefs(LRBSpline3D* bspline, double average_out, int dir,
+    void defineRefs(LRBSpline3D* bspline, double average_out,
 		    std::vector<LRSplineVolume::Refinement3D>& refs_x,
 		    std::vector<LRSplineVolume::Refinement3D>& refs_y,
 		    std::vector<LRSplineVolume::Refinement3D>& refs_z,
 		    std::vector<Element3D*>& elem_div);
 
-    void checkFeasibleRef(Element3D* elem, int dir, 
+    void checkFeasibleRef(Element3D* elem, 
 			  std::vector<LRSplineVolume::Refinement3D>& refs_x,
 			  std::vector<LRSplineVolume::Refinement3D>& refs_y,
 			  std::vector<LRSplineVolume::Refinement3D>& refs_z,
