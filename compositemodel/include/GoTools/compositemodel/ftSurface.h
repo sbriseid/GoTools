@@ -91,6 +91,8 @@ namespace Go
 class GO_API ftSurface : public ftFaceBase
 {
 public:
+  ftSurface();
+  
     /// Constructor.  Typically, the ParamSurface in this constructor
     /// will be a BoundedSurface. A loop will be built from this, but
     /// if we already have a loop and the edges in the loop has
