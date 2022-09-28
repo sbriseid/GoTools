@@ -113,6 +113,8 @@ public:
     /// Empty destructor
     virtual ~ftSurface();
 
+    void attachSurface(shared_ptr<ParamSurface> sf);
+    
     /// Return as type ftSurface
     virtual ftSurface* asFtSurface();
 

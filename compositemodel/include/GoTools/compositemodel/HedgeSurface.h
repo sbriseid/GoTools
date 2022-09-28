@@ -41,19 +41,52 @@
 #define _HEDGESURFACE_H
 
 #include "GoTools/compositemodel/ftSurface.h"
+//#include "GoTools/compositemodel/RevEngRegion.h"
 
-using namespace Go;
+namespace Go {
 
 class RevEngRegion;
 
 class HedgeSurface : public ftSurface
 {
+public:
+  
   // Constructor
-  HedgeSurface();
+  // HedgeSurface();
+
+  HedgeSurface(shared_ptr<ParamSurface> sf, RevEngRegion *region);
+
+  HedgeSurface(shared_ptr<ParamSurface> sf, std::vector<RevEngRegion*>& region);
 
   // Destructor
   ~HedgeSurface();
-};
 
+  int numPoints();
+
+  ClassType instanceType(int& code);
+
+  std::vector<RevEngRegion*> getRegions()
+  {
+    return regions_;
+  }
+
+  int numRegions()
+  {
+    return regions_.size();
+  }
+
+  RevEngRegion* getRegion(int ix)
+  {
+    if (ix < 0 || ix >= regions_.size())
+      return 0;
+    else
+      return regions_[ix];
+  }
+    
+  
+private:
+  std::vector<RevEngRegion*> regions_;
+};
+}
 
 #endif // _HEDGESURFACE_H

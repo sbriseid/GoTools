@@ -41,10 +41,14 @@
 #define _REVENGUTILS_H
 
 #include "GoTools/utils/Point.h"
+#include "GoTools/compositemodel/RevEngPoint.h"
+#include "GoTools/geometry/ParamSurface.h"
 #include <vector>
 
 namespace Go {
 
+  class RevEngPoint;
+  
   namespace RevEngUtils
   {
     void principalAnalysis(Point& curr, std::vector<Point>& points, 
@@ -54,6 +58,31 @@ namespace Go {
 		      Point& vec1, Point& vec2, Point& normal, Point& mincvec,
 		      double& minc, Point& maxcvec, double& maxc,
 		      double& currdist, double& avdist);
+
+    void computeAxis(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+		     std::vector<RevEngPoint*>::iterator> >& points,
+		     Point& axis, Point& Cx, Point& Cy);
+
+    void computeCylPosRadius(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+			     std::vector<RevEngPoint*>::iterator> >& points,
+			     Point& low, Point& high, Point& axis, Point& Cx, 
+			     Point& Cy, Point& pos, double& radius);
+
+    void computeRadius(std::vector<Point>& points,
+		       Point& axis, Point& Cx, Point& Cy, double& radius);
+    
+    void computePlane(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+		      std::vector<RevEngPoint*>::iterator> >& points,
+		      Point& pos, Point& norm);
+
+    void distToSurf(std::vector<RevEngPoint*>::iterator start,
+		    std::vector<RevEngPoint*>::iterator end,
+		    shared_ptr<ParamSurface> surf, double tol,
+		    double& maxdist, double& avdist, int& inside);
+    
+    void distToSurf(std::vector<Point>& points,
+		    shared_ptr<ParamSurface> surf, double tol,
+		    double& maxdist, double& avdist, int& inside);
   }
   
 } // namespace Go

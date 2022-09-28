@@ -42,9 +42,12 @@
 
 #include "GoTools/implicitization/BernsteinTetrahedralPoly.h"
 #include "GoTools/utils/BaryCoordSystem.h"
+#include "GoTools/utils/Point.h"
 
 namespace Go
 {
+  class RevEngPoint;
+
   class ImplicitApprox
   {
   public:
@@ -54,7 +57,14 @@ namespace Go
 
     void approx(std::vector<RevEngPoint*> points, int degree);
 
+    void approxPoints(std::vector<Point> points, int degree);
+
     double estimateDist(RevEngPoint* pt);
+
+    void projectPoint(Point point, Point dir,
+		      Point& projpos, Point& normal);
+    
+    void visualize(std::vector<RevEngPoint*> points, std::ostream& os);
 
   private:
     int degree_;

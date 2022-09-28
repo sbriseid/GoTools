@@ -78,7 +78,12 @@ namespace Go
       
       void recognizePlanes();
       
-      void mergePlanes();
+      void recognizeCylinders();
+      
+       void mergePlanes();
+
+    // Could be private
+    void mergeCylinders(size_t first, size_t last);
 
       void trimPrimitives();
 
@@ -108,10 +113,13 @@ namespace Go
     double zero_K_;  // When Gauss curvature is considered zero
     double zero_si_; // When shape index is considered zero
     int min_point_region_;
+    double approx_tol_;  // Approximation tolerance in region growing
+    double anglim_;
 
     void initParameters();
     void setClassificationParams();
     void curvatureFilter();
+    shared_ptr<HedgeSurface> doMergeCylinders(std::vector<size_t>& cand_ix);
 
     void storeParams(std::ostream& os) const;
     void readParams(std::istream& is);

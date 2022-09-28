@@ -38,10 +38,31 @@
  */
 
 #include "GoTools/compositemodel/HedgeSurface.h"
+#include "GoTools/compositemodel/RevEngRegion.h"
+#include "GoTools/geometry/ParamSurface.h"
+
+using namespace Go;
+using std::vector;
+
+// //===========================================================================
+// HedgeSurface::HedgeSurface()
+//   : ftSurface()
+// //===========================================================================
+// {
+// }
 
 //===========================================================================
-HedgeSurface::HedgeSurface()
-  : ftSurface()
+HedgeSurface::HedgeSurface(shared_ptr<ParamSurface> sf, RevEngRegion *region)
+  : ftSurface(sf, -1)
+//===========================================================================
+{
+  regions_.push_back(region);
+}
+
+//===========================================================================
+HedgeSurface::HedgeSurface(shared_ptr<ParamSurface> sf,
+			   vector<RevEngRegion*>& region)
+  : ftSurface(sf, -1), regions_(region)
 //===========================================================================
 {
 }
@@ -52,4 +73,20 @@ HedgeSurface::~HedgeSurface()
 {
 }
 
+//===========================================================================
+int HedgeSurface::numPoints()
+//===========================================================================
+{
+  int num = 0;
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    num += regions_[ki]->numPoints();
+  return num;
+ }
 
+//===========================================================================
+ClassType HedgeSurface::instanceType(int& code)
+//===========================================================================
+{
+  code = 0;  // For later use
+  return surface()->instanceType();
+}

@@ -49,6 +49,7 @@
 
 using namespace Go;
 using std::vector;
+using std::pair;
 
 typedef MatrixXD<double, 3> Matrix3D;
 
@@ -174,7 +175,7 @@ void RevEngUtils::computeMonge(Point& curr, std::vector<Point>& points,
 
   // Approximate
   SmoothSurf approx;
-  vector<int> coef_known(nmbpts, 0);
+  vector<int> coef_known(order*order, 0);
   int seem[2];
   seem[0] = seem[1] = 0;
   vector<double> ptwgt(nmbpts, 1.0);
@@ -265,4 +266,407 @@ void RevEngUtils::computeMonge(Point& curr, std::vector<Point>& points,
   maxcvec = Point(cvec4[0], cvec4[1],cvec4[2]); 
 
   int stop_break = 1;
+}
+
+//===========================================================================
+void RevEngUtils::computeAxis(vector<pair<vector<RevEngPoint*>::iterator,
+			      vector<RevEngPoint*>::iterator> >& points,
+			      Point& axis, Point& Cx, Point& Cy)
+//===========================================================================
+{
+  double Cmat[3][3];
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      for (int ka=0; ka<3; ++ka)
+	for (int kb=0; kb<3; ++kb)
+	  {
+	    Cmat[ka][kb] = 0.0;
+	    for (auto it=start; it!=end; ++it)
+	      {
+		RevEngPoint *pt = *it;
+		Point norm1 = pt->getMongeNormal();
+		Point norm = pt->getPCANormal();
+		Point norm2 = pt->getTriangNormal();
+		Cmat[ka][kb] += norm[ka]*norm[kb];
+	      }
+	  }
+    }
+  
+  // Compute singular values
+  NEWMAT::Matrix nmat;
+  nmat.ReSize(3, 3);
+  for (int ka = 0; ka < 3; ++ka) {
+    for (int kb = 0; kb < 3; ++kb) {
+      nmat.element(ka, kb) = Cmat[ka][kb];
+    }
+  }
+      
+  static NEWMAT::DiagonalMatrix diag;
+  static NEWMAT::Matrix V;
+  try {
+    NEWMAT::SVD(nmat, diag, nmat, V);
+  } catch(...) {
+    std::cout << "Exception in SVD" << std::endl;
+    exit(-1);
+  }
+  Cx = Point(V.element(0,0), V.element(1,0), V.element(2,0));
+  Cy = Point(V.element(0,1), V.element(1,1), V.element(2,1));
+  axis = Point(V.element(0,2), V.element(1,2), V.element(2,2));
+
+}
+
+
+//===========================================================================
+void RevEngUtils::computeCylPosRadius(vector<pair<vector<RevEngPoint*>::iterator,
+				      vector<RevEngPoint*>::iterator> >& points,
+				      Point& low, Point& high,
+				      Point& axis, Point& Cx, Point& Cy,
+				      Point& pos, double& radius)
+//===========================================================================
+{
+  double Amat[3][3];
+  double bvec[3];
+  size_t numpt = 0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      numpt += (points[ki].second - points[ki].first);
+    }
+  
+  vector<vector<double> > A1(numpt);
+  vector<double> b1(numpt);
+  for (size_t kj=0; kj<numpt; ++kj)
+    A1[kj].resize(3);
+      
+  for (int ka=0; ka<3; ++ka)
+    {
+      for (int kb=0; kb<3; ++kb)
+	Amat[ka][kb] = 0.0;
+      bvec[ka] = 0.0;
+    }
+
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      size_t kj = 0;
+      for (auto it=start; it!=end; ++it, ++kj)
+	{
+	  Vector3D curr = (*it)->getPoint();
+	  Point curr2(curr[0], curr[1], curr[2]);
+	  double pxy[3];
+	  double px = curr2*Cx;
+	  double py = curr2*Cy;
+	  pxy[0] = 2*px;
+	  pxy[1] = 2*py;
+	  pxy[2] = 1.0;
+	  double plen2 = px*px + py*py;
+	  A1[kj][0] = 2*px;
+	  A1[kj][1] = 2*py;
+	  A1[kj][2] = 1.0;
+	  b1[kj] = plen2;
+	  for (int ka=0; ka<3; ++ka)
+	    {
+	      for (int kb=0; kb<3; ++kb)
+		Amat[ka][kb] += pxy[ka]*pxy[kb];
+	      bvec[ka] += pxy[ka]*plen2;
+	    }
+	}
+    }
+
+  double Amat2[3][3];
+  double bvec2[3];
+  for (int ka=0; ka<3; ++ka)
+    {
+      for (int kb=0; kb<3; ++kb)
+	Amat2[ka][kb] = 0.0;
+      bvec2[ka] = 0.0;
+    }
+  for (int ka=0; ka<3; ++ka)
+    {
+      for (int kb=0; kb<3; ++kb)
+	{
+	  for (size_t kr=0; kr<numpt; ++kr)
+	    Amat2[ka][kb] += A1[kr][ka]*A1[kr][kb];
+	}
+      for (size_t kr=0; kr<numpt; ++kr)
+	bvec2[ka] += A1[kr][ka]*b1[kr];
+    }
+
+  double detA = 0.0;
+  double bx[3];
+  bx[0] = bx[1] = bx[2] = 0.0;
+  int sgn = 1;
+  for (int kb=0; kb<3; ++kb, sgn*=(-1))
+    {
+      int ka1 = (kb == 0);
+      int ka2 = 2 - (kb == 2);
+      detA += sgn*Amat[0][kb]*(Amat[1][ka1]*Amat[2][ka2]-Amat[2][ka1]*Amat[1][ka2]);
+      bx[0] += sgn*bvec[kb]*(Amat[1][ka1]*Amat[2][ka2]-Amat[2][ka1]*Amat[1][ka2]);
+      bx[1] += sgn*Amat[0][kb]*(bvec[ka1]*Amat[2][ka2]-bvec[ka2]*Amat[2][ka1]);
+      bx[2] += sgn*Amat[0][kb]*(Amat[1][ka1]*bvec[ka2]-Amat[1][ka2]*bvec[ka1]);
+    }
+  double sx = bx[0]/detA;
+  double sy = bx[1]/detA;
+  double r2 = bx[2]/detA;
+
+  Point pos2 = sx*Cx + sy*Cy;
+
+  radius = sqrt(r2 + sx*sx + sy*sy);
+  double len = low.dist(high);
+  Point mid = 0.5*(low + high);
+  Point vec = mid - pos2;
+  Point ax = axis;
+  ax.normalize();
+  pos = pos2 + (vec*ax)*ax;
+ }
+
+//===========================================================================
+void RevEngUtils::computeRadius(vector<Point>& points, Point& axis, 
+				Point& Cx, Point& Cy, double& radius)
+//===========================================================================
+{
+  double Amat[3][3];
+  double bvec[3];
+  size_t numpt = points.size();
+  
+  vector<vector<double> > A1(numpt);
+  vector<double> b1(numpt);
+  for (size_t kj=0; kj<numpt; ++kj)
+    A1[kj].resize(3);
+      
+  for (int ka=0; ka<3; ++ka)
+    {
+      for (int kb=0; kb<3; ++kb)
+	Amat[ka][kb] = 0.0;
+      bvec[ka] = 0.0;
+    }
+
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      double pxy[3];
+      double px = points[ki]*Cx;
+      double py = points[ki]*Cy;
+      pxy[0] = 2*px;
+      pxy[1] = 2*py;
+      pxy[2] = 1.0;
+      double plen2 = px*px + py*py;
+      A1[ki][0] = 2*px;
+      A1[ki][1] = 2*py;
+      A1[ki][2] = 1.0;
+      b1[ki] = plen2;
+      for (int ka=0; ka<3; ++ka)
+	{
+	  for (int kb=0; kb<3; ++kb)
+	    Amat[ka][kb] += pxy[ka]*pxy[kb];
+	  bvec[ka] += pxy[ka]*plen2;
+	}
+    }
+
+  double Amat2[3][3];
+  double bvec2[3];
+  for (int ka=0; ka<3; ++ka)
+    {
+      for (int kb=0; kb<3; ++kb)
+	Amat2[ka][kb] = 0.0;
+      bvec2[ka] = 0.0;
+    }
+  for (int ka=0; ka<3; ++ka)
+    {
+      for (int kb=0; kb<3; ++kb)
+	{
+	  for (size_t kr=0; kr<numpt; ++kr)
+	    Amat2[ka][kb] += A1[kr][ka]*A1[kr][kb];
+	}
+      for (size_t kr=0; kr<numpt; ++kr)
+	bvec2[ka] += A1[kr][ka]*b1[kr];
+    }
+
+  double detA = 0.0;
+  double bx[3];
+  bx[0] = bx[1] = bx[2] = 0.0;
+  int sgn = 1;
+  for (int kb=0; kb<3; ++kb, sgn*=(-1))
+    {
+      int ka1 = (kb == 0);
+      int ka2 = 2 - (kb == 2);
+      detA += sgn*Amat[0][kb]*(Amat[1][ka1]*Amat[2][ka2]-Amat[2][ka1]*Amat[1][ka2]);
+      bx[0] += sgn*bvec[kb]*(Amat[1][ka1]*Amat[2][ka2]-Amat[2][ka1]*Amat[1][ka2]);
+      bx[1] += sgn*Amat[0][kb]*(bvec[ka1]*Amat[2][ka2]-bvec[ka2]*Amat[2][ka1]);
+      bx[2] += sgn*Amat[0][kb]*(Amat[1][ka1]*bvec[ka2]-Amat[1][ka2]*bvec[ka1]);
+    }
+  double sx = bx[0]/detA;
+  double sy = bx[1]/detA;
+  double r2 = bx[2]/detA;
+
+  radius = sqrt(r2 + sx*sx + sy*sy);
+ }
+
+//===========================================================================
+void RevEngUtils::computePlane(vector<pair<vector<RevEngPoint*>::iterator,
+			       vector<RevEngPoint*>::iterator> >& points,
+			       Point& pos, Point& norm)
+//===========================================================================
+{
+  double Cmat[4][4];
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      for (int ka=0; ka<4; ++ka)
+	for (int kb=0; kb<4; ++kb)
+	  {
+	    Cmat[ka][kb] = 0.0;
+	    for (auto it=start; it!=end; ++it)
+	      {
+		RevEngPoint *pt = *it;
+		Vector3D xyz = pt->getPoint();
+		double tmp[4] = {xyz[0], xyz[1], xyz[2], 1};
+		Cmat[ka][kb] += tmp[ka]*tmp[kb];
+	      }
+	  }
+    }
+  // Compute singular values
+  NEWMAT::Matrix nmat;
+  nmat.ReSize(4, 4);
+  for (int ka = 0; ka < 4; ++ka) {
+    for (int kb = 0; kb < 4; ++kb) {
+      nmat.element(ka, kb) = Cmat[ka][kb];
+    }
+  }
+      
+  static NEWMAT::DiagonalMatrix diag;
+  static NEWMAT::Matrix V;
+  try {
+    NEWMAT::SVD(nmat, diag, nmat, V);
+  } catch(...) {
+    std::cout << "Exception in SVD" << std::endl;
+    exit(-1);
+  }
+
+  double sigma[4];
+  double coefs[4];
+  int ixv = 3;
+  for (int ka=0; ka<4; ++ka)
+    {
+      sigma[ka] = diag.element(ka,ka);
+      coefs[ka] = V.element(ka, ixv);
+    }
+
+
+  int num = 0;
+  double maxd =0.0, avd = 0.0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      for (auto it=start; it!=end; ++it)
+	{
+	  Vector3D xyz = (*it)->getPoint();
+	  double dist = coefs[0]*xyz[0] + coefs[1]*xyz[1] +
+	    coefs[2]*xyz[2] + coefs[3];
+	  maxd = std::max(maxd, fabs(dist));
+	  avd += dist;
+	  int stop_break = 1;
+	}
+    }
+  avd /= (double)num;
+
+  int ix = -1;
+  double mm = 0.0;
+  for (int ka=0; ka<3; ++ka)
+    if (fabs(coefs[ka]) > mm)
+      {
+	mm = fabs(coefs[ka]);
+	ix = ka;
+      }
+
+  double t1 = 0.0, t2 = 0.0, t3 = 0.0;
+  Vector3D pt1 = (*points[0].first)->getPoint();
+  vector<RevEngPoint*>::iterator it = points[0].second;
+  it--;
+  Vector3D pt2 = (*it)->getPoint();
+  for (int ka=0; ka<3; ++ka)
+    {
+      if (ka == ix)
+	continue;
+      t1 += coefs[ka]*pos[ka];
+      t2 += coefs[ka]*pt1[ka];
+      t3 += coefs[ka]*pt2[ka];
+    }
+  pos[ix] = -(t1 + coefs[3])/coefs[ix];
+  pt1[ix] = -(t2 + coefs[3])/coefs[ix];
+  pt2[ix] = -(t3 + coefs[3])/coefs[ix];
+  norm = Point(coefs[0], coefs[1], coefs[2]);
+  norm.normalize();
+
+  Point pt1_2(pt1[0], pt1[1], pt1[2]);
+  Point pt2_2(pt2[0], pt2[1], pt2[2]);
+  Point vec1 = pt1_2 - pos;
+  Point vec2 = pt2_2 - pos;
+  Point norm2 = vec1.cross(vec2);
+  norm2.normalize();
+
+  int stop_break = 1;
+}
+
+//===========================================================================
+void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
+			     vector<RevEngPoint*>::iterator end,
+			     shared_ptr<ParamSurface> surf, double tol,
+			     double& maxdist, double& avdist, int& num_inside)
+//===========================================================================
+{
+  double eps = 1.0e-6;
+  maxdist = avdist = 0.0;
+  num_inside = 0;
+  int num = 0;
+  for (auto it=start; it!=end; ++it)
+    {
+      Vector3D xyz = (*it)->getPoint();
+      Point pnt(xyz[0], xyz[1], xyz[2]);
+      
+      double upar, vpar, dist;
+      Point close;
+      surf->closestPoint(pnt, upar, vpar, close, dist, eps);
+      maxdist = std::max(maxdist, dist);
+      avdist += dist;
+      if (dist <= tol)
+	++num_inside;
+      else
+	{
+	  int stop_break = 1;
+	}
+      ++num;
+    }
+  avdist /= (double)num;
+}
+
+//===========================================================================
+void RevEngUtils::distToSurf(vector<Point>& points,
+			     shared_ptr<ParamSurface> surf, double tol,
+			     double& maxdist, double& avdist, int& num_inside)
+//===========================================================================
+{
+  double eps = 1.0e-6;
+  maxdist = avdist = 0.0;
+  num_inside = 0;
+  int num = 0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      double upar, vpar, dist;
+      Point close;
+      surf->closestPoint(points[ki], upar, vpar, close, dist, eps);
+      maxdist = std::max(maxdist, dist);
+      avdist += dist;
+      if (dist <= tol)
+	++num_inside;
+      else
+	{
+	  int stop_break = 1;
+	}
+      ++num;
+    }
+  avdist /= (double)num;
 }

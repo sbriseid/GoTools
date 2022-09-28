@@ -41,12 +41,15 @@
 #define _REVENGREGION_H
 
 #include "GoTools/compositemodel/RevEngPoint.h"
+#include "GoTools/compositemodel/ImplicitApprox.h"
+#include "GoTools/utils/BoundingBox.h"
+//#include "GoTools/compositemodel/HedgeSurface.h"
 
 
 namespace Go
 {
   class HedgeSurface;
-  class RevEngPoint;
+  //class RevEngPoint;
 
   enum
     {
@@ -61,18 +64,23 @@ namespace Go
 
     RevEngRegion(int classification_type);
 
-    // Extend group
-    void addPoint(RevEngPoint* point)
+    RevEngRegion(int classification_type,
+		 std::vector<RevEngPoint*> & points);
+
+     int getClassification()
     {
-      group_points_.push_back(point);
+      return classification_type_;
     }
+    
+    // Extend group
+    void addPoint(RevEngPoint* point);
 
     // Extend region with adjacent points having the same classification
     void collect(RevEngPoint *pt);
 
     int numPoints()
     {
-      return group_points_.size();
+      return (int)group_points_.size();
     }
 
     RevEngPoint* getPoint(int ix)
@@ -83,12 +91,101 @@ namespace Go
 	return group_points_[ix];
     }
 
+    std::vector<RevEngPoint*>::iterator pointsBegin()
+    {
+      return group_points_.begin();
+    }
+    
+    std::vector<RevEngPoint*>::iterator pointsEnd()
+    {
+      return group_points_.end();
+    }
+    
     RevEngPoint* seedPoint();
     
+    void growLocal(RevEngPoint* seed, double tol, double radius, int min_close,
+		   std::vector<RevEngPoint*>& out);
+
+    void
+    splitFromSurfaceNormals(std::vector<RevEngPoint*>& smallrad,
+			    std::vector<std::vector<RevEngPoint*> >& separate_group);
+    void splitRegion(std::vector<std::vector<RevEngPoint*> >& separate_groups);
+
+   bool cylindertype()
+    {
+      if (classification_type_ == CLASSIFICATION_CURVATURE)
+	return (group_points_[0]->C1_surf() == C1_RIDGE ||
+		group_points_[0]->C1_surf() == C1_VALLEY);
+      else if (classification_type_ == CLASSIFICATION_SHAPEINDEX)
+	return (group_points_[0]->SI_surf() == SI_RUT ||
+		group_points_[0]->SI_surf() == SI_RID);
+      else
+	return false;
+    }
+    
+   bool planartype()
+    {
+      if (classification_type_ == CLASSIFICATION_CURVATURE)
+	return (group_points_[0]->C1_surf() == C1_FLAT);
+      else if (classification_type_ == CLASSIFICATION_SHAPEINDEX)
+	return (group_points_[0]->SI_surf() == SI_PLANE);
+      else
+	return false;
+    }
+    
+    bool extractPlane(double tol, int min_pt,
+		      std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+		      std::ostream& fileout);
+
+    bool extractCylinder(double tol, int min_pt,
+			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+			 std::ostream& fileout);
+
+    void setHedge(HedgeSurface* surface)
+    {
+      associated_sf_.clear();
+      associated_sf_.push_back(surface);
+    }
+
+    const BoundingBox& boundingBox()
+    {
+      return bbox_;
+    }
+
+    const DirectionCone& getNormalCone()
+    {
+      return normalcone_;
+    }
+
+    void setAccuracy(double maxdist, double avdist, int num_inside)
+    {
+      maxdist_ = maxdist;
+      avdist_ = avdist;
+      num_inside_ = num_inside;
+    }
+
+    void getAccuracy(double& maxdist, double& avdist, int& num_inside)
+    {
+      maxdist = maxdist_;
+      avdist = avdist_;
+      num_inside = num_inside_;
+    }
+
   private:
     vector<RevEngPoint*> group_points_;   // Points belonging to classified segment
     int classification_type_;
-    HedgeSurface *associated_sf_;
+    std::vector<HedgeSurface*> associated_sf_;  // Can be two due to split along
+    // seam of closed surface (should be fixed)
+    shared_ptr<ImplicitApprox> impl_;
+    double mink1_, maxk1_, mink2_, maxk2_;
+    BoundingBox bbox_;
+    DirectionCone normalcone_;
+    double maxdist_, avdist_;
+    int num_inside_;
+
+    const Point& pluckerAxis();
+    void extendWithGaussRad();
+    void analyseNormals(double tol);
     
   };
 }

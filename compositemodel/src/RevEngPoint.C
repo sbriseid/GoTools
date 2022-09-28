@@ -148,6 +148,8 @@ Point RevEngPoint::fetchClosePoints(double radius, int min_nmb,
 				    vector<Point>& nearpts)
 //===========================================================================
 {
+  int nmb_iter = 0;
+  int max_iter = 5;
   while ((int)nearpts.size() < min_nmb)
     {
       setVisited();
@@ -172,20 +174,28 @@ Point RevEngPoint::fetchClosePoints(double radius, int min_nmb,
 	  nearpts.push_back(Point(vx[0], vx[1], vx[2]));
 	  near[ki]->unsetVisited();
 	}
+
+      if (nmb_iter > max_iter)
+	break;
+      
       if (nearpts.size() < min_nmb)
 	{
 	  radius *= std::max(1.1, (double)min_nmb/(double)nearpts.size());
 	  nearpts.clear();
 	}
+      ++nmb_iter;
     }
   return Point(xyz_[0], xyz_[1], xyz_[2]);
 }
 
 //===========================================================================
 void RevEngPoint::fetchClosePoints2(double radius, int min_nmb,
-				    vector<RevEngPoint*>& nearpts)
+				    vector<RevEngPoint*>& nearpts,
+				    RevEngRegion *region)
 //===========================================================================
 {
+  int nmb_iter = 0;
+  int max_iter = 5;
   while ((int)nearpts.size() < min_nmb)
     {
       setVisited();
@@ -195,11 +205,13 @@ void RevEngPoint::fetchClosePoints2(double radius, int min_nmb,
 	  RevEngPoint* curr = dynamic_cast<RevEngPoint*>(next_[ki]);
 	  if (curr->visited())
 	    continue;
+	  if (region && curr->region() != region)
+	    continue;
 	  if (xyz_.dist(curr->getPoint()) <= radius)
 	    {
 	      curr->setVisited();
 	      near.push_back(curr);
-	      curr->getNearby(xyz_, radius, near);
+	      curr->getNearby(xyz_, radius, near, region);
 	    }
 	}
       
@@ -209,17 +221,46 @@ void RevEngPoint::fetchClosePoints2(double radius, int min_nmb,
 	  nearpts.push_back(near[ki]);
 	  near[ki]->unsetVisited();
 	}
+
+      if (nmb_iter > max_iter)
+	break;
+      
       if (nearpts.size() < min_nmb)
 	{
 	  radius *= std::max(1.1, (double)min_nmb/(double)nearpts.size());
 	  nearpts.clear();
 	}
+      ++nmb_iter;
     }
 }
 
 //===========================================================================
+void RevEngPoint::fetchConnected(RevEngRegion *region,
+				 vector<RevEngPoint*>& group)
+//===========================================================================
+{
+  double radius = std::numeric_limits<double>::max();
+
+  setVisited();
+  vector<RevEngPoint*> connected;
+  for (size_t ki=0; ki<next_.size(); ++ki)
+    {
+      RevEngPoint* curr = dynamic_cast<RevEngPoint*>(next_[ki]);
+      if (curr->visited())
+	continue;
+      if (curr->region() != region)
+	continue;
+      curr->setVisited();
+      connected.push_back(curr);
+      curr->getNearby(xyz_, radius, connected, region);
+    }
+  group.push_back(this);
+  group.insert(group.end(), connected.begin(), connected.end());
+}
+
+//===========================================================================
   void RevEngPoint::getNearby(Vector3D xyz, double radius,
-			      vector<RevEngPoint*>& near)
+			      vector<RevEngPoint*>& near, RevEngRegion* region)
 //===========================================================================
 {
   for (size_t ki=0; ki<next_.size(); ++ki)
@@ -227,11 +268,13 @@ void RevEngPoint::fetchClosePoints2(double radius, int min_nmb,
       RevEngPoint* curr = dynamic_cast<RevEngPoint*>(next_[ki]);
       if (curr->visited())
 	continue;
+      if (region && curr->region() != region)
+	continue;
       if (xyz.dist(curr->getPoint()) <= radius)
 	{
 	  curr->setVisited();
 	  near.push_back(curr);
-	  curr->getNearby(xyz, radius, near);
+	  curr->getNearby(xyz, radius, near, region);
 	}
     }
 }
@@ -277,19 +320,21 @@ void RevEngPoint::addMongeInfo(Point& norm, Point& mincvec, double minc, Point& 
 }
 
 //===========================================================================
-bool RevEngPoint::isolatedEdge()
+bool RevEngPoint::isolatedEdge(int nmb, bool close)
 //===========================================================================
 {
   if (notEdge())
     return false;
-  
+
+  int nn = 0;
   for (size_t ki=0; ki<next_.size(); ++ki)
     {
       RevEngPoint* curr = dynamic_cast<RevEngPoint*>(next_[ki]);
-      if (curr->closeEdge())
-	return false;
+      bool found = (close) ? curr->closeEdge() : curr->isEdge();
+      if (found)
+	++nn;
     }
-  return true;
+  return (nn <= nmb);
 }
 
 

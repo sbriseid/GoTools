@@ -121,13 +121,21 @@ namespace Go
       return Mongenormal_;
     }
 
+    const Point& getPCANormal()
+    {
+      return eigen3_;
+    }
+
     Point fetchClosePoints(double radius, int min_nmb,
 			   std::vector<Point>& nearpts);
 
 
     void fetchClosePoints2(double radius, int min_nmb,
-			   std::vector<RevEngPoint*>& nearpts);
+			   std::vector<RevEngPoint*>& nearpts,
+			   RevEngRegion *region = 0);
 
+    void fetchConnected(RevEngRegion *region,
+			std::vector<RevEngPoint*>& group);
 
     void setVisited()
     {
@@ -235,13 +243,23 @@ namespace Go
 	      edge_[2] <= C2_NOT_EDGE);
     }
 
-    bool isolatedEdge();
+    bool isolatedEdge(int nmb, bool close);
 
     void setEdgeUndef()
     {
       edge_[0] = PCA_EDGE_UNDEF;
       edge_[1] = C1_EDGE_UNDEF;
       edge_[2] = C2_EDGE_UNDEF;
+    }
+
+    double getPointDistance()
+    {
+      return ptdist_;
+    }
+
+    double getAveragePointDistance()
+    {
+      return avdist_;
     }
 
     int surfaceClassification(int classification_type);
@@ -261,6 +279,31 @@ namespace Go
     void setRegion(RevEngRegion* region)
     {
       region_ = region;
+    }
+
+    void unsetRegion()
+    {
+      region_ = 0;
+    }
+
+    int C1_surf()
+    {
+      return surf_[1];
+    }
+
+    int SI_surf()
+    {
+      return surf_[2];
+    }
+
+    void setGaussRad(double rad)
+    {
+      Grad_ = rad;
+    }
+
+    double getGaussRad()
+    {
+      return Grad_;
     }
 
     void store(std::ostream& os) const;
@@ -291,6 +334,7 @@ namespace Go
     // Sequence: Surface variation (PCA), curvature (C1), curveness (C2)
     int surf_[3];   // Results of surface classification
     // Sequence: PCA, curvature (C1) shape index (SI)
+    double Grad_;
     
     // Group (segment) of classified points
     RevEngRegion* region_;
@@ -298,7 +342,8 @@ namespace Go
     mutable int visited_;
 
     void getNearby(Vector3D xyz, double radius,
-		   std::vector<RevEngPoint*>& near);
+		   std::vector<RevEngPoint*>& near,
+		   RevEngRegion *region = 0);
   };
 }
 
