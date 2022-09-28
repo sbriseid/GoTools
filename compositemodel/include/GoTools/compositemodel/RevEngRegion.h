@@ -185,7 +185,7 @@ namespace Go
 
     const Point& pluckerAxis();
     void extendWithGaussRad();
-    void analyseNormals(double tol);
+    void analyseNormals(double tol, double& beta);
     
   };
 }

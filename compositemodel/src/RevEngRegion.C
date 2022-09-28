@@ -44,6 +44,7 @@
 #include "GoTools/compositemodel/SurfaceModel.h"
 #include "GoTools/compositemodel/CompositeModelFactory.h"
 #include "GoTools/geometry/Cylinder.h"
+#include "GoTools/geometry/Cone.h"
 #include "GoTools/geometry/Sphere.h"
 #include "GoTools/geometry/PointCloud.h"
 //#include "GoTools/utils/Array.h"
@@ -491,7 +492,7 @@ bool RevEngRegion::extractPlane(double tol, int min_pt,
 
 
 //===========================================================================
-void RevEngRegion::analyseNormals(double tol)
+void RevEngRegion::analyseNormals(double tol, double& beta)
 //===========================================================================
 {
   std::ofstream of2("curr_normals.g2");
@@ -559,6 +560,10 @@ void RevEngRegion::analyseNormals(double tol)
 
   double radius;
   RevEngUtils::computeRadius(vec, axis, Cx, Cy, radius);
+  double r2 = std::min(radius, 1.0);
+  double phi = acos(r2);
+  double delta = r2*tan(phi);
+  beta = (delta > 1.0e-10) ? atan((1.0-r2)/delta) : 0.0;
   int stop_break = 1;
 
 }
@@ -610,8 +615,9 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt,
   //     double Grad = group_points_[kr]->getGaussRad();
   //     of2 << Grad*norm << std::endl;
   //   }
-  
-  analyseNormals(tol);
+
+  double beta;
+  analyseNormals(tol, beta);
   
   // Cylinder orientation by covariance matrix of normal vectors
   bool found = false;
@@ -791,12 +797,16 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt,
   cyl->setParamBoundsV(-len, len);
   //PointCloud3D cloud(&xyzpoints[0], xyzpoints.size()/3);
 
+  shared_ptr<Cone> cone(new Cone(rad, pnt, axis, Cy, beta));
+  
   // Check accuracy
-  double maxd, avd;
-  int num2;
+  double maxd, avd, maxd2, avd2;
+  int num2, num3;
   //shared_ptr<ParamSurface> surf = cyl;
   RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 			  cyl, tol, maxd, avd, num2);
+  RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
+			  cone, tol, maxd2, avd2, num3);
   // int num = cloud.numPoints();
   // double avd = 0.0;
   // double maxd = 0.0;
