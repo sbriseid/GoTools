@@ -61,7 +61,7 @@ using std::vector;
 RevEngRegion::RevEngRegion()
 //===========================================================================
   : classification_type_(CLASSIFICATION_UNDEF), associated_sf_(0),
-    mink1_(0.0), maxk1_(0.0), mink2_(0.0), maxk2_(0.0)
+    mink1_(0.0), maxk1_(0.0), mink2_(0.0), maxk2_(0.0), visited_(false)
 {
   bbox_ = BoundingBox(3);
 }
@@ -70,7 +70,7 @@ RevEngRegion::RevEngRegion()
 RevEngRegion::RevEngRegion(int classification_type)
 //===========================================================================
   : classification_type_(classification_type), associated_sf_(0),
-    mink1_(0.0), maxk1_(0.0), mink2_(0.0), maxk2_(0.0)
+    mink1_(0.0), maxk1_(0.0), mink2_(0.0), maxk2_(0.0), visited_(false)
 {
   bbox_ = BoundingBox(3);
 }
@@ -80,7 +80,7 @@ RevEngRegion::RevEngRegion(int classification_type,
 			   vector<RevEngPoint*> & points)
 //===========================================================================
   : group_points_(points), classification_type_(classification_type),
-    associated_sf_(0)
+    associated_sf_(0), visited_(false)
 {
   for (size_t kj=0; kj<group_points_.size(); ++kj)
     group_points_[kj]->setRegion(this);
@@ -468,7 +468,7 @@ bool RevEngRegion::extractPlane(double tol, int min_pt,
   Point low = bbox_.low();
   Point high = bbox_.high();
   double len = low.dist(high);
-  surf->setParameterBounds(-len, -len, len, len);
+  surf3->setParameterBounds(-0.5*len, -0.5*len, 0.5*len, 0.5*len);
 
   int num = (int)group_points_.size();
   if (num_inside3 > min_pt && num_inside3 > num/2 && avdist3 <= tol) 
@@ -482,9 +482,9 @@ bool RevEngRegion::extractPlane(double tol, int min_pt,
       associated_sf_.push_back(hedge.get());
       hedgesfs.push_back(hedge);
 	  
-      surf->writeStandardHeader(fileout);
-      surf->write(fileout);
-      impl_->visualize(group_points_, fileout);
+      surf3->writeStandardHeader(fileout);
+      surf3->write(fileout);
+      //impl_->visualize(group_points_, fileout);
     }
 
   return found;
@@ -492,7 +492,8 @@ bool RevEngRegion::extractPlane(double tol, int min_pt,
 
 
 //===========================================================================
-void RevEngRegion::analyseNormals(double tol, double& beta)
+void RevEngRegion::analyseNormals(double tol, Point& normal, Point& centre,
+				  double& radius) //double& beta)
 //===========================================================================
 {
   std::ofstream of2("curr_normals.g2");
@@ -544,7 +545,7 @@ void RevEngRegion::analyseNormals(double tol, double& beta)
   ImplicitApprox impl;
   impl.approxPoints(vec, 1);
 
-  Point pos, normal;
+  //Point pos; //, normal;
   impl.projectPoint(vec[0], tmpnorm, pnt, normal);
   shared_ptr<Plane> surf(new Plane(pnt, axis));
 
@@ -558,12 +559,14 @@ void RevEngRegion::analyseNormals(double tol, double& beta)
   int num = (int)vec.size();
   RevEngUtils::distToSurf(vec, surf, tol, maxdist, avdist, num_inside);
 
-  double radius;
+  //double radius;
   RevEngUtils::computeRadius(vec, axis, Cx, Cy, radius);
-  double r2 = std::min(radius, 1.0);
-  double phi = acos(r2);
-  double delta = r2*tan(phi);
-  beta = (delta > 1.0e-10) ? atan((1.0-r2)/delta) : 0.0;
+  centre = pnt;
+  // double r2 = std::min(radius, 1.0);
+  // double phi = acos(r2);
+  // double delta = r2*tan(phi);
+  // double alpha = (delta > 1.0e-10) ? atan((1.0-r2)/delta) : M_PI;
+  // beta = M_PI - alpha;
   int stop_break = 1;
 
 }
@@ -585,8 +588,18 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt,
     {
       Vector3D xyz = group_points_[kr]->getPoint();
       Point xyz2(xyz[0], xyz[1], xyz[2]);
-      Point norm = group_points_[kr]->getMongeNormal();
+      Point norm = group_points_[kr]->getPCANormal();
       of << xyz2 << " " << xyz2 + norm << std::endl;
+    }
+  
+  of << "410 1 0 4 0 100  155 255" << std::endl;
+  of << group_points_.size() << std::endl;
+  for (size_t kr=0; kr<group_points_.size(); ++kr)
+    {
+      Vector3D xyz = group_points_[kr]->getPoint();
+      Point xyz2(xyz[0], xyz[1], xyz[2]);
+      Point vec = group_points_[kr]->minCurvatureVec();
+      of << xyz2 << " " << xyz2 + vec << std::endl;
     }
   
   std::ofstream of2("curr_normals.g2");
@@ -595,13 +608,24 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt,
   for (size_t kr=0; kr<group_points_.size(); ++kr)
     {
       RevEngPoint *pt = dynamic_cast<RevEngPoint*>(group_points_[kr]);
-      Point norm = pt->getMongeNormal();
+      Point norm = pt->getPCANormal();
       of2 << norm << std::endl;
     }
   Sphere sph(1.0, Point(0.0, 0.0, 0.0), Point(0.0, 0.0, 1.0),
 	     Point(1.0, 0.0, 0.0));
   sph.writeStandardHeader(of2);
   sph.write(of2);
+
+  of2 << "400 1 0 4 0 100  155 255" << std::endl;
+  of2 << group_points_.size() << std::endl;
+  for (size_t kr=0; kr<group_points_.size(); ++kr)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>(group_points_[kr]);
+      Point vec = pt->minCurvatureVec();
+      of2 << vec << std::endl;
+    }
+  of2 << std::endl;
+  
   
   // // Associate points with radius based on density on Gauss sphere
   //   extendWithGaussRad();
@@ -616,8 +640,10 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt,
   //     of2 << Grad*norm << std::endl;
   //   }
 
-  double beta;
-  analyseNormals(tol, beta);
+  //double beta;
+  Point normalG, centreG;
+  double radG;
+  analyseNormals(tol, normalG, centreG, radG); //beta);
   
   // Cylinder orientation by covariance matrix of normal vectors
   bool found = false;
@@ -632,200 +658,65 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt,
 	      vector<RevEngPoint*>::iterator> > group;
   group.push_back(std::make_pair(group_points_.begin(), group_points_.end()));
   RevEngUtils::computeAxis(group, axis, Cx, Cy);
+  Point origo(0.0, 0.0, 0.0);
+  of2 << "410 1 0 4 255 0 0 255" << std::endl;
+  of2 << "1" << std::endl;
+  of2 << origo << " " << axis << std::endl;
 
+  Point axis2;
+  Point Cx2;
+  Point Cy2;
+  RevEngUtils::coneAxis(group, axis2, Cx2, Cy2);
+  of2 << "410 1 0 4 55 200 0 255" << std::endl;
+  of2 << "1" << std::endl;
+  of2 << origo << " " << axis2 << std::endl;
+
+  Point apex;
+  double phi;
+  RevEngUtils::coneApex(group, axis2, apex, phi);
+  
   double rad;
   Point pnt;
   Point low = bbox_.low();
   Point high = bbox_.high();
   RevEngUtils::computeCylPosRadius(group, low, high,
 				   axis, Cx, Cy, pnt, rad);
-  // double Cmat[3][3];
-  // for (int ka=0; ka<3; ++ka)
-  //   for (int kb=0; kb<3; ++kb)
-  //     {
-  // 	Cmat[ka][kb] = 0.0;
-  // 	for (size_t kj=0; kj<group_points_.size(); ++kj)
-  // 	  {
-  // 	    RevEngPoint *pt = dynamic_cast<RevEngPoint*>(group_points_[kj]);
-  // 	    Point norm1 = pt->getMongeNormal();
-  // 	    Point norm2 = pt->getPCANormal();
-  // 	    Point norm = pt->getTriangNormal();
-  // 	    Cmat[ka][kb] += norm[ka]*norm[kb];
-  // 	  }
-  //     }
 
-  // // Compute singular values
-  // NEWMAT::Matrix nmat;
-  // nmat.ReSize(3, 3);
-  // for (int ka = 0; ka < 3; ++ka) {
-  //   for (int kb = 0; kb < 3; ++kb) {
-  //     nmat.element(ka, kb) = Cmat[ka][kb];
-  //   }
-  // }
-      
-  // static NEWMAT::DiagonalMatrix diag;
-  // static NEWMAT::Matrix V;
-  // try {
-  //   NEWMAT::SVD(nmat, diag, nmat, V);
-  // } catch(...) {
-  //   std::cout << "Exception in SVD" << std::endl;
-  //   exit(-1);
-  // }
-  // Cx = Point(V.element(0,0), V.element(1,0), V.element(2,0));
-  // Cy = Point(V.element(0,1), V.element(1,1), V.element(2,1));
-  // axis = Point(V.element(0,2), V.element(1,2), V.element(2,2));
-
-  // Center, radius and bounding box
-  // double fac = 0.5;
-
-  // // if (maxk2_ - mink2_ < fac*maxk2_)
-  // //   return false;   // Not a likely cylinder
-  // double Amat[3][3];
-  // double bvec[3];
-  // vector<vector<double> > A1(group_points_.size());
-  // vector<double> b1(group_points_.size());
-  // for (size_t kj=0; kj<group_points_.size(); ++kj)
-  //   A1[kj].resize(3);
-      
-  // for (int ka=0; ka<3; ++ka)
-  //   {
-  //     for (int kb=0; kb<3; ++kb)
-  // 	Amat[ka][kb] = 0.0;
-  //     bvec[ka] = 0.0;
-  //   }
-
-  // Point low(std::numeric_limits<double>::max(),
-  // 	    std::numeric_limits<double>::max(),
-  // 	    std::numeric_limits<double>::max());
-  // Point high(std::numeric_limits<double>::lowest(),
-  // 	     std::numeric_limits<double>::lowest(),
-  // 	     std::numeric_limits<double>::lowest());
-  
-  // vector<double> xyzpoints;
-  // xyzpoints.reserve(group_points_.size()*3);
-  // for (size_t kj=0; kj<group_points_.size(); ++kj)
-  //   {
-  //     Vector3D curr = group_points_[kj]->getPoint();
-  //     Point curr2(curr[0], curr[1], curr[2]);
-  //     xyzpoints.insert(xyzpoints.end(), curr2.begin(), curr2.end());
-  //     for (int kb=0; kb<3; ++kb)
-  // 	{
-  // 	  low[kb] = std::min(low[kb],curr2[kb]);
-  // 	  high[kb] = std::max(high[kb],curr2[kb]);
-  // 	}
-  //     double pxy[3];
-  //     double px = curr2*Cx;
-  //     double py = curr2*Cy;
-  //     pxy[0] = 2*px;
-  //     pxy[1] = 2*py;
-  //     pxy[2] = 1.0;
-  //     double plen2 = px*px + py*py;
-  //     A1[kj][0] = 2*px;
-  //     A1[kj][1] = 2*py;
-  //     A1[kj][2] = 1.0;
-  //     b1[kj] = plen2;
-  //     for (int ka=0; ka<3; ++ka)
-  // 	{
-  // 	  for (int kb=0; kb<3; ++kb)
-  // 	    Amat[ka][kb] += pxy[ka]*pxy[kb];
-  // 	  bvec[ka] += pxy[ka]*plen2;
-  // 	}
-  //   }
-
-  // double Amat2[3][3];
-  // double bvec2[3];
-  // for (int ka=0; ka<3; ++ka)
-  //   {
-  //     for (int kb=0; kb<3; ++kb)
-  // 	Amat2[ka][kb] = 0.0;
-  //     bvec2[ka] = 0.0;
-  //   }
-  // for (int ka=0; ka<3; ++ka)
-  //   {
-  //     for (int kb=0; kb<3; ++kb)
-  // 	{
-  // 	  for (size_t kr=0; kr<group_points_.size(); ++kr)
-  // 	    Amat2[ka][kb] += A1[kr][ka]*A1[kr][kb];
-  // 	}
-  //     for (size_t kr=0; kr<group_points_.size(); ++kr)
-  // 	bvec2[ka] += A1[kr][ka]*b1[kr];
-  //   }
-
-  // double detA = 0.0;
-  // double bx[3];
-  // bx[0] = bx[1] = bx[2] = 0.0;
-  // int sgn = 1;
-  // for (int kb=0; kb<3; ++kb, sgn*=(-1))
-  //   {
-  //     int ka1 = (kb == 0);
-  //     int ka2 = 2 - (kb == 2);
-  //     detA += sgn*Amat[0][kb]*(Amat[1][ka1]*Amat[2][ka2]-Amat[2][ka1]*Amat[1][ka2]);
-  //     bx[0] += sgn*bvec[kb]*(Amat[1][ka1]*Amat[2][ka2]-Amat[2][ka1]*Amat[1][ka2]);
-  //     bx[1] += sgn*Amat[0][kb]*(bvec[ka1]*Amat[2][ka2]-bvec[ka2]*Amat[2][ka1]);
-  //     bx[2] += sgn*Amat[0][kb]*(Amat[1][ka1]*bvec[ka2]-Amat[1][ka2]*bvec[ka1]);
-  //   }
-  // double sx = bx[0]/detA;
-  // double sy = bx[1]/detA;
-  // double r2 = bx[2]/detA;
-
-  // Point pos = sx*Cx + sy*Cy;
-  // Point pos2 = sy*Cx + sx*Cy;
-  //     //std::cout << "pos dist: " << pos.dist(pos2) << std::endl;
-  // double rad = sqrt(r2 + sx*sx + sy*sy);
-  // double len = low.dist(high);
-  // Point mid = 0.5*(low + high);
-  // Point vec = mid - pos;
-  // Point ax = axis;
-  // ax.normalize();
-  // Point pnt = pos + (vec*ax)*ax;
-
-  // Point ac(0.0, 0.0, 0.0);
-  // double div = 0.0;
-  // for (int ka=0; ka<(int)group_points_.size(); ++ka)
-  //   {
-  //     Point curr(&xyzpoints[3*ka], &xyzpoints[3*(ka+1)]);
-  //     double ti = (curr - pnt)*axis;
-  //     ac += (ti*(curr - pnt));
-  //     div += (ti*ti);
-  //   }
-  // Point ax2 = (div > eps) ? ac/div : axis;
 
   // pluckerAxis();
   
   shared_ptr<Cylinder> cyl(new Cylinder(rad, pnt, axis, Cy));
   double len = low.dist(high);
-  cyl->setParamBoundsV(-len, len);
+  cyl->setParamBoundsV(-0.5*len, 0.5*len);
   //PointCloud3D cloud(&xyzpoints[0], xyzpoints.size()/3);
 
-  shared_ptr<Cone> cone(new Cone(rad, pnt, axis, Cy, beta));
+  Point pos0 = apex + ((pnt - apex)*axis2)*axis2;
+  double dd = apex.dist(pos0);
+  double rad0 = dd*tan(phi);
+  shared_ptr<Cone> cone(new Cone(rad0, pos0, axis2, Cx2, phi));
+  cone->setParamBoundsV(-0.5*len, 0.5*len);
+ // shared_ptr<Cone> cone2(new Cone(rad, pnt, -axis, -Cy, beta));
+
+  std::ofstream ofs("sfs.g2");
+  cyl->writeStandardHeader(ofs);
+  cyl->write(ofs);
+  cone->writeStandardHeader(ofs);
+  cone->write(ofs);
+  ofs <<"400 1 0 4 255 0 0 255" << std::endl;
+  ofs << "1" << std::endl;
+  ofs << pos0 << std::endl;
   
   // Check accuracy
-  double maxd, avd, maxd2, avd2;
-  int num2, num3;
+  double maxd, avd, maxd2, avd2, maxd3, avd3;
+  int num2, num3, num4;
   //shared_ptr<ParamSurface> surf = cyl;
   RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 			  cyl, tol, maxd, avd, num2);
   RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
-			  cone, tol, maxd2, avd2, num3);
-  // int num = cloud.numPoints();
-  // double avd = 0.0;
-  // double maxd = 0.0;
-  // vector<double> xyz2;
-  // for (int ka=0; ka<num; ++ka)
-  //   {
-  //     Point curr(&xyzpoints[3*ka], &xyzpoints[3*(ka+1)]);
+  			  cone, tol, maxd2, avd2, num3);
+  //  RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
+  // 			  cone2, tol, maxd3, avd3, num4);
 
-  //     double upar, vpar, dist;
-  //     Point close;
-  //     cyl->closestPoint(curr, upar, vpar, close, dist, eps);
-  //     maxd = std::max(maxd, dist);
-  //     avd += dist;
-  //     if (dist <= tol)
-  // 	xyz2.insert(xyz2.end(), curr.begin(), curr.end());
-  //   }
-  // avd /= (double)num;
-  // PointCloud3D cloud2(&xyz2[0], xyz2.size()/3);
-  // int num2 = cloud2.numPoints();
 
   int num = (int)group_points_.size();
   if (num2 > min_pt && num2 > num/2) //avd <= avlim && maxd <= maxlim)
@@ -1047,7 +938,12 @@ for (int ka=0; ka<6; ++ka)
 
   static NEWMAT::DiagonalMatrix diag;
   static NEWMAT::Matrix V;
-NEWMAT::SVD(Mmat, diag, Mmat, V);
+  try {
+    NEWMAT::SVD(Mmat, diag, Mmat, V);
+  } catch(...) {
+    std::cout << "Exception in SVD" << std::endl;
+    return dummy;
+  }
 
 double lambda[6];
 double eigen[6][6];
@@ -1187,7 +1083,7 @@ void RevEngRegion::extendWithGaussRad()
 {
   // Distribute points according to normals position in unit sphere
   double eps = 1.0e-6;
-  int n1=80, n2=40;
+  int n1=81, n2=41;
   vector<vector<vector<RevEngPoint*> > > div(n2);
   for (int ka=0; ka<n2; ++ka)
     div[ka].resize(n1);
@@ -1199,21 +1095,35 @@ void RevEngRegion::extendWithGaussRad()
   for (size_t ki=0; ki<group_points_.size(); ++ki)
     {
       Point norm = group_points_[ki]->getMongeNormal();
-      double phi2 = asin(norm[2]);
+      // Point vec(norm[0], norm[1]);
+      // vec.normalize_checked();
+      double phi2 = asin(std::max(-1.0, std::min(1.0, norm[2])));
       double h1 = cos(phi2);
       double phi1;
       if (norm[1] > 0.0)
-	phi1 = (h1 >= eps) ?
-	  acos(std::max(-1.0, std::min(1.0, norm[0]/h1))) : 0.0;
+      	phi1 = (h1 >= eps) ?
+      	  acos(std::max(-1.0, std::min(1.0, norm[0]/h1))) : 0.0;
       else if (norm[0] > 0.0)
-	phi1 =  (h1 >= eps) ?
-	  asin(std::max(-1.0, std::min(1.0, norm[1]/h1))) : 0.0;
+      	phi1 =  (h1 >= eps) ?
+      	  asin(std::max(-1.0, std::min(1.0, norm[1]/h1))) : 0.0;
       else
-	{
-	  phi1 = (h1 >= eps) ?
-	    std::max(-1.0, std::min(1.0, acos(norm[0]/h1))) : 0.0;
-	  phi1 *= -1.0;
-	}
+      	{
+      	  phi1 = (h1 >= eps) ?
+      	    acos(std::max(-1.0, std::min(1.0, norm[0]/h1))) : 0.0;
+      	  phi1 *= -1.0;
+      	}
+      // if (vec[1] > 0.0)
+      // 	phi1 = (h1 >= eps) ?
+      // 	  acos(std::max(-1.0, std::min(1.0, vec[0]))) : 0.0;
+      // else if (vec[0] > 0.0)
+      // 	phi1 =  (h1 >= eps) ?
+      // 	  asin(std::max(-1.0, std::min(1.0, vec[1]))) : 0.0;
+      // else
+      // 	{
+      // 	  phi1 = (h1 >= eps) ?
+      // 	    std::max(-1.0, std::min(1.0, acos(vec[0]))) : 0.0;
+      // 	  phi1 *= -1.0;
+      // 	}
 
       double u1 = (phi1 - p1)/(p2 - p1);
       double u2 = (phi2 - p3)/(p4 - p3);
@@ -1231,25 +1141,29 @@ void RevEngRegion::extendWithGaussRad()
   // Statistics on distribution
   int minn = (int)group_points_.size();
   int maxn = 0;
+  vector<int> nmbn(n1*n2);
+  int kc=0;
   for (int kb=0; kb<n2; ++kb)
-    for (int ka=0; ka<n1; ++ka)
+    for (int ka=0; ka<n1; ++ka, ++kc)
       {
+	nmbn[kc] = (int)div[kb][ka].size();
 	if (div[kb][ka].size() > 0)
 	  minn = std::min(minn, (int)div[kb][ka].size());
 	maxn = std::max(maxn, (int)div[kb][ka].size());
-}
-
-// int level = 3;
-// vector<int> lim(level-1);
-double lim = 0.95*minn + 0.05*maxn;
-double minrad = 0.3;
-double maxrad = 1.0;
-//double rdel = (maxrad - minrad)/(double)(level-1);
-// lim[0] = (int)(0.9*minn + 0.1*maxn);
-// lim[1] = (int)(0.1*minn + 0.9*maxn);
-//  int ldel = (maxn - minn)/level;
-// for (int ka=1; ka<level; ++ka)
-//   lim[ka-1] = minn + ka*ldel;
+      }
+  std::sort(nmbn.begin(), nmbn.end());
+  
+  // int level = 3;
+  // vector<int> lim(level-1);
+  double lim = std::min(0.9*minn + 0.1*maxn, 0.95*maxn);
+  double minrad = 0.3;
+  double maxrad = 1.0;
+  //double rdel = (maxrad - minrad)/(double)(level-1);
+  // lim[0] = (int)(0.9*minn + 0.1*maxn);
+  // lim[1] = (int)(0.1*minn + 0.9*maxn);
+  //  int ldel = (maxn - minn)/level;
+  // for (int ka=1; ka<level; ++ka)
+  //   lim[ka-1] = minn + ka*ldel;
 
   for (int kb=0; kb<n2; ++kb)
     for (int ka=0; ka<n1; ++ka)
@@ -1262,19 +1176,19 @@ double maxrad = 1.0;
 	//   if (lim[kj] > npt)
 	//     break;
 
-	//std::ofstream of("curr_norm_group.g2");
+	std::ofstream of("curr_norm_group.g2");
 	double Grad = (npt < lim) ? minrad : maxrad; //minrad + kj*rdel;
-	// of << "400 1 0 4 0 0 0 255" << std::endl;
-	// of << div[kb][ka].size() << std::endl;
+	of << "400 1 0 4 0 0 0 255" << std::endl;
+	of << div[kb][ka].size() << std::endl;
 	for (size_t ki=0; ki<div[kb][ka].size(); ++ki)
 	  {
 	    RevEngPoint *pt = div[kb][ka][ki];
 	    pt->setGaussRad(Grad);
 	    Point norm = pt->getMongeNormal();
-	    //of << Grad*norm << std::endl;
+	    of << Grad*norm << std::endl;
 	  }
 	int stop_break0 = 1;
-	     }
+      }
 
   std::ofstream of2("curr_normals2.g2");
   of2 << "400 1 0 4 100  0 155 255" << std::endl;
@@ -1291,4 +1205,151 @@ double maxrad = 1.0;
   sph.writeStandardHeader(of2);
   sph.write(of2);
   int stop_break;
+}
+
+
+//===========================================================================
+void RevEngRegion::growWithSurf(int max_nmb, double tol,
+				vector<RevEngRegion*>& grown_regions)
+//===========================================================================
+{
+  double eps = 1.0e-6;
+  if (associated_sf_.size() == 0)
+    return;  // No surface with which to check growt
+
+  int sfcode;
+  ClassType classtype = associated_sf_[0]->instanceType(sfcode);
+  shared_ptr<ParamSurface> surf = associated_sf_[0]->surface();
+  shared_ptr<BoundedSurface> bdsurf =
+    dynamic_pointer_cast<BoundedSurface,ParamSurface>(surf);
+  if (bdsurf.get())
+    surf = bdsurf->underlyingSurface();
+
+  vector<RevEngPoint*> visited;
+  for (size_t ki=0; ki<group_points_.size(); ++ki)
+    {
+      vector<ftSamplePoint*> next = group_points_[ki]->getNeighbours();
+      for (size_t kj=0; kj<next.size(); ++kj)
+	{
+	  RevEngPoint *curr = dynamic_cast<RevEngPoint*>(next[kj]);
+	  if (curr->isEdge())
+	    continue;  // Do not include points labelled as edge
+	  
+	  RevEngRegion *adj_reg = curr->region();
+	  if (adj_reg)
+	    {
+	      if (adj_reg == this || adj_reg->visited())
+		continue;
+	      
+	      adj_reg->setVisited(true);
+	      
+	      // Check criteria for growt
+	      int num = adj_reg->numPoints();
+	      if (/*adj_reg->hasSurface() ||*/ num > max_nmb)
+		continue;
+
+	      // std::ofstream of("curr_extend.g2");
+	      // of << "400 1 0 4 0 255 0 255" << std::endl;
+	      // of << group_points_.size() << std::endl;
+	      // for (size_t kh=0; kh<group_points_.size(); ++kh)
+	      // 	of << group_points_[kh]->getPoint() << std::endl;
+
+	      // of << "400 1 0 4 255 0 0 255" << std::endl;
+	      // of << num << std::endl;
+	      // for (int ka=0; ka<num; ++ka)
+	      // 	of << adj_reg->getPoint(ka)->getPoint() << std::endl;
+
+	      // surf->writeStandardHeader(of);
+	      // surf->write(of);
+	      
+	      if (!adj_reg->isCompatible(classtype, sfcode))
+		continue;
+	      
+	      // Check accuracy
+	      double maxd, avd;
+	      int num_inside;
+	      double maxd_init, avd_init;
+	      int num_inside_init;
+	      adj_reg->getAccuracy(maxd_init, avd_init, num_inside_init);
+	      
+	      RevEngUtils::distToSurf(adj_reg->pointsBegin(), adj_reg->pointsEnd(),
+				      surf, tol, maxd, avd, num_inside);
+	      if ((adj_reg->hasSurface() && num_inside > num_inside_init && avd < avd_init) ||
+		  ((!adj_reg->hasSurface()) && num_inside > num/2 && avd < tol))
+		{
+		  // Criteria must be updated
+		  // Include adjacent region in present
+		  bbox_.addUnionWith(adj_reg->boundingBox());
+		  normalcone_.addUnionWith(adj_reg->getNormalCone());
+		  maxdist_ = std::max(maxdist_, maxd);
+		  double div = (double)((int)group_points_.size() + num);
+		  avdist_ = (group_points_.size()*avdist_ + num*avd)/div;
+
+		  double mink1, maxk1, mink2, maxk2;
+		  adj_reg->getPrincipalCurvatureInfo(mink1, maxk1, mink2, maxk2);
+		  mink1_ = std::min(mink1_, mink1);
+		  maxk1_ = std::max(maxk1_, maxk1);
+		  mink2_ = std::min(mink2_, mink2);
+		  maxk2_ = std::max(maxk2_, maxk2);
+
+		  for (auto it=adj_reg->pointsBegin(); it != adj_reg->pointsEnd(); ++it)
+		    (*it)->setRegion(this);
+		  group_points_.insert(group_points_.end(), adj_reg->pointsBegin(),
+				       adj_reg->pointsEnd());
+		  grown_regions.push_back(adj_reg);
+		}
+	    }
+	  else
+	    {
+	      if (curr->visited())
+		continue;
+	      curr->setVisited();
+	      visited.push_back(curr);
+	      
+	      // Check accuracy
+	      Vector3D xyz = curr->getPoint();
+	      Point pnt(xyz[0], xyz[1], xyz[2]);
+	      double upar, vpar, dist;
+	      Point close;
+	      surf->closestPoint(pnt, upar, vpar, close, dist, eps);
+	      if (dist <= tol)
+		{
+		  double k1 = curr->minPrincipalCurvature();
+		  double k2 = curr->maxPrincipalCurvature();
+		  mink1_ = std::min(mink1_, fabs(k1));
+		  maxk1_ = std::max(maxk1_, fabs(k1));
+		  mink2_ = std::min(mink2_, fabs(k2));
+		  maxk2_ = std::max(maxk2_, fabs(k2));
+		  bbox_.addUnionWith(pnt);
+		  normalcone_.addUnionWith(curr->getPCANormal());
+		  group_points_.push_back(curr);
+ 		}
+	    }
+	  
+	}
+    }
+  for (size_t kj=0; kj<visited.size(); ++kj)
+    visited[kj]->unsetVisited();
+}
+
+
+//===========================================================================
+bool RevEngRegion::isCompatible(ClassType classtype, int sfcode)
+//===========================================================================
+{
+  double anglim = 0.1;
+  if (classtype == Class_Plane)
+    {
+      if (planartype() || (normalcone_.angle() <= anglim &&
+			   (!normalcone_.greaterThanPi())))
+	return true;
+      else
+	return false;
+    }
+  else
+  if (classtype == Class_Cylinder)
+    {
+      return true;  // Must mike proper criteria
+    }
+    return false;  // To be extended
 }

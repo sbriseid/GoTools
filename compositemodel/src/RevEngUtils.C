@@ -249,6 +249,22 @@ void RevEngUtils::computeMonge(Point& curr, std::vector<Point>& points,
   Vector3D cvec2 = d2[0]*du + d2[1]*dv;
   minc = k1;
   maxc = k2;
+
+  Vector3D origin(par[0], par[1], zval[0]);
+  of << "410 1 0 4 0 0 0 255" << std::endl;
+  of << "1" << std::endl;
+  of << origin << " " << origin+norm << std::endl;
+
+  of << "410 1 0 4 0 55 155 255" << std::endl;
+  of << "1" << std::endl;
+  of << origin << " " << origin+cvec1 << std::endl;
+
+  
+  of << "410 1 0 4 155 55 0 255" << std::endl;
+  of << "1" << std::endl;
+  of << origin << " " << origin+cvec2 << std::endl;
+
+  
   
   // Transform results to original coordinate system
   Matrix3D mat3, mat4, rotmat2;
@@ -317,6 +333,203 @@ void RevEngUtils::computeAxis(vector<pair<vector<RevEngPoint*>::iterator,
 
 }
 
+
+//===========================================================================
+void RevEngUtils::coneAxis(vector<pair<vector<RevEngPoint*>::iterator,
+			      vector<RevEngPoint*>::iterator> >& points,
+			      Point& axis, Point& Cx, Point& Cy)
+//===========================================================================
+{
+  size_t numpt = 0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      numpt += (points[ki].second - points[ki].first);
+    }
+  double wgt = 1.0/(double)numpt;
+
+  Point mid(3);
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      for (auto it=start; it!=end; ++it)
+	{
+	  RevEngPoint *pt = *it;
+	  Point norm = pt->getPCANormal();
+	  mid += wgt*norm;
+	}
+    }
+
+  double Cmat[3][3];
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      for (int ka=0; ka<3; ++ka)
+	for (int kb=0; kb<3; ++kb)
+	  {
+	    Cmat[ka][kb] = 0.0;
+	    for (auto it=start; it!=end; ++it)
+	      {
+		RevEngPoint *pt = *it;
+		Point norm = pt->getPCANormal();
+		Point vec = norm - mid;
+		Cmat[ka][kb] += vec[ka]*vec[kb];
+	      }
+	  }
+    }
+  
+  // Compute singular values
+  NEWMAT::Matrix nmat;
+  nmat.ReSize(3, 3);
+  for (int ka = 0; ka < 3; ++ka) {
+    for (int kb = 0; kb < 3; ++kb) {
+      nmat.element(ka, kb) = Cmat[ka][kb];
+    }
+  }
+      
+  static NEWMAT::DiagonalMatrix diag;
+  static NEWMAT::Matrix V;
+  try {
+    NEWMAT::SVD(nmat, diag, nmat, V);
+  } catch(...) {
+    std::cout << "Exception in SVD" << std::endl;
+    exit(-1);
+  }
+  Cx = Point(V.element(0,0), V.element(1,0), V.element(2,0));
+  Cy = Point(V.element(0,1), V.element(1,1), V.element(2,1));
+  axis = Point(V.element(0,2), V.element(1,2), V.element(2,2));
+
+}
+
+//===========================================================================
+void RevEngUtils::coneApex(vector<pair<vector<RevEngPoint*>::iterator,
+			      vector<RevEngPoint*>::iterator> >& points,
+			   Point axis, Point& apex, double& phi)
+//===========================================================================
+{
+  double Mmat[3][3], Mi[3][3];
+  double bvec[3], bi[3];
+  for (int ka=0; ka<3; ++ka)
+    {
+      bvec[ka] = 0.0;
+      for (int kb=0; kb<3; ++kb)
+	Mmat[ka][kb] = 0.0;
+    }
+
+  int nmb = 0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    nmb += (int)(points[ki].second - points[ki].first);
+
+  vector<Point> dird;
+  vector<Point> pp;
+  dird.reserve(nmb);
+  pp.reserve(nmb);
+  double wg = 1.0/(double)nmb;
+    for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      for (auto it=start; it!=end; ++it)
+	{
+	  RevEngPoint *pt = *it;
+	  Point norm = pt->getPCANormal();
+	  Point tmp = norm.cross(axis);
+	  Point di = tmp.cross(norm);
+	  di.normalize_checked();
+	  dird.push_back(di);
+	  Vector3D xyz = pt->getPoint();
+	  Point pos(xyz[0], xyz[1], xyz[2]);
+	  pp.push_back(pos);
+
+	  for (int ka=0; ka<3; ++ka)
+	    for (int kb=0; kb<3; ++kb)
+	      {
+		if (ka == kb)
+		  continue;
+		Mi[ka][kb] = -di[ka]*di[kb];
+	      }
+	  Mi[0][0] = di[1]*di[1] + di[2]*di[2];
+	  Mi[1][1] = di[0]*di[0] + di[2]*di[2];
+	  Mi[2][2] = di[0]*di[0] + di[1]*di[1];
+
+	  bi[0] = pos[0]*di[1]*di[1] - pos[1]*di[0]*di[1] - pos[2]*di[0]*di[2] + pos[0]*di[2]*di[2];
+	  bi[1] = pos[1]*di[2]*di[2] - pos[2]*di[1]*di[2] - pos[0]*di[1]*di[0] + pos[1]*di[0]*di[0];
+	  bi[2] = pos[2]*di[0]*di[0] - pos[0]*di[2]*di[0] - pos[1]*di[2]*di[1] + pos[2]*di[1]*di[1];
+	  
+	  for (int ka=0; ka<3; ++ka)
+	    {
+	      bvec[ka] += wg*bi[ka];
+	      for (int kb=0; kb<3; ++kb)
+		Mmat[ka][kb] += wg*Mi[ka][kb];
+	    }
+	}
+    }
+
+    std::ofstream of("directions.g2");
+    of << "410 1 0 4 155 200 0 255" << std::endl;
+    of << dird.size() << std::endl;
+    for (size_t ki=0; ki<dird.size(); ++ki)
+      of << pp[ki] << " " << pp[ki]+dird[ki] << std::endl;
+    
+    double det = 0.0;
+    int sgn = 1;
+    int ka, kb, kc;
+    double ax=0.0, ay=0.0, az=0.0;
+    // for (ka=0; ka<3; ++ka, sgn*=-1)
+    //   {
+    // 	kb = (ka+1)%3;
+    // 	kc = (kb+1)%3;
+    // 	det += sgn*Mmat[0][ka]*(Mmat[1][kb]*Mmat[2][kc]-Mmat[2][kb]*Mmat[1][kc]);
+    // 	ax += sgn*bvec[ka]*(Mmat[1][kb]*Mmat[2][kc]-Mmat[2][kb]*Mmat[1][kc]);
+    // 	ay += sgn*Mmat[0][ka]*(bvec[kb]*Mmat[2][kc]-Mmat[2][kb]*bvec[kc]);
+    // 	az += sgn*Mmat[0][ka]*(Mmat[1][kb]*bvec[kc]-bvec[kb]*Mmat[1][kc]);
+    //   }
+    // apex = Point(ax/det, ay/det, az/det);
+
+    double det2 = Mmat[0][0]*(Mmat[1][1]*Mmat[2][2] - Mmat[1][2]*Mmat[2][1]) -
+      Mmat[0][1]*(Mmat[1][0]*Mmat[2][2] - Mmat[1][2]*Mmat[2][0]) +
+      Mmat[0][2]*(Mmat[1][0]*Mmat[2][1] - Mmat[1][1]*Mmat[2][0]);
+    double ax2 = bvec[0]*(Mmat[1][1]*Mmat[2][2] - Mmat[1][2]*Mmat[2][1]) -
+      bvec[1]*(Mmat[1][0]*Mmat[2][2] - Mmat[1][2]*Mmat[2][0]) +
+      bvec[2]*(Mmat[1][0]*Mmat[2][1] - Mmat[1][1]*Mmat[2][0]);
+    double ay2 = Mmat[0][0]*(bvec[1]*Mmat[2][2] - bvec[2]*Mmat[2][1]) -
+      Mmat[0][1]*(bvec[0]*Mmat[2][2] - bvec[2]*Mmat[2][0]) +
+      Mmat[0][2]*(bvec[0]*Mmat[2][1] - bvec[1]*Mmat[2][0]);
+    double az2 = Mmat[0][0]*(Mmat[1][1]*bvec[2] - Mmat[1][2]*bvec[1]) -
+      Mmat[0][1]*(Mmat[1][0]*bvec[2] - Mmat[1][2]*bvec[0]) +
+      Mmat[0][2]*(Mmat[1][0]*bvec[1] - Mmat[1][1]*bvec[0]);
+    apex = Point(ax2/det2, ay2/det2, az2/det2);
+    
+    // std::cout << det << " " << det2 << std::endl;
+    for (int ka=0; ka<3; ++ka)
+      {
+    	double tmp = 0.0;
+    	for (kb=0; kb<3; ++kb)
+    	  tmp += Mmat[ka][kb]*apex[kb];
+    	std::cout << tmp << " " << bvec[ka] << std::endl;
+      }
+
+    double nom=0.0, denom=0.0;
+    for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      for (auto it=start; it!=end; ++it)
+	{
+	  RevEngPoint *pt = *it;
+	  Vector3D xyz = pt->getPoint();
+	  Point pos(xyz[0], xyz[1], xyz[2]);
+	  Point tmp1 = pos - apex;
+	  Point tmp2 = tmp1.cross(axis);
+	  nom += tmp2.length();
+	  denom += tmp1*axis;
+	}
+    }
+    
+    double tanphi = nom/denom;
+    phi = atan(tanphi);
+}
 
 //===========================================================================
 void RevEngUtils::computeCylPosRadius(vector<pair<vector<RevEngPoint*>::iterator,

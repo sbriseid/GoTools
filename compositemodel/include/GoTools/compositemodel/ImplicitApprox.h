@@ -57,6 +57,10 @@ namespace Go
 
     void approx(std::vector<RevEngPoint*> points, int degree);
 
+    void approx(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+			     std::vector<RevEngPoint*>::iterator> >& points,
+		int degree);
+
     void approxPoints(std::vector<Point> points, int degree);
 
     double estimateDist(RevEngPoint* pt);

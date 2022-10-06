@@ -80,7 +80,7 @@ namespace Go
       
       void recognizeCylinders();
       
-       void mergePlanes();
+       void mergePlanes(size_t first, size_t last);
 
     // Could be private
     void mergeCylinders(size_t first, size_t last);
@@ -120,6 +120,7 @@ namespace Go
     void setClassificationParams();
     void curvatureFilter();
     shared_ptr<HedgeSurface> doMergeCylinders(std::vector<size_t>& cand_ix);
+    shared_ptr<HedgeSurface> doMergePlanes(std::vector<size_t>& cand_ix);
 
     void storeParams(std::ostream& os) const;
     void readParams(std::istream& is);

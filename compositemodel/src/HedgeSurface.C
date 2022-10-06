@@ -40,6 +40,7 @@
 #include "GoTools/compositemodel/HedgeSurface.h"
 #include "GoTools/compositemodel/RevEngRegion.h"
 #include "GoTools/geometry/ParamSurface.h"
+#include "GoTools/geometry/BoundedSurface.h"
 
 using namespace Go;
 using std::vector;
@@ -88,5 +89,13 @@ ClassType HedgeSurface::instanceType(int& code)
 //===========================================================================
 {
   code = 0;  // For later use
-  return surface()->instanceType();
+  ClassType type = surface()->instanceType();
+  if (type == Class_BoundedSurface)
+    {
+      shared_ptr<ParamSurface> surf = surface();
+      shared_ptr<BoundedSurface> bdsurf =
+	dynamic_pointer_cast<BoundedSurface,ParamSurface>(surf);
+      type = bdsurf->underlyingSurface()->instanceType();
+    }
+  return type;
 }

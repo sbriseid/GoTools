@@ -42,8 +42,10 @@
 #include "GoTools/compositemodel/RevEngRegion.h"
 #include "GoTools/compositemodel/RevEngUtils.h"
 #include "GoTools/compositemodel/HedgeSurface.h"
+#include "GoTools/compositemodel/ImplicitApprox.h"
 #include "GoTools/utils/DirectionCone.h"
 #include "GoTools/geometry/Cylinder.h"
+#include "GoTools/geometry/Plane.h"
 #include "GoTools/geometry/BoundedSurface.h"
 #include <vector>
 #include <fstream>
@@ -799,6 +801,7 @@ void RevEng::recognizePlanes()
 {
   std::ofstream planeout("plane.g2");
   double anglim = 0.1;
+  size_t nmbsfs = surfaces_.size();
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       // Check type
@@ -813,7 +816,43 @@ void RevEng::recognizePlanes()
       bool found = regions_[ki]->extractPlane(approx_tol_, min_point_region_,
 					      plane_sfs, planeout);
       if (plane_sfs.size() > 0)
-	surfaces_.insert(surfaces_.end(), plane_sfs.begin(), plane_sfs.end());
+	{
+	  surfaces_.insert(surfaces_.end(), plane_sfs.begin(), plane_sfs.end());
+
+	  vector<RevEngRegion*> grown_regions;
+	  int min_nmb = 5*min_point_region_;  // Should be set from distribution of how many
+	  // points the regions have
+	  regions_[ki]->growWithSurf(min_nmb, approx_tol_, grown_regions);
+	  if (grown_regions.size() > 0)
+	    {
+	      for (size_t kr=0; kr<grown_regions.size(); ++kr)
+		{
+		  size_t kj;
+		  for (kj=0; kj<regions_.size(); )
+		    {
+		      if (kj == ki)
+			{
+			  ++kj;
+			  continue;
+			}
+
+		      if (grown_regions[kr] == regions_[kj].get())
+			{
+			  regions_.erase(regions_.begin()+kj);
+			  if (kj < ki)
+			    --ki;
+			}
+		      else
+			++kj;
+		    }
+		}
+	    }
+	}
+
+      for (size_t kj=0; kj<regions_.size(); ++kj)
+	regions_[kj]->setVisited(false);
+
+
       // if not planar
       // continue;
 
@@ -830,6 +869,45 @@ void RevEng::recognizePlanes()
       // check if the number of points in the plane is large enough
       // if not, should the region be removed?
       int stop_break = 1;
+    }
+  
+  std::ofstream ofp("planes2.g2");
+  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+    {
+      shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
+      surf->writeStandardHeader(ofp);
+      surf->write(ofp);
+    }
+
+  if (regions_.size() > 0)
+    {
+      std::ofstream ofr("regions3.g2");
+      for (size_t kr=0; kr<regions_.size(); ++kr)
+	{
+	  // BoundingBox bbox = regions_[kr]->boundingBox();
+	  // if (bbox.low().dist(bbox.high()) < 0.1)
+	  //   std::cout << "Small bounding box" << std::endl;
+	  if (regions_[kr]->numPoints() < 5)
+	    continue;
+	  ofr << "400 1 0 0" << std::endl;
+	  int nmb = regions_[kr]->numPoints();
+	  ofr << nmb << std::endl;
+	  for (int ki=0; ki<nmb; ++ki)
+	    {
+	      ofr << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+	    }
+	}
+    }
+
+  if (surfaces_.size() - nmbsfs > 1)
+    mergePlanes(nmbsfs, surfaces_.size());
+
+  std::ofstream of("surfaces0.g2");
+  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+    {
+      shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
+      surf->writeStandardHeader(of);
+      surf->write(of);
     }
 }
 
@@ -851,7 +929,41 @@ void RevEng::recognizeCylinders()
       bool found = regions_[ki]->extractCylinder(approx_tol_, min_point_region_,
 						 cyl_sfs, cylout);
       if (cyl_sfs.size() > 0)
-	surfaces_.insert(surfaces_.end(), cyl_sfs.begin(), cyl_sfs.end());
+	{
+	  surfaces_.insert(surfaces_.end(), cyl_sfs.begin(), cyl_sfs.end());
+      
+	  vector<RevEngRegion*> grown_regions;
+	  int min_nmb = 10*min_point_region_;  // Should be set from distribution of how many
+	  // points the regions have
+	  regions_[ki]->growWithSurf(min_nmb, approx_tol_, grown_regions);
+	  if (grown_regions.size() > 0)
+	    {
+	      for (size_t kr=0; kr<grown_regions.size(); ++kr)
+		{
+		  size_t kj;
+		  for (kj=0; kj<regions_.size(); )
+		    {
+		      if (kj == ki)
+			{
+			  ++kj;
+			  continue;
+			}
+
+		      if (grown_regions[kr] == regions_[kj].get())
+			{
+			  regions_.erase(regions_.begin()+kj);
+			  if (kj < ki)
+			    ki--;
+			}
+		      else
+			++kj;
+		    }
+		}
+	    }
+	}
+
+      for (size_t kj=0; kj<regions_.size(); ++kj)
+	regions_[kj]->setVisited(false);
       
       // if not planar
       // continue;
@@ -870,6 +982,35 @@ void RevEng::recognizeCylinders()
       // if not, should the region be removed?
     }
 
+  
+  std::ofstream ofp("cylinders2.g2");
+  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+    {
+      shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
+      surf->writeStandardHeader(ofp);
+      surf->write(ofp);
+    }
+
+  if (regions_.size() > 0)
+    {
+      std::ofstream ofr("regions4.g2");
+      for (size_t kr=0; kr<regions_.size(); ++kr)
+	{
+	  // BoundingBox bbox = regions_[kr]->boundingBox();
+	  // if (bbox.low().dist(bbox.high()) < 0.1)
+	  //   std::cout << "Small bounding box" << std::endl;
+	  if (regions_[kr]->numPoints() < 5)
+	    continue;
+	  ofr << "400 1 0 0" << std::endl;
+	  int nmb = regions_[kr]->numPoints();
+	  ofr << nmb << std::endl;
+	  for (int ki=0; ki<nmb; ++ki)
+	    {
+	      ofr << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+	    }
+	}
+    }
+
   // Now the surfaces between nmbsfs and surfaces_.size() are cylinder surfaces
   // and can be merged if they represent the same cylinder
   if (surfaces_.size() + nmbsfs > 1)
@@ -885,9 +1026,128 @@ void RevEng::recognizeCylinders()
 }
 
 //===========================================================================
-void RevEng::mergePlanes()
+void RevEng::mergePlanes(size_t first, size_t last)
 //===========================================================================
 {
+  // Sort according to number of associated points
+  for (size_t ki=first; ki<last; ++ki)
+    {
+      int nmb1 = surfaces_[ki]->numPoints();
+      for (size_t kj=ki+1; kj<last; ++kj)
+	{
+	  int nmb2 = surfaces_[kj]->numPoints();
+	  if (nmb2 > nmb1)
+	    std::swap(surfaces_[ki], surfaces_[kj]);
+	}
+    }
+
+  std::ofstream of("planes0.g2");
+  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+    {
+      shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
+      surf->writeStandardHeader(of);
+      surf->write(of);
+    }
+  
+  // Find similar planes
+  for (size_t ki=first; ki<last; ++ki)
+    {
+      vector<size_t> cand_ix;
+      int code;
+      ClassType type1 = surfaces_[ki]->instanceType(code);
+      if (type1 != Class_Plane && type1 != Class_BoundedSurface)
+	continue;
+
+      shared_ptr<ParamSurface> surf1 = surfaces_[ki]->surface();
+      shared_ptr<Plane> pla1 =
+	dynamic_pointer_cast<Plane,ParamSurface>(surf1);
+      if (!pla1.get())
+	{
+	  shared_ptr<BoundedSurface> bdsf1 =
+	    dynamic_pointer_cast<BoundedSurface,ParamSurface>(surf1);
+	  if (bdsf1.get())
+	    {
+	      surf1 = bdsf1->underlyingSurface();
+	      pla1 = dynamic_pointer_cast<Plane,ParamSurface>(surf1);
+	    }
+	}
+      if (!pla1.get())
+	continue; 
+
+      cand_ix.push_back(ki); 
+      Point norm1 = pla1->getNormal();
+      Point pos1 = pla1->getPoint();
+      for (size_t kj=ki+1; kj<last; ++kj)
+	{
+	  ClassType type2 = surfaces_[kj]->instanceType(code);
+	  if (type2 != Class_Plane && type2 != Class_BoundedSurface)
+	    continue;
+	  
+	  shared_ptr<ParamSurface> surf2 = surfaces_[kj]->surface();
+	  shared_ptr<Plane> pla2 =
+	    dynamic_pointer_cast<Plane,ParamSurface>(surf2);
+	  if (!pla2.get())
+	    {
+	      shared_ptr<BoundedSurface> bdsf2 =
+		dynamic_pointer_cast<BoundedSurface,ParamSurface>(surf2);
+	      if (bdsf2.get())
+		{
+		  surf2 = bdsf2->underlyingSurface();
+		  pla2 = dynamic_pointer_cast<Plane,ParamSurface>(surf2);
+		}
+	    }
+ 	  if (!pla2.get())
+	    continue;  // Should not happen
+	  Point norm2 = pla2->getNormal();
+	  Point pos2 = pla2->getPoint();
+
+	  double ang = norm1.angle(norm2);
+	  ang = std::min(ang, M_PI-ang);
+	  Point pos2_0 = pos2 - ((pos2-pos1)*norm1)*norm1;
+	  Point pos1_0 = pos1 - ((pos2-pos1)*norm2)*norm2;
+	  double pdist1 = pos2.dist(pos2_0);
+	  double pdist2 = pos1.dist(pos1_0);
+
+	  if (ang > 2.0*anglim_ || pdist1 > 5.0*approx_tol_ || pdist2 > 5.0*approx_tol_)
+	    continue;
+	  cand_ix.push_back(kj);
+	}
+
+      if (cand_ix.size() > 1)
+	{
+	  std::ofstream pre("pre_merge.g2");
+	  for (size_t kr=0; kr<cand_ix.size(); ++kr)
+	    {
+	      shared_ptr<ParamSurface> surf = surfaces_[cand_ix[kr]]->surface();
+	      surf->writeStandardHeader(pre);
+	      surf->write(pre);
+	    }
+	  shared_ptr<HedgeSurface> merged_surf = doMergePlanes(cand_ix);
+	  if (merged_surf.get())
+	    {
+	      std::ofstream post("post_merge.g2");
+	      for (size_t kr=0; kr<cand_ix.size(); ++kr)
+		{
+		  shared_ptr<ParamSurface> surf = surfaces_[cand_ix[kr]]->surface();
+		  surf->writeStandardHeader(post);
+		  surf->write(post);
+		}
+	      shared_ptr<ParamSurface> surfm = merged_surf->surface();
+	      surfm->writeStandardHeader(post);
+	      surfm->write(post);
+		  
+	      std::swap(surfaces_[cand_ix[0]], merged_surf);
+	      if (cand_ix[0] > ki)
+		std::swap(surfaces_[ki], surfaces_[cand_ix[0]]);
+	      for (size_t kr=cand_ix.size()-1; kr>=1; --kr)
+		{
+		  surfaces_.erase(surfaces_.begin()+cand_ix[kr]);
+		}
+	      last -= (cand_ix.size()-1);
+	    }
+	}
+      int stop_break = 1;
+    }
   // vector<shared_ptr<HedgeSurface> > planes;
 
   // Collect all planes
@@ -930,6 +1190,108 @@ void RevEng::mergePlanes()
 }
 
 //===========================================================================
+shared_ptr<HedgeSurface> RevEng::doMergePlanes(vector<size_t>& cand_ix)
+//===========================================================================
+{
+  size_t candsize = cand_ix.size();
+  shared_ptr<HedgeSurface> merged_surf;
+  
+  for (size_t kh=0; kh<cand_ix.size(); ++kh)
+    {
+      // Collect regions and point clouds
+      size_t nmbpts = 0;
+      vector<RevEngRegion*> regions;
+      vector<pair<vector<RevEngPoint*>::iterator,
+		  vector<RevEngPoint*>::iterator> > points;
+      BoundingBox bbox(3);
+      for (size_t ki=0; ki<cand_ix.size(); ++ki)
+	{
+	  HedgeSurface* surf = surfaces_[cand_ix[ki]].get();
+	  vector<RevEngRegion*> reg = surf->getRegions();
+	  regions.insert(regions.end(), reg.begin(), reg.end());
+	  for (size_t kj=0; kj<reg.size(); ++kj)
+	    {
+	      nmbpts += reg[kj]->numPoints();
+	      points.push_back(std::make_pair(reg[kj]->pointsBegin(),
+					      reg[kj]->pointsEnd()));
+	      bbox.addUnionWith(reg[kj]->boundingBox());
+	    }
+	}
+
+      Point pos(0.0, 0.0, 0.0);
+      Point norm(0.0, 0.0, 0.0);
+      double wgt = 1.0/(double)nmbpts;
+      for (size_t ki=0; ki<points.size(); ++ki)
+	{
+	  for (auto it=points[ki].first; it!=points[ki].second; ++it)
+	    {
+	      Point curr = (*it)->getPCANormal();
+	      Vector3D xyz = (*it)->getPoint();
+	      pos +=  wgt*Point(xyz[0], xyz[1], xyz[2]);
+	      norm += wgt*curr;
+	    }
+	}
+      shared_ptr<ImplicitApprox> impl(new ImplicitApprox());
+      impl->approx(points, 1);
+      Point pos2, normal2;
+      impl->projectPoint(pos, norm, pos2, normal2);
+
+      shared_ptr<Plane> surf(new Plane(pos2, normal2));
+      Point low = bbox.low();
+      Point high = bbox.high();
+      double len = low.dist(high);
+      surf->setParameterBounds(-0.5*len, -0.5*len, 0.5*len, 0.5*len);
+      // Check accuracy
+      double dfac = 5.0;
+      for (size_t ki=0; ki<regions.size(); ++ki)
+	{
+	  double maxd, avd;
+	  int num2;
+	  RevEngUtils::distToSurf(points[ki].first, points[ki].second,
+				  surf, approx_tol_, maxd, avd, num2);
+
+	  double maxd_init, avd_init;
+	  int num2_init;
+	  regions[ki]->getAccuracy(maxd_init, avd_init, num2_init);
+	  int num = regions[ki]->numPoints();
+
+	  if (num2 < num/2 || maxd > dfac*maxd_init || avd > dfac*avd_init
+	      || avd > approx_tol_)
+	    {
+	      size_t kj, kr;
+	      for (kj=0; kj<cand_ix.size(); ++kj)
+		{
+		  HedgeSurface* surf = surfaces_[cand_ix[kj]].get();
+		  vector<RevEngRegion*> reg = surf->getRegions();
+		  for (kr=0; kr<reg.size(); ++kr)
+		    if (reg[kr] == regions[ki])
+		      break;
+		  if (kr < reg.size())
+		    break;
+		}
+	      if (kj < cand_ix.size())
+		cand_ix.erase(cand_ix.begin() + kj);
+	    }
+	  int stop_break = 1;
+	}
+      if (cand_ix.size() <= 1)
+	break;
+      if (cand_ix.size() == candsize)
+	{
+	  merged_surf =
+	    shared_ptr<HedgeSurface>(new HedgeSurface(surf, regions));
+	  for (size_t kj=0; kj<regions.size(); ++kj)
+	    regions[kj]->setHedge(merged_surf.get());
+	  break;
+	}
+      candsize = cand_ix.size();
+    }
+
+  return merged_surf;
+}
+
+
+//===========================================================================
 void RevEng::mergeCylinders(size_t first, size_t last)
 //===========================================================================
 {
@@ -954,7 +1316,6 @@ void RevEng::mergeCylinders(size_t first, size_t last)
       if (type1 != Class_Cylinder && type1 != Class_BoundedSurface)
 	continue;
 
-      cand_ix.push_back(ki); 
       shared_ptr<ParamSurface> surf1 = surfaces_[ki]->surface();
       shared_ptr<Cylinder> cyl1 =
 	dynamic_pointer_cast<Cylinder,ParamSurface>(surf1);
@@ -971,6 +1332,7 @@ void RevEng::mergeCylinders(size_t first, size_t last)
       if (!cyl1.get())
 	continue; 
 
+      cand_ix.push_back(ki); 
       Point axis1 = cyl1->getAxis();
       Point pos1 = cyl1->getLocation();
       double rad1 = cyl1->getRadius();
@@ -1177,7 +1539,7 @@ void RevEng::initParameters()
   norm_ang_lim_ = 0.025*M_PI; // Limit for when the cone angle corresponding
     // to triangle normals indicate an edge
   pca_lim_ = cness_lim_ = std::numeric_limits<double>::max();
-  min_point_region_ = 100; //10;  // Should be updated with regard to the total
+  min_point_region_ = 50; //10;  // Should be updated with regard to the total
   // number of points
   approx_tol_ = 0.001;  // Very preliminary
   anglim_ = 0.01;

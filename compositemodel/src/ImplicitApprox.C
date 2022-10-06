@@ -135,6 +135,44 @@ void ImplicitApprox::approxPoints(vector<Point> points, int degree)
 }
 
 //===========================================================================
+void ImplicitApprox::approx(vector<pair<vector<RevEngPoint*>::iterator,
+			    vector<RevEngPoint*>::iterator> >& points,
+			    int degree)
+//===========================================================================
+{
+  // Extract xyz values
+  vector<Vector3D> xyz;
+  for (size_t kj=0; kj<points.size(); ++kj)
+    {
+      for (auto it=points[kj].first; it!=points[kj].second; ++it)
+	{
+	  Vector3D curr = (*it)->getPoint();
+	  xyz.push_back(curr);
+	}
+    }
+  PointCloud3D pointset(xyz);
+
+  // Implicitize
+  degree_ = degree;
+  ImplicitizePointCloudAlgo implicitize(pointset, degree);
+  implicitize.perform();
+  
+  // Get result
+  implicitize.getResultData(implicit_, bc_, sigma_min_);
+  
+  // Differentiate
+  Vector4D bdir1(1.0, 0.0, 0.0, 0.0);
+  Vector4D bdir2(0.0, 1.0, 0.0, 0.0);
+  Vector4D bdir3(0.0, 0.0, 1.0, 0.0);
+  Vector4D bdir4(0.0, 0.0, 0.0, 1.0);
+  implicit_.deriv(1, bdir1, deriv1_);
+  implicit_.deriv(1, bdir2, deriv2_);
+  implicit_.deriv(1, bdir3, deriv3_);
+  implicit_.deriv(1, bdir4, deriv4_);
+
+}
+
+//===========================================================================
 double ImplicitApprox::estimateDist(RevEngPoint* pt)
 //===========================================================================
 {

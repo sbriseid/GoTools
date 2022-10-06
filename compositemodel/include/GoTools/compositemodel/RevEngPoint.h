@@ -168,9 +168,19 @@ namespace Go
       return kmax_;
     }
 
+    Point maxCurvatureVec()
+    {
+      return kvecmax_;
+    }
+
     double minPrincipalCurvature()
     {
       return kmin_;
+    }
+
+    Point minCurvatureVec()
+    {
+      return kvecmin_;
     }
 
     double GaussCurvature()

@@ -63,6 +63,14 @@ namespace Go {
 		     std::vector<RevEngPoint*>::iterator> >& points,
 		     Point& axis, Point& Cx, Point& Cy);
 
+    void coneAxis(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+		     std::vector<RevEngPoint*>::iterator> >& points,
+		     Point& axis, Point& Cx, Point& Cy);
+
+    void coneApex(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+		  std::vector<RevEngPoint*>::iterator> >& points,
+		  Point axis, Point& apex, double& phi);
+
     void computeCylPosRadius(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
 			     std::vector<RevEngPoint*>::iterator> >& points,
 			     Point& low, Point& high, Point& axis, Point& Cx, 

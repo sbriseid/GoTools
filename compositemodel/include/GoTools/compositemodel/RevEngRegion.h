@@ -71,6 +71,8 @@ namespace Go
     {
       return classification_type_;
     }
+
+    bool isCompatible(ClassType classtype, int sfcode);
     
     // Extend group
     void addPoint(RevEngPoint* point);
@@ -105,6 +107,9 @@ namespace Go
     
     void growLocal(RevEngPoint* seed, double tol, double radius, int min_close,
 		   std::vector<RevEngPoint*>& out);
+
+    void growWithSurf(int max_nmb, double tol,
+		      std::vector<RevEngRegion*>& grown_regions);
 
     void
     splitFromSurfaceNormals(std::vector<RevEngPoint*>& smallrad,
@@ -147,6 +152,11 @@ namespace Go
       associated_sf_.push_back(surface);
     }
 
+    bool hasSurface()
+    {
+      return (associated_sf_.size() > 0);
+    }
+
     const BoundingBox& boundingBox()
     {
       return bbox_;
@@ -157,6 +167,14 @@ namespace Go
       return normalcone_;
     }
 
+    void getPrincipalCurvatureInfo(double& mink1, double& maxk1, double& mink2, double& maxk2)
+    {
+      mink1 = mink1_;
+      maxk1 = maxk1_;
+      mink2 = mink2_;
+      maxk2 = maxk2_;
+    }
+    
     void setAccuracy(double maxdist, double avdist, int num_inside)
     {
       maxdist_ = maxdist;
@@ -171,6 +189,16 @@ namespace Go
       num_inside = num_inside_;
     }
 
+    void setVisited(bool visited)
+    {
+      visited_ = visited;
+    }
+
+    bool visited()
+    {
+      return visited_;
+    }
+
   private:
     vector<RevEngPoint*> group_points_;   // Points belonging to classified segment
     int classification_type_;
@@ -183,9 +211,11 @@ namespace Go
     double maxdist_, avdist_;
     int num_inside_;
 
+    bool visited_;
+
     const Point& pluckerAxis();
     void extendWithGaussRad();
-    void analyseNormals(double tol, double& beta);
+    void analyseNormals(double tol, Point& normal, Point& centre, double& radius);
     
   };
 }
