@@ -100,6 +100,7 @@ namespace Go
     // will be build gradually. The number of surfaces will increase and
     // decrease based on recognition, merging and splitting by trimming
     int min_next_;  // Minimum number of neighbouring points
+    int max_next_;  // Estimate for maximum number of neighbouring points
     double rfac_;   // Factor for radius in which to search for neighbouring points
     double cfac_;   // Edge points from curvature is given by
     // cfac_ times the average length of triangulation edges in a vertex

@@ -119,8 +119,10 @@ void RevEng::enhancePoints()
       //Fetch nearby points
       vector<Point> nearpts;
       double local_len = pt->getMeanEdgLen();
-      double radius = 0.5*rfac_*(local_len + mean_edge_len_);
-      Point curr = pt->fetchClosePoints(radius, min_next_, nearpts);
+      double radius = rfac_*(local_len + mean_edge_len_);
+      radius = std::min(radius, 20.0*mean_edge_len_);
+      //double radius = 0.5*rfac_*(local_len + mean_edge_len_);
+      Point curr = pt->fetchClosePoints(radius, min_next_, max_next_, nearpts);
 
       std::ofstream of("nearpts.g2");
       if (writepoints)
@@ -249,7 +251,8 @@ void RevEng::curvatureFilter()
       // Fetch nearby points
       double local_len = pt->getMeanEdgLen();
       double radius = 0.5*radius_fac*rfac_*(local_len + mean_edge_len_);
-      pt->fetchClosePoints2(radius, min_next_, nearpts[ki]);
+      radius = std::min(radius, 20.0*mean_edge_len_);
+      pt->fetchClosePoints2(radius, min_next_, max_next_, nearpts[ki]);
       vector<double> H0(nearpts[ki].size()+1), K0(nearpts[ki].size()+1);
       H0[0] = pt->meanCurvature0();
       K0[0] = pt->GaussCurvature0();
@@ -813,8 +816,18 @@ void RevEng::recognizePlanes()
 
       // Try to fit the point cloud with a plane
       vector<shared_ptr<HedgeSurface> > plane_sfs;
+      vector<HedgeSurface*> prev_surfs;
       bool found = regions_[ki]->extractPlane(approx_tol_, min_point_region_,
-					      plane_sfs, planeout);
+					      plane_sfs, prev_surfs, planeout);
+      for (size_t kr=0; kr<prev_surfs.size(); ++kr)
+	{
+	  size_t kj;
+	  for (kj=0; kj<surfaces_.size(); ++kj)
+	    if (surfaces_[kj].get() == prev_surfs[kr])
+	      break;
+	  if (kj < surfaces_.size())
+	    surfaces_.erase(surfaces_.begin()+kj);
+	}
       if (plane_sfs.size() > 0)
 	{
 	  surfaces_.insert(surfaces_.end(), plane_sfs.begin(), plane_sfs.end());
@@ -822,7 +835,8 @@ void RevEng::recognizePlanes()
 	  vector<RevEngRegion*> grown_regions;
 	  int min_nmb = 5*min_point_region_;  // Should be set from distribution of how many
 	  // points the regions have
-	  regions_[ki]->growWithSurf(min_nmb, approx_tol_, grown_regions);
+	  vector<HedgeSurface*> adj_surfs;
+	  regions_[ki]->growWithSurf(min_nmb, approx_tol_, grown_regions, adj_surfs);
 	  if (grown_regions.size() > 0)
 	    {
 	      for (size_t kr=0; kr<grown_regions.size(); ++kr)
@@ -845,6 +859,15 @@ void RevEng::recognizePlanes()
 		      else
 			++kj;
 		    }
+		}
+	      for (size_t kr=0; kr<adj_surfs.size(); ++kr)
+		{
+		  size_t kj;
+		  for (kj=0; kj<surfaces_.size(); ++kj)
+		    if (surfaces_[kj].get() == adj_surfs[kr])
+		      break;
+		  if (kj < surfaces_.size())
+		    surfaces_.erase(surfaces_.begin()+kj);
 		}
 	    }
 	}
@@ -926,8 +949,19 @@ void RevEng::recognizeCylinders()
       
       // So far, try to regognize cylinders
       vector<shared_ptr<HedgeSurface> > cyl_sfs;
+      vector<HedgeSurface*> prev_surfs;
       bool found = regions_[ki]->extractCylinder(approx_tol_, min_point_region_,
-						 cyl_sfs, cylout);
+						 mean_edge_len_, cyl_sfs, prev_surfs,
+						 cylout);
+      for (size_t kr=0; kr<prev_surfs.size(); ++kr)
+	{
+	  size_t kj;
+	  for (kj=0; kj<surfaces_.size(); ++kj)
+	    if (surfaces_[kj].get() == prev_surfs[kr])
+	      break;
+	  if (kj < surfaces_.size())
+	    surfaces_.erase(surfaces_.begin()+kj);
+	}
       if (cyl_sfs.size() > 0)
 	{
 	  surfaces_.insert(surfaces_.end(), cyl_sfs.begin(), cyl_sfs.end());
@@ -935,7 +969,8 @@ void RevEng::recognizeCylinders()
 	  vector<RevEngRegion*> grown_regions;
 	  int min_nmb = 10*min_point_region_;  // Should be set from distribution of how many
 	  // points the regions have
-	  regions_[ki]->growWithSurf(min_nmb, approx_tol_, grown_regions);
+	  vector<HedgeSurface*> adj_surfs;
+	  regions_[ki]->growWithSurf(min_nmb, approx_tol_, grown_regions, adj_surfs);
 	  if (grown_regions.size() > 0)
 	    {
 	      for (size_t kr=0; kr<grown_regions.size(); ++kr)
@@ -958,6 +993,15 @@ void RevEng::recognizeCylinders()
 		      else
 			++kj;
 		    }
+		}
+	      for (size_t kr=0; kr<adj_surfs.size(); ++kr)
+		{
+		  size_t kj;
+		  for (kj=0; kj<surfaces_.size(); ++kj)
+		    if (surfaces_[kj].get() == adj_surfs[kr])
+		      break;
+		  if (kj < surfaces_.size())
+		    surfaces_.erase(surfaces_.begin()+kj);
 		}
 	    }
 	}
@@ -1528,6 +1572,7 @@ void RevEng::initParameters()
 {
   // Set default parameters
   min_next_ = 10;  // Minimum number of neighbouring points
+  max_next_ = 500;
   rfac_ = 3.0;  // Factor for radius in which to search for neighbouring points
   cfac_ = 8.0;  // Edge points from curvature is given by
   // cfac_ times the average length of triangulation edges in a vertex

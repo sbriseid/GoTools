@@ -191,7 +191,7 @@ RevEngPoint* RevEngRegion::seedPoint()
       double local_len = group_points_[ki]->getMeanEdgLen();
       double radius = 2.0*rfac*local_len;
       vector<RevEngPoint*> nearpts;
-      group_points_[ki]->fetchClosePoints2(radius, min_next, nearpts);
+      group_points_[ki]->fetchClosePoints2(radius, min_next, 5*min_next, nearpts);
 
       // Count deviant points
       int deviant = 0;
@@ -221,7 +221,7 @@ void RevEngRegion::growLocal(RevEngPoint* seed, double tol, double radius,
 {
   // Fetch nearby points belonging to the same region
   vector<RevEngPoint*> nearpts;
-  seed->fetchClosePoints2(radius, min_close, nearpts, this);
+  seed->fetchClosePoints2(radius, min_close, 5*min_close, nearpts, this);
   nearpts.insert(nearpts.begin(), seed);
   for (size_t ki=0; ki<nearpts.size(); )
     {
@@ -383,8 +383,9 @@ void RevEngRegion::growLocal(RevEngPoint* seed, double tol, double radius,
 
 //===========================================================================
 bool RevEngRegion::extractPlane(double tol, int min_pt,
-				   vector<shared_ptr<HedgeSurface> >& hedgesfs,
-				   std::ostream& fileout)
+				vector<shared_ptr<HedgeSurface> >& hedgesfs,
+				vector<HedgeSurface*>& prevsfs,
+				std::ostream& fileout)
 //===========================================================================
 {
   std::ofstream of("curr_region.g2");
@@ -479,6 +480,9 @@ bool RevEngRegion::extractPlane(double tol, int min_pt,
       std::cout << "Plane. N1: " << num << ", N2: " << num_inside3 << ", max: " << maxdist3 << ", av: " << avdist3 << std::endl;
 
       shared_ptr<HedgeSurface> hedge(new HedgeSurface(surf3, this));
+      for (size_t kh=0; kh<associated_sf_.size(); ++kh)
+	prevsfs.push_back(associated_sf_[kh]);
+      associated_sf_.clear();
       associated_sf_.push_back(hedge.get());
       hedgesfs.push_back(hedge);
 	  
@@ -572,8 +576,9 @@ void RevEngRegion::analyseNormals(double tol, Point& normal, Point& centre,
 }
 
 //===========================================================================
-bool RevEngRegion::extractCylinder(double tol, int min_pt,
+bool RevEngRegion::extractCylinder(double tol, int min_pt, double mean_edge_len,
 				   vector<shared_ptr<HedgeSurface> >& hedgesfs,
+				   vector<HedgeSurface*>& prevsfs,
 				   std::ostream& fileout)
 //===========================================================================
 {
@@ -601,6 +606,29 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt,
       Point vec = group_points_[kr]->minCurvatureVec();
       of << xyz2 << " " << xyz2 + vec << std::endl;
     }
+  
+  // of << "410 1 0 4 100 0  155 255" << std::endl;
+  // of << group_points_.size() << std::endl;
+  // for (size_t kr=0; kr<group_points_.size(); ++kr)
+  //   {
+  //     vector<Point> nearpts;
+  //     double local_len = group_points_[kr]->getMeanEdgLen();
+  //     double radius = 3.0*(local_len + mean_edge_len);
+  //     double min_next = 10;
+  //     Point curr = group_points_[kr]->fetchClosePoints(radius, min_next, nearpts);
+  //     Point normal, mincvec, maxcvec;
+  //     double minc, maxc;
+  //     double currdist, avdist;
+  //     Point eigen1 = group_points_[kr]->getPCAEigen1();
+  //     Point eigen3 = group_points_[kr]->getPCANormal();
+  //     RevEngUtils::computeMonge(curr, nearpts, eigen1, eigen3,
+  // 				normal, mincvec, minc,
+  // 				maxcvec, maxc, currdist, avdist);
+
+  //     Vector3D xyz = group_points_[kr]->getPoint();
+  //     Point xyz2(xyz[0], xyz[1], xyz[2]);
+  //     of << xyz2 << " " << xyz2 + mincvec << std::endl;
+  //   }
   
   std::ofstream of2("curr_normals.g2");
   of2 << "400 1 0 4 100  0 155 255" << std::endl;
@@ -641,9 +669,9 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt,
   //   }
 
   //double beta;
-  Point normalG, centreG;
-  double radG;
-  analyseNormals(tol, normalG, centreG, radG); //beta);
+  // Point normalG, centreG;
+  // double radG;
+  // analyseNormals(tol, normalG, centreG, radG); //beta);
   
   // Cylinder orientation by covariance matrix of normal vectors
   bool found = false;
@@ -741,10 +769,13 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt,
       vector<shared_ptr<SurfaceModel> > divcyl = cylmod->splitSurfaceModels(boxmod);
       
       std::cout << "Cylinder. N1: " << num << ", N2: " << num2 << ", max: " << maxd << ", av: " << avd << std::endl;
+      associated_sf_.clear();
       for (int ka=0; ka<divcyl[0]->nmbEntities(); ++ka)
 	{
 	  shared_ptr<ParamSurface> cyl2 = divcyl[0]->getSurface(ka);
 	  shared_ptr<HedgeSurface> hedge(new HedgeSurface(cyl2, this));
+	  for (size_t kh=0; kh<associated_sf_.size(); ++kh)
+	    prevsfs.push_back(associated_sf_[kh]);
 	  associated_sf_.push_back(hedge.get());
 	  hedgesfs.push_back(hedge);
 	  
@@ -1014,7 +1045,7 @@ void RevEngRegion::splitRegion(vector<vector<RevEngPoint*> >& separate_groups)
       if (group_points_[ki]->visited())
 	continue;
       vector<RevEngPoint*> curr_group;
-      group_points_[ki]->fetchConnected(this, curr_group);
+      group_points_[ki]->fetchConnected(this, (int)group_points_.size(), curr_group);
       connected.push_back(curr_group);
     }
 
@@ -1210,7 +1241,8 @@ void RevEngRegion::extendWithGaussRad()
 
 //===========================================================================
 void RevEngRegion::growWithSurf(int max_nmb, double tol,
-				vector<RevEngRegion*>& grown_regions)
+				vector<RevEngRegion*>& grown_regions,
+				vector<HedgeSurface*>& adj_surfs)
 //===========================================================================
 {
   double eps = 1.0e-6;
@@ -1297,6 +1329,10 @@ void RevEngRegion::growWithSurf(int max_nmb, double tol,
 		  group_points_.insert(group_points_.end(), adj_reg->pointsBegin(),
 				       adj_reg->pointsEnd());
 		  grown_regions.push_back(adj_reg);
+
+		  int num_sf = adj_reg->numSurface();
+		  for (int ka=0; ka<num_sf; ++ka)
+		    adj_surfs.push_back(adj_reg->getSurface(ka));
 		}
 	    }
 	  else

@@ -109,7 +109,8 @@ namespace Go
 		   std::vector<RevEngPoint*>& out);
 
     void growWithSurf(int max_nmb, double tol,
-		      std::vector<RevEngRegion*>& grown_regions);
+		      std::vector<RevEngRegion*>& grown_regions,
+		      std::vector<HedgeSurface*>& adj_surfs);
 
     void
     splitFromSurfaceNormals(std::vector<RevEngPoint*>& smallrad,
@@ -140,10 +141,12 @@ namespace Go
     
     bool extractPlane(double tol, int min_pt,
 		      std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+		      std::vector<HedgeSurface*>& prevsfs,
 		      std::ostream& fileout);
 
-    bool extractCylinder(double tol, int min_pt,
+    bool extractCylinder(double tol, int min_pt, double mean_edge_len,
 			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+			 std::vector<HedgeSurface*>& prevsfs,
 			 std::ostream& fileout);
 
     void setHedge(HedgeSurface* surface)
@@ -155,6 +158,16 @@ namespace Go
     bool hasSurface()
     {
       return (associated_sf_.size() > 0);
+    }
+
+    int numSurface()
+    {
+      return (int)associated_sf_.size();
+    }
+
+    HedgeSurface* getSurface(int ix)
+    {
+      return (ix < 0 || ix>=(int)associated_sf_.size()) ? 0 : associated_sf_[ix];
     }
 
     const BoundingBox& boundingBox()

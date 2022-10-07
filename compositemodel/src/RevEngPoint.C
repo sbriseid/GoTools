@@ -144,7 +144,7 @@ int RevEngPoint::surfaceClassification(int classification_type)
  }
 
 //===========================================================================
-Point RevEngPoint::fetchClosePoints(double radius, int min_nmb,
+Point RevEngPoint::fetchClosePoints(double radius, int min_nmb, int max_nmb,
 				    vector<Point>& nearpts)
 //===========================================================================
 {
@@ -163,7 +163,7 @@ Point RevEngPoint::fetchClosePoints(double radius, int min_nmb,
 	    {
 	      curr->setVisited();
 	      near.push_back(curr);
-	      curr->getNearby(xyz_, radius, near);
+	      curr->getNearby(xyz_, radius, max_nmb, near);
 	    }
 	}
       
@@ -189,7 +189,7 @@ Point RevEngPoint::fetchClosePoints(double radius, int min_nmb,
 }
 
 //===========================================================================
-void RevEngPoint::fetchClosePoints2(double radius, int min_nmb,
+void RevEngPoint::fetchClosePoints2(double radius, int min_nmb, int max_nmb,
 				    vector<RevEngPoint*>& nearpts,
 				    RevEngRegion *region)
 //===========================================================================
@@ -211,7 +211,7 @@ void RevEngPoint::fetchClosePoints2(double radius, int min_nmb,
 	    {
 	      curr->setVisited();
 	      near.push_back(curr);
-	      curr->getNearby(xyz_, radius, near, region);
+	      curr->getNearby(xyz_, radius, max_nmb, near, region);
 	    }
 	}
       
@@ -235,7 +235,7 @@ void RevEngPoint::fetchClosePoints2(double radius, int min_nmb,
 }
 
 //===========================================================================
-void RevEngPoint::fetchConnected(RevEngRegion *region,
+void RevEngPoint::fetchConnected(RevEngRegion *region, int max_nmb,
 				 vector<RevEngPoint*>& group)
 //===========================================================================
 {
@@ -252,15 +252,15 @@ void RevEngPoint::fetchConnected(RevEngRegion *region,
 	continue;
       curr->setVisited();
       connected.push_back(curr);
-      curr->getNearby(xyz_, radius, connected, region);
+      curr->getNearby(xyz_, radius, max_nmb, connected, region);
     }
   group.push_back(this);
   group.insert(group.end(), connected.begin(), connected.end());
 }
 
 //===========================================================================
-  void RevEngPoint::getNearby(Vector3D xyz, double radius,
-			      vector<RevEngPoint*>& near, RevEngRegion* region)
+void RevEngPoint::getNearby(Vector3D xyz, double radius, int max_nmb,
+			    vector<RevEngPoint*>& near, RevEngRegion* region)
 //===========================================================================
 {
   for (size_t ki=0; ki<next_.size(); ++ki)
@@ -274,7 +274,8 @@ void RevEngPoint::fetchConnected(RevEngRegion *region,
 	{
 	  curr->setVisited();
 	  near.push_back(curr);
-	  curr->getNearby(xyz, radius, near, region);
+	  if (near.size() < max_nmb)
+	    curr->getNearby(xyz, radius, max_nmb, near, region);
 	}
     }
 }

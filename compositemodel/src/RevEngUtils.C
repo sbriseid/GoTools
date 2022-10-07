@@ -204,19 +204,19 @@ void RevEngUtils::computeMonge(Point& curr, std::vector<Point>& points,
     }
   shared_ptr<SplineSurface> tmp(new SplineSurface(order, order, order, order, 
 						  &knots1[0], &knots2[0], &coefs2[0], 3));
-  std::ofstream of("approx_sf.g2");
-  tmp->writeStandardHeader(of);
-  tmp->write(of);
-  of << "400 1 0 4 0 255 0 255" << std::endl;
-  of << 1 << std::endl;
-  of << curr << std::endl;
-  of << "400 1 0 4 255 0 0 255" << std::endl;
-  of << nmbpts << std::endl;
-  for (int ka=0; ka<nmbpts; ++ka)
-    {
-      Point tmppt(par[2*ka], par[2*ka+1], zval[ka]);
-      of << tmppt << std::endl;
-    }
+  // std::ofstream of("approx_sf.g2");
+  // tmp->writeStandardHeader(of);
+  // tmp->write(of);
+  // of << "400 1 0 4 0 255 0 255" << std::endl;
+  // of << 1 << std::endl;
+  // of << curr << std::endl;
+  // of << "400 1 0 4 255 0 0 255" << std::endl;
+  // of << nmbpts << std::endl;
+  // for (int ka=0; ka<nmbpts; ++ka)
+  //   {
+  //     Point tmppt(par[2*ka], par[2*ka+1], zval[ka]);
+  //     of << tmppt << std::endl;
+  //   }
   
   
   // Compute surface normal in curr
@@ -250,19 +250,19 @@ void RevEngUtils::computeMonge(Point& curr, std::vector<Point>& points,
   minc = k1;
   maxc = k2;
 
-  Vector3D origin(par[0], par[1], zval[0]);
-  of << "410 1 0 4 0 0 0 255" << std::endl;
-  of << "1" << std::endl;
-  of << origin << " " << origin+norm << std::endl;
+  // Vector3D origin(par[0], par[1], zval[0]);
+  // of << "410 1 0 4 0 0 0 255" << std::endl;
+  // of << "1" << std::endl;
+  // of << origin << " " << origin+norm << std::endl;
 
-  of << "410 1 0 4 0 55 155 255" << std::endl;
-  of << "1" << std::endl;
-  of << origin << " " << origin+cvec1 << std::endl;
+  // of << "410 1 0 4 0 55 155 255" << std::endl;
+  // of << "1" << std::endl;
+  // of << origin << " " << origin+cvec1 << std::endl;
 
   
-  of << "410 1 0 4 155 55 0 255" << std::endl;
-  of << "1" << std::endl;
-  of << origin << " " << origin+cvec2 << std::endl;
+  // of << "410 1 0 4 155 55 0 255" << std::endl;
+  // of << "1" << std::endl;
+  // of << origin << " " << origin+cvec2 << std::endl;
 
   
   
@@ -499,16 +499,16 @@ void RevEngUtils::coneApex(vector<pair<vector<RevEngPoint*>::iterator,
     double az2 = Mmat[0][0]*(Mmat[1][1]*bvec[2] - Mmat[1][2]*bvec[1]) -
       Mmat[0][1]*(Mmat[1][0]*bvec[2] - Mmat[1][2]*bvec[0]) +
       Mmat[0][2]*(Mmat[1][0]*bvec[1] - Mmat[1][1]*bvec[0]);
-    apex = Point(ax2/det2, ay2/det2, az2/det2);
+    apex = (fabs(det2) < 1.0e-6) ? Point(0.0, 0.0, 0.0) : Point(ax2/det2, ay2/det2, az2/det2);
     
-    // std::cout << det << " " << det2 << std::endl;
-    for (int ka=0; ka<3; ++ka)
-      {
-    	double tmp = 0.0;
-    	for (kb=0; kb<3; ++kb)
-    	  tmp += Mmat[ka][kb]*apex[kb];
-    	std::cout << tmp << " " << bvec[ka] << std::endl;
-      }
+    // // std::cout << det << " " << det2 << std::endl;
+    // for (int ka=0; ka<3; ++ka)
+    //   {
+    // 	double tmp = 0.0;
+    // 	for (kb=0; kb<3; ++kb)
+    // 	  tmp += Mmat[ka][kb]*apex[kb];
+    // 	std::cout << tmp << " " << bvec[ka] << std::endl;
+    //   }
 
     double nom=0.0, denom=0.0;
     for (size_t ki=0; ki<points.size(); ++ki)

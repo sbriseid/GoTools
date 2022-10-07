@@ -121,20 +121,25 @@ namespace Go
       return Mongenormal_;
     }
 
+    const Point& getPCAEigen1()
+    {
+      return eigen1_;
+    }
+
     const Point& getPCANormal()
     {
       return eigen3_;
     }
 
-    Point fetchClosePoints(double radius, int min_nmb,
+    Point fetchClosePoints(double radius, int min_nmb, int max_nmb,
 			   std::vector<Point>& nearpts);
 
 
-    void fetchClosePoints2(double radius, int min_nmb,
+    void fetchClosePoints2(double radius, int min_nmb, int max_nmb,
 			   std::vector<RevEngPoint*>& nearpts,
 			   RevEngRegion *region = 0);
 
-    void fetchConnected(RevEngRegion *region,
+    void fetchConnected(RevEngRegion *region, int max_nmb,
 			std::vector<RevEngPoint*>& group);
 
     void setVisited()
@@ -351,7 +356,7 @@ namespace Go
 
     mutable int visited_;
 
-    void getNearby(Vector3D xyz, double radius,
+    void getNearby(Vector3D xyz, double radius, int max_nmb,
 		   std::vector<RevEngPoint*>& near,
 		   RevEngRegion *region = 0);
   };
