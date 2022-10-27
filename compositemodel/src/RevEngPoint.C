@@ -113,7 +113,8 @@ double RevEngPoint::getMeanEdgLen()
 void RevEngPoint::computeTriangNormal()
 //===========================================================================
 {
-
+  if (next_.size() == 0)
+    return;
   Vector3D vec1 = next_[next_.size()-1]->getPoint() - xyz_;
   for (size_t ki=0; ki<next_.size(); ++ki)
     {

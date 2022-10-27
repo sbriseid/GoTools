@@ -149,6 +149,11 @@ namespace Go
 			 std::vector<HedgeSurface*>& prevsfs,
 			 std::ostream& fileout);
 
+    bool extractTorus(double tol, int min_pt, double mean_edge_len,
+		      std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+		      std::vector<HedgeSurface*>& prevsfs,
+		      std::ostream& fileout);
+
     void setHedge(HedgeSurface* surface)
     {
       associated_sf_.clear();
@@ -228,8 +233,14 @@ namespace Go
 
     const Point& pluckerAxis();
     void extendWithGaussRad();
+    void extendWithGaussRad2();
     void analyseNormals(double tol, Point& normal, Point& centre, double& radius);
-    
+    void analysePlaneProperties(Point avnorm, double angtol,
+				std::vector<RevEngPoint*>& in,
+				std::vector<RevEngPoint*> out);
+    void analyseCylinderProperties(Point avvec, double angtol,
+				   std::vector<RevEngPoint*>& in,
+				   std::vector<RevEngPoint*> out);
   };
 }
 

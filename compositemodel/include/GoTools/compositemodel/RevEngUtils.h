@@ -59,6 +59,9 @@ namespace Go {
 		      double& minc, Point& maxcvec, double& maxc,
 		      double& currdist, double& avdist);
 
+    void computeAxis(std::vector<Point>& points,
+		     Point& axis, Point& Cx, Point& Cy);
+
     void computeAxis(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
 		     std::vector<RevEngPoint*>::iterator> >& points,
 		     Point& axis, Point& Cx, Point& Cy);
@@ -76,6 +79,10 @@ namespace Go {
 			     Point& low, Point& high, Point& axis, Point& Cx, 
 			     Point& Cy, Point& pos, double& radius);
 
+    void computeCircPosRadius(std::vector<Point>& points,
+			      Point& axis, Point& Cx, Point& Cy,
+			      Point& pos, double& radius);
+    
     void computeRadius(std::vector<Point>& points,
 		       Point& axis, Point& Cx, Point& Cy, double& radius);
     
@@ -83,10 +90,24 @@ namespace Go {
 		      std::vector<RevEngPoint*>::iterator> >& points,
 		      Point& pos, Point& norm);
 
-    void distToSurf(std::vector<RevEngPoint*>::iterator start,
+    void rotateToPlane(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+		       std::vector<RevEngPoint*>::iterator> >& points,
+		       Point& xvec, Point& axis, Point& mid, std::vector<Point>& rotated);
+
+    void projectToPlane(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+			std::vector<RevEngPoint*>::iterator> >& points,
+			Point& axis, Point& mid, std::vector<Point>& projected,
+			double& maxdist, double& avdist);
+
+     void rotateToPlane(std::vector<Point>& points,
+			Point& xvec, Point& axis, Point& mid, std::vector<Point>& rotated);
+
+   void distToSurf(std::vector<RevEngPoint*>::iterator start,
 		    std::vector<RevEngPoint*>::iterator end,
 		    shared_ptr<ParamSurface> surf, double tol,
-		    double& maxdist, double& avdist, int& inside);
+		   double& maxdist, double& avdist, int& inside,
+		   std::vector<RevEngPoint*>& in,
+		   std::vector<RevEngPoint*>& out);
     
     void distToSurf(std::vector<Point>& points,
 		    shared_ptr<ParamSurface> surf, double tol,

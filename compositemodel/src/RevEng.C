@@ -205,7 +205,7 @@ void RevEng::enhancePoints()
       if (pt->getTriangAngle() > norm_ang_lim_)
 	triangcorners.push_back(xyz);
       Point Mnorm = pt->getMongeNormal();
-      ofM << xyz2 << " " << xyz2+Mnorm << std::endl;
+      ofM << xyz2 << " " << xyz2+2.5*Mnorm << std::endl;
 
       if (ang <= norm_plane_lim_)
 	triangplane.push_back(xyz);
@@ -653,23 +653,38 @@ void RevEng::growRegions(int classification_type)
   if (regions_.size() > 0)
     {
       std::ofstream of("regions1.g2");
+      vector<Vector3D> small;
       for (size_t kr=0; kr<regions_.size(); ++kr)
 	{
 	  // BoundingBox bbox = regions_[kr]->boundingBox();
 	  // if (bbox.low().dist(bbox.high()) < 0.1)
 	  //   std::cout << "Small bounding box" << std::endl;
-	  if (regions_[kr]->numPoints() < 5)
-	    continue;
-	  of << "400 1 0 0" << std::endl;
 	  int nmb = regions_[kr]->numPoints();
-	  of << nmb << std::endl;
-	  for (int ki=0; ki<nmb; ++ki)
+	  if (nmb < 50)
 	    {
-	      of << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+	      for (int ki=0; ki<nmb; ++ki)
+		small.push_back(regions_[kr]->getPoint(ki)->getPoint());
+	    }
+	  else
+	    {
+	      of << "400 1 0 0" << std::endl;
+	      of << nmb << std::endl;
+	      for (int ki=0; ki<nmb; ++ki)
+		{
+		  of << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+		}
 	    }
 	}
+      std::ofstream ofs("small_regions.g2");
+      ofs << "400 1 0 4 0 0 0 255" << std::endl;
+      ofs << small.size() << std::endl;
+      for (size_t kr=0; kr<small.size(); ++kr)
+	ofs << small[kr] << std::endl;
     }
 
+  bool applysecond = true; //false;
+  if (applysecond)
+    {
   // Second pass:  Verify/update regions using the distribution of
   // normals associated to the points on the unit sphere
   size_t regsize = regions_.size();
@@ -691,16 +706,32 @@ void RevEng::growRegions(int classification_type)
       
       if (deviant.size() > 0)
 	{
+	  for (size_t kh=0; kh<deviant.size(); ++kh)
+	    deviant[kh]->setGaussRad(1.0);
 	  shared_ptr<RevEngRegion> reg2(new RevEngRegion(classtype,
 							 deviant));
-	  vector<vector<RevEngPoint*> > deviant2;
-	  reg2->splitRegion(deviant2);
-	  regions_.push_back(reg2);
-	  for (size_t kh=0; kh<deviant2.size(); ++kh)
+	  vector<RevEngPoint*> deviant2;
+	  vector<vector<RevEngPoint*> > connected2;
+	  reg2->splitFromSurfaceNormals(deviant2, connected2);
+	  for (size_t kj=0; kj<connected2.size(); ++kj)
 	    {
 	      shared_ptr<RevEngRegion> reg3(new RevEngRegion(classtype,
-							     deviant2[kh]));
+							    connected2[kj]));
 	      regions_.push_back(reg3);
+	    }
+	  if (deviant2.size() > 0)
+	    {
+	      shared_ptr<RevEngRegion> reg4(new RevEngRegion(classtype,
+							     deviant2));
+	      vector<vector<RevEngPoint*> > deviant4;
+	      reg4->splitRegion(deviant4);
+	      regions_.push_back(reg4);
+	      for (size_t kh=0; kh<deviant4.size(); ++kh)
+		{
+		  shared_ptr<RevEngRegion> reg5(new RevEngRegion(classtype,
+								 deviant4[kh]));
+		  regions_.push_back(reg5);
+		}
 	    }
 	}
     }
@@ -710,23 +741,37 @@ void RevEng::growRegions(int classification_type)
   if (regions_.size() > 0)
     {
       std::ofstream of2("regions2.g2");
-      for (size_t kr=0; kr<regions_.size(); ++kr)
+       vector<Vector3D> small;
+     for (size_t kr=0; kr<regions_.size(); ++kr)
 	{
 	  // BoundingBox bbox = regions_[kr]->boundingBox();
 	  // if (bbox.low().dist(bbox.high()) < 0.1)
 	  //   std::cout << "Small bounding box" << std::endl;
-	  if (regions_[kr]->numPoints() < 5)
-	    continue;
-	  of2 << "400 1 0 0" << std::endl;
 	  int nmb = regions_[kr]->numPoints();
-	  of2 << nmb << std::endl;
-	  for (int ki=0; ki<nmb; ++ki)
+	  if (nmb < 50)
 	    {
-	      of2 << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+	      for (int ki=0; ki<nmb; ++ki)
+		small.push_back(regions_[kr]->getPoint(ki)->getPoint());
+	    }
+	  else
+	    {
+	      of2 << "400 1 0 0" << std::endl;
+	      int nmb = regions_[kr]->numPoints();
+	      of2 << nmb << std::endl;
+	      for (int ki=0; ki<nmb; ++ki)
+		{
+		  of2 << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+		}
 	    }
 	}
+      std::ofstream ofs("small_regions2.g2");
+      ofs << "400 1 0 4 0 0 0 255" << std::endl;
+      ofs << small.size() << std::endl;
+      for (size_t kr=0; kr<small.size(); ++kr)
+	ofs << small[kr] << std::endl;
+     }
     }
-
+  
   bool thirdpass = false;
   if (thirdpass)
     {
@@ -772,30 +817,70 @@ void RevEng::growRegions(int classification_type)
 }
 
 
+// //===========================================================================
+// void RevEng::recognizeElementary()
+// //===========================================================================
+// {
+//   // For each surface type in increasing complexity
+//   // Would it be better to try to recognize cone before sphere?
+//   for (int sftype=0; sftype<5; ++sftype)
+//     {
+//       switch (sftype)
+//       {
+// 	case PLANE:
+// 	  // Recognition
+// 	  // Merge almost similar planes if the accuracy is not suffering
+// 	  recognizePlanes();
+// 	  break;
+// 	  case CYLINDER:
+// 	    recognizeCylinders();
+// 	    break;
+// 	    default:
+// 	      // Do nothing
+// 	      break;
+//       }
+//     }
+  
+// }
+
 //===========================================================================
 void RevEng::recognizeElementary()
 //===========================================================================
 {
-  // For each surface type in increasing complexity
-  // Would it be better to try to recognize cone before sphere?
-  for (int sftype=0; sftype<5; ++sftype)
+  std::ofstream planeout("plane.g2");
+  std::ofstream cylout("cylinder.g2");
+  std::ofstream torout("torus.g2");
+  for (size_t ki=0; ki<regions_.size(); ++ki)
     {
-      switch (sftype)
-      {
-	case PLANE:
-	  // Recognition
-	  // Merge almost similar planes if the accuracy is not suffering
-	  recognizePlanes();
-	  break;
-	  case CYLINDER:
-	    recognizeCylinders();
-	    break;
-	    default:
-	      // Do nothing
-	      break;
-      }
+      if (regions_[ki]->numPoints() < min_point_region_)
+	continue;
+      
+      // Check type
+      bool planar = regions_[ki]->planartype();
+      DirectionCone normalcone = regions_[ki]->getNormalCone();
+      bool cyl = regions_[ki]->cylindertype();
+
+      // For the purpose of testing
+      vector<shared_ptr<HedgeSurface> > plane_sfs;
+      vector<HedgeSurface*> prev_surfs1;
+      bool found1 = regions_[ki]->extractPlane(approx_tol_, min_point_region_,
+					      plane_sfs, prev_surfs1, planeout);
+      
+      vector<shared_ptr<HedgeSurface> > cyl_sfs;
+      vector<HedgeSurface*> prev_surfs2;
+      bool found2 = regions_[ki]->extractCylinder(approx_tol_, min_point_region_,
+						 mean_edge_len_, cyl_sfs, prev_surfs2,
+						 cylout);
+
+      vector<shared_ptr<HedgeSurface> > tor_sfs;
+      vector<HedgeSurface*> prev_surfs3;
+      bool found3 = regions_[ki]->extractTorus(approx_tol_, min_point_region_,
+					       mean_edge_len_, tor_sfs, prev_surfs3,
+					       torout);
+
+      int stop_break = 1;
     }
-  
+
 }
 
 //===========================================================================
@@ -810,8 +895,8 @@ void RevEng::recognizePlanes()
       // Check type
       bool planar = regions_[ki]->planartype();
       DirectionCone normalcone = regions_[ki]->getNormalCone();
-      if (!planar && (normalcone.angle() > anglim ||
-		      normalcone.greaterThanPi()))
+      if (!planar /*&& (normalcone.angle() > anglim ||
+		    normalcone.greaterThanPi())*/)
 	continue;  // Not a probable plane
 
       // Try to fit the point cloud with a plane
@@ -939,7 +1024,7 @@ void RevEng::recognizeCylinders()
 //===========================================================================
 {
   std::ofstream cylout("cylinder.g2");
-  size_t nmbsfs = surfaces_.size();
+  int nmbsfs = surfaces_.size();
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       // Check type
@@ -960,7 +1045,10 @@ void RevEng::recognizeCylinders()
 	    if (surfaces_[kj].get() == prev_surfs[kr])
 	      break;
 	  if (kj < surfaces_.size())
-	    surfaces_.erase(surfaces_.begin()+kj);
+	    {
+	      surfaces_.erase(surfaces_.begin()+kj);
+	      nmbsfs--;
+	    }
 	}
       if (cyl_sfs.size() > 0)
 	{
@@ -1001,7 +1089,11 @@ void RevEng::recognizeCylinders()
 		    if (surfaces_[kj].get() == adj_surfs[kr])
 		      break;
 		  if (kj < surfaces_.size())
-		    surfaces_.erase(surfaces_.begin()+kj);
+		    {
+		      surfaces_.erase(surfaces_.begin()+kj);
+		      if (kj < nmbsfs)
+			nmbsfs--;
+		    }
 		}
 	    }
 	}
@@ -1059,6 +1151,7 @@ void RevEng::recognizeCylinders()
   // and can be merged if they represent the same cylinder
   if (surfaces_.size() + nmbsfs > 1)
     mergeCylinders(nmbsfs, surfaces_.size());
+  //    mergeCylinders(0, surfaces_.size());
 
   std::ofstream of("surfaces.g2");
   for (size_t ki=0; ki<surfaces_.size(); ++ki)
@@ -1291,8 +1384,9 @@ shared_ptr<HedgeSurface> RevEng::doMergePlanes(vector<size_t>& cand_ix)
 	{
 	  double maxd, avd;
 	  int num2;
+	  vector<RevEngPoint*> in, out;
 	  RevEngUtils::distToSurf(points[ki].first, points[ki].second,
-				  surf, approx_tol_, maxd, avd, num2);
+				  surf, approx_tol_, maxd, avd, num2, in, out);
 
 	  double maxd_init, avd_init;
 	  int num2_init;
@@ -1351,6 +1445,14 @@ void RevEng::mergeCylinders(size_t first, size_t last)
 	}
     }
 
+  std::ofstream cyl("sorted_cylinders.g2");
+  for (size_t ki=first; ki<last; ++ki)
+    {
+      shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
+      surf->writeStandardHeader(cyl);
+      surf->write(cyl);
+    }
+  
   // Find similar cylinders
   for (size_t ki=first; ki<last; ++ki)
     {
@@ -1502,8 +1604,9 @@ shared_ptr<HedgeSurface> RevEng::doMergeCylinders(vector<size_t>& cand_ix)
 	{
 	  double maxd, avd;
 	  int num2;
+	  vector<RevEngPoint*> in, out;
 	  RevEngUtils::distToSurf(points[ki].first, points[ki].second,
-				  cyl, approx_tol_, maxd, avd, num2);
+				  cyl, approx_tol_, maxd, avd, num2, in, out);
 
 	  double maxd_init, avd_init;
 	  int num2_init;
@@ -1580,11 +1683,11 @@ void RevEng::initParameters()
   // to triangle normals indicate an edge
   zero_H_ = 0.0001;  // When mean curvature is considered zero
   zero_K_ = 0.0001;  // When Gauss curvature is considered zero
-  zero_si_ = 0.001; // When shape index is considered zero
-  norm_ang_lim_ = 0.025*M_PI; // Limit for when the cone angle corresponding
+  zero_si_ = 0.0075; //0.001; // When shape index is considered zero
+  norm_ang_lim_ = 0.1*M_PI; // Limit for when the cone angle corresponding
     // to triangle normals indicate an edge
   pca_lim_ = cness_lim_ = std::numeric_limits<double>::max();
-  min_point_region_ = 50; //10;  // Should be updated with regard to the total
+  min_point_region_ = 200; //50; //10;  // Should be updated with regard to the total
   // number of points
   approx_tol_ = 0.001;  // Very preliminary
   anglim_ = 0.01;

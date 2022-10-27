@@ -67,8 +67,12 @@ namespace Go
 
     void projectPoint(Point point, Point dir,
 		      Point& projpos, Point& normal);
+
+    void evaluate(Point& pt, double& val, Point& grad);
     
     void visualize(std::vector<RevEngPoint*> points, std::ostream& os);
+
+    void visualize(std::vector<Point> points, Point& dir, std::ostream& os);
 
   private:
     int degree_;

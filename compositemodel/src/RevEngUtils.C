@@ -335,6 +335,46 @@ void RevEngUtils::computeAxis(vector<pair<vector<RevEngPoint*>::iterator,
 
 
 //===========================================================================
+void RevEngUtils::computeAxis(vector<Point>& points,
+			      Point& axis, Point& Cx, Point& Cy)
+//===========================================================================
+{
+  double Cmat[3][3];
+  for (int ka=0; ka<3; ++ka)
+    for (int kb=0; kb<3; ++kb)
+      {
+	Cmat[ka][kb] = 0.0;
+	for (size_t ki=0; ki<points.size(); ++ki)
+	  {
+	    Cmat[ka][kb] += points[ki][ka]*points[ki][kb];
+	  }
+      }
+  
+  // Compute singular values
+  NEWMAT::Matrix nmat;
+  nmat.ReSize(3, 3);
+  for (int ka = 0; ka < 3; ++ka) {
+    for (int kb = 0; kb < 3; ++kb) {
+      nmat.element(ka, kb) = Cmat[ka][kb];
+    }
+  }
+      
+  static NEWMAT::DiagonalMatrix diag;
+  static NEWMAT::Matrix V;
+  try {
+    NEWMAT::SVD(nmat, diag, nmat, V);
+  } catch(...) {
+    std::cout << "Exception in SVD" << std::endl;
+    exit(-1);
+  }
+  Cx = Point(V.element(0,0), V.element(1,0), V.element(2,0));
+  Cy = Point(V.element(0,1), V.element(1,1), V.element(2,1));
+  axis = Point(V.element(0,2), V.element(1,2), V.element(2,2));
+
+}
+
+
+//===========================================================================
 void RevEngUtils::coneAxis(vector<pair<vector<RevEngPoint*>::iterator,
 			      vector<RevEngPoint*>::iterator> >& points,
 			      Point& axis, Point& Cx, Point& Cy)
@@ -636,6 +676,92 @@ void RevEngUtils::computeCylPosRadius(vector<pair<vector<RevEngPoint*>::iterator
  }
 
 //===========================================================================
+void RevEngUtils::computeCircPosRadius(vector<Point>& points,
+				      Point& axis, Point& Cx, Point& Cy,
+				      Point& pos, double& radius)
+//===========================================================================
+{
+  double Amat[3][3];
+  double bvec[3];
+  size_t numpt = points.size();
+  
+  vector<vector<double> > A1(numpt);
+  vector<double> b1(numpt);
+  for (size_t kj=0; kj<numpt; ++kj)
+    A1[kj].resize(3);
+      
+  for (int ka=0; ka<3; ++ka)
+    {
+      for (int kb=0; kb<3; ++kb)
+	Amat[ka][kb] = 0.0;
+      bvec[ka] = 0.0;
+    }
+
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      double pxy[3];
+      double px = points[ki]*Cx;
+      double py = points[ki]*Cy;
+      pxy[0] = 2*px;
+      pxy[1] = 2*py;
+      pxy[2] = 1.0;
+      double plen2 = px*px + py*py;
+      A1[ki][0] = 2*px;
+      A1[ki][1] = 2*py;
+      A1[ki][2] = 1.0;
+      b1[ki] = plen2;
+      for (int ka=0; ka<3; ++ka)
+	{
+	  for (int kb=0; kb<3; ++kb)
+	    Amat[ka][kb] += pxy[ka]*pxy[kb];
+	  bvec[ka] += pxy[ka]*plen2;
+	}
+    }
+
+  double Amat2[3][3];
+  double bvec2[3];
+  for (int ka=0; ka<3; ++ka)
+    {
+      for (int kb=0; kb<3; ++kb)
+	Amat2[ka][kb] = 0.0;
+      bvec2[ka] = 0.0;
+    }
+  for (int ka=0; ka<3; ++ka)
+    {
+      for (int kb=0; kb<3; ++kb)
+	{
+	  for (size_t kr=0; kr<numpt; ++kr)
+	    Amat2[ka][kb] += A1[kr][ka]*A1[kr][kb];
+	}
+      for (size_t kr=0; kr<numpt; ++kr)
+	bvec2[ka] += A1[kr][ka]*b1[kr];
+    }
+
+  double detA = 0.0;
+  double bx[3];
+  bx[0] = bx[1] = bx[2] = 0.0;
+  int sgn = 1;
+  for (int kb=0; kb<3; ++kb, sgn*=(-1))
+    {
+      int ka1 = (kb == 0);
+      int ka2 = 2 - (kb == 2);
+      detA += sgn*Amat[0][kb]*(Amat[1][ka1]*Amat[2][ka2]-Amat[2][ka1]*Amat[1][ka2]);
+      bx[0] += sgn*bvec[kb]*(Amat[1][ka1]*Amat[2][ka2]-Amat[2][ka1]*Amat[1][ka2]);
+      bx[1] += sgn*Amat[0][kb]*(bvec[ka1]*Amat[2][ka2]-bvec[ka2]*Amat[2][ka1]);
+      bx[2] += sgn*Amat[0][kb]*(Amat[1][ka1]*bvec[ka2]-Amat[1][ka2]*bvec[ka1]);
+    }
+  double sx = bx[0]/detA;
+  double sy = bx[1]/detA;
+  double r2 = bx[2]/detA;
+
+  pos = sx*Cx + sy*Cy;
+
+  radius = sqrt(r2 + sx*sx + sy*sy);
+ }
+
+
+
+//===========================================================================
 void RevEngUtils::computeRadius(vector<Point>& points, Point& axis, 
 				Point& Cx, Point& Cy, double& radius)
 //===========================================================================
@@ -825,10 +951,99 @@ void RevEngUtils::computePlane(vector<pair<vector<RevEngPoint*>::iterator,
 }
 
 //===========================================================================
+void RevEngUtils::projectToPlane(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+				 std::vector<RevEngPoint*>::iterator> >& points,
+				 Point& axis, Point& mid, std::vector<Point>& projected,
+				 double& maxdist, double& avdist)
+//===========================================================================
+{
+  maxdist = 0.0;
+  avdist = 0.0;
+  int nmb = 0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      for (auto it=start; it!=end; ++it)
+	{
+	  RevEngPoint *pt = *it;
+	  Vector3D pnt = pt->getPoint();
+	  Point curr(pnt[0], pnt[1], pnt[2]);
+	  Point curr2 = curr - mid;
+	  curr2 -= ((curr2*axis)*axis);
+	  curr2 += mid;
+	  projected.push_back(curr2);
+	  double dist = curr.dist(curr2);
+	  maxdist = std::max(maxdist, dist);
+	  avdist += dist;
+	  nmb++;
+	}
+    }
+  avdist /= (double)nmb;
+}
+
+//===========================================================================
+void RevEngUtils::rotateToPlane(vector<pair<vector<RevEngPoint*>::iterator,
+				vector<RevEngPoint*>::iterator> >& points,
+				Point& xvec, Point& axis, Point& mid,
+				vector<Point>& rotated)
+//===========================================================================
+{
+  Point yvec = xvec.cross(axis);
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      for (auto it=start; it!=end; ++it)
+	{
+	  RevEngPoint *pt = *it;
+	  Vector3D pnt = pt->getPoint();
+	  Point curr(pnt[0], pnt[1], pnt[2]);
+	  curr -= mid;
+	  pnt = Vector3D(curr[0], curr[1], curr[2]);
+	  curr -= (curr*axis)*axis;
+	  double angle = curr.angle(xvec);
+	  if (curr*yvec < 0.0)
+	    angle *= -1.0;
+	  Matrix3D mat;
+	  mat.setToRotation(angle, axis[0], axis[1], axis[2]);
+	  Vector3D pnt2 = mat*pnt;
+	  rotated.push_back(mid + Point(pnt2[0], pnt2[1], pnt2[2]));
+	}
+    }
+ }
+
+//===========================================================================
+void RevEngUtils::rotateToPlane(vector<Point>& points,
+				Point& xvec, Point& axis, Point& mid,
+				vector<Point>& rotated)
+//===========================================================================
+{
+  rotated.resize(points.size());
+  Point yvec = xvec.cross(axis);
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      Point curr = points[ki];
+      curr -= mid;
+      Vector3D pnt(curr[0], curr[1], curr[2]);
+      curr -= (curr*axis)*axis;
+      double angle = curr.angle(xvec);
+      if (curr*yvec < 0.0)
+	angle *= -1.0;
+      Matrix3D mat;
+      mat.setToRotation(angle, axis[0], axis[1], axis[2]);
+      Vector3D pnt2 = mat*pnt;
+      rotated[ki] = mid + Point(pnt2[0], pnt2[1], pnt2[2]);
+    }
+}
+
+//===========================================================================
 void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
 			     vector<RevEngPoint*>::iterator end,
 			     shared_ptr<ParamSurface> surf, double tol,
-			     double& maxdist, double& avdist, int& num_inside)
+			     double& maxdist, double& avdist, int& num_inside,
+			     vector<RevEngPoint*>& in,
+			     vector<RevEngPoint*>& out)
 //===========================================================================
 {
   double eps = 1.0e-6;
@@ -846,9 +1061,13 @@ void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
       maxdist = std::max(maxdist, dist);
       avdist += dist;
       if (dist <= tol)
-	++num_inside;
+	{
+	  in.push_back(*it);
+	  ++num_inside;
+	}
       else
 	{
+	  out.push_back(*it);
 	  int stop_break = 1;
 	}
       ++num;

@@ -173,6 +173,24 @@ void ImplicitApprox::approx(vector<pair<vector<RevEngPoint*>::iterator,
 }
 
 //===========================================================================
+void ImplicitApprox::evaluate(Point& pt, double& val, Point& grad)
+//===========================================================================
+{
+  Vector3D xyz(pt[0], pt[1], pt[2]);
+  Vector4D bary = bc_.cartToBary(xyz);
+  val = implicit_(bary);
+  double d1 = deriv1_(bary);
+  double d2 = deriv2_(bary);
+  double d3 = deriv3_(bary);
+  double d4 = deriv4_(bary);
+  Vector4D dv(d1,d2,d3,d4);
+  Vector4D bary2 = bary+dv;
+  Vector3D pt2 = bc_.baryToCart(bary2);
+  Vector3D grad2 = pt2 - xyz;
+  grad = Point(grad2[0], grad2[1], grad2[2]);
+}
+
+//===========================================================================
 double ImplicitApprox::estimateDist(RevEngPoint* pt)
 //===========================================================================
 {
@@ -236,7 +254,7 @@ void ImplicitApprox::projectPoint(Point point, Point dir,
 				  Point& projpos, Point& normal)
 //===========================================================================
 {
-  double len = 20.0;
+  double len = 100.0;
   dir.normalize();
   
   Point xdir(1.0, 0.0, 0.0);
@@ -333,6 +351,133 @@ void ImplicitApprox::visualize(vector<RevEngPoint*> points, std::ostream& os)
     {
       Vector3D xyz = points[ki]->getPoint();
       bb.addUnionWith(Point(xyz[0], xyz[1], xyz[2]));
+    }
+  Point low = bb.low();
+  Point high = bb.high();
+  Point bmid = 0.5*(low + high);
+  Point diag = high - low;
+  double diaglen = diag.length();
+
+  double gap = 1.0e-6;
+  Point xdir(1.0, 0.0, 0.0);
+  Point ydir(0.0, 1.0, 0.0);
+  Point zdir(0.0, 0.0, 1.0);
+  CompositeModelFactory factory(gap, gap, 10.0*gap, 0.01, 0.05);
+  shared_ptr<SurfaceModel> boxmod(factory.createFromBox(low-2.0*diag, xdir, ydir, 
+							5*diag[0], 5*diag[1], 5*diag[2]));
+    
+    // Find the coordinate direction with the largest angle with the view direction
+    double a1 = xdir.angle(dir);
+    double a2 = ydir.angle(dir);
+    double a3 = zdir.angle(dir);
+    Point dir2;
+    if (a1 > std::min(a2, a3))
+      dir2 = xdir;
+    else if (a2 > a3)
+      dir2 = ydir;
+    else
+      dir2 = zdir;
+    Point dir3 = dir%dir2;
+    dir2 = dir%dir3;
+    if (dir2*(high-low) < 0.0)
+      dir2 *= -1.0;
+    if (dir3*(high-low) < 0.0)
+      dir3 *= -1.0;
+    dir2.normalize();
+    dir3.normalize();
+    double len = low.dist(high);
+    int nmb_sample = 100;
+    shared_ptr<SplineCurve> cv1(new SplineCurve(bmid-len*dir2, 0.0, bmid+len*dir2, 1.0));
+    shared_ptr<SplineCurve> cv2(new SplineCurve(bmid-len*dir3, 0.0, bmid+len*dir3, 1.0));
+    SweepSurfaceCreator sweep;
+    shared_ptr<SplineSurface> ssf(sweep.linearSweptSurface(*cv1, *cv2, bmid));
+    double del = 1.0/(double)(nmb_sample-1);
+    double p1, p2;
+    int ki, kj, kr;
+    int ik = degree_ + 1;
+    vector<double> et(2*ik, 0.0);  // Knot vector of line curve
+    for (int ki=0; ki<ik; ++ki)
+      et[ik+ki] = 1.0;
+
+    vector<double> sfpoints;
+    vector<double> vecs;
+    vector<double> linesegs;
+    vector<double> der;
+    vector<double> der2;
+    vector<double> lineder;
+    // Evaluate line
+    vector<double> tmpline;
+    for (kj=0, p2=0.0; kj<nmb_sample; ++kj, p2+=del)
+      {
+	for (ki=0, p1=0.0; ki<nmb_sample; ++ki, p1+=del)
+	  {
+	    // Compute barysentric coordinates of end points of line
+	    // First cartesian
+	    Point sfpos = ssf->ParamSurface::point(p1,p2);
+	    Point cart1 = sfpos + len*dir;
+	    Point cart2 = sfpos - len*dir;
+	    tmpline.insert(tmpline.end(), cart1.begin(), cart1.end());
+	    tmpline.insert(tmpline.end(), cart2.begin(), cart2.end());
+
+	    Vector4D bary1 = bc_.cartToBary(Vector3D(cart1[0], cart1[1], cart1[2]));
+	    Vector4D bary2 = bc_.cartToBary(Vector3D(cart2[0], cart2[1], cart2[2]));
+
+	    Vector3D tp1 = bc_.baryToCart(bary1);
+	    Vector3D tp2 = bc_.baryToCart(bary2);
+	    
+	    // Pick line
+	    BernsteinPoly line = implicit_.pickLine(bary1, bary2);
+
+	    // Compute zeroes of bernstein polynomial
+	    // First make sisl curve
+	    vector<double> ecoef(line.coefsBegin(), line.coefsEnd());
+	    SISLCurve *qc = newCurve(ik, ik, &et[0], &ecoef[0], 1, 1, 1);
+	    double zero = 0.0;
+
+	    // Intersect
+	    double eps = 1.0e-6;
+	    int kstat = 0;
+	    int kcrv=0, kpt=0;
+	    double *epar = 0;
+	    SISLIntcurve **intcv = 0;
+	    if (qc)
+	      s1871(qc, &zero, 1, eps, &kpt, &epar, &kcrv, &intcv, &kstat);
+
+	    // Compute cartesian points and curves associated with intersections
+	    for (kr=0; kr<kpt; ++kr)
+	      {
+		Vector4D barypt = (1.0 - epar[kr])*bary1 + epar[kr]*bary2;
+		int kb;
+		for (kb=0; kb<4; ++kb)
+		  if (barypt[kb] < -0.001 || barypt[kb] > 1.001)
+		    break;
+		if (kb < 4)
+		  continue;
+		
+		Vector3D pos = bc_.baryToCart(barypt);
+		sfpoints.insert(sfpoints.end(), pos.begin(), pos.end());
+
+	      }
+	  }
+      }
+    
+    // Output
+    if (sfpoints.size() > 0)
+      {
+	PointCloud3D ptcloud(&sfpoints[0], sfpoints.size()/3);
+	os << "400 1 0 4 255 0 0 255" << std::endl;
+	ptcloud.write(os);
+      }
+}
+
+//===========================================================================
+void ImplicitApprox::visualize(vector<Point> points, Point& dir, std::ostream& os)
+//===========================================================================
+{
+  BoundingBox bb(3);
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      bb.addUnionWith(points[ki]);
     }
   Point low = bb.low();
   Point high = bb.high();
