@@ -116,6 +116,8 @@ namespace Go
 
     double getMeanEdgLen();
 
+    double getMeanEdgLen(double maxlen);
+
     const Point& getMongeNormal()
     {
       return Mongenormal_;
@@ -156,6 +158,22 @@ namespace Go
     bool visited()
     {
       return (visited_ > 0);
+    }
+    
+    void setMoved()
+    {
+      moved_ = 1;
+    }
+
+    
+    void unsetMoved()
+    {
+      moved_ = 0;
+    }
+
+    bool moved()
+    {
+      return (moved_ > 0);
     }
 
     double getSurfaceVariation()
@@ -321,6 +339,21 @@ namespace Go
       return Grad_;
     }
 
+    void setOutlier()
+    {
+      outlier_ = true;
+    }
+
+    void unsetOutlier()
+    {
+      outlier_ = false;
+    }
+
+    bool isOutlier()
+    {
+      return outlier_;
+    }
+
     void store(std::ostream& os) const;
     void read(std::istream& is, double eps, vector<int>& next_ix);
     
@@ -353,8 +386,10 @@ namespace Go
     
     // Group (segment) of classified points
     RevEngRegion* region_;
+    bool outlier_;
 
     mutable int visited_;
+    mutable int moved_;
 
     void getNearby(Vector3D xyz, double radius, int max_nmb,
 		   std::vector<RevEngPoint*>& near,

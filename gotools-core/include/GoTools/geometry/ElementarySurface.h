@@ -166,6 +166,11 @@ public:
       return -1.0;
     }
 
+    virtual double radius2(double u, double v) const
+    {
+      return -1.0;
+    }
+
     virtual Point location() const
     {
       Point dummy;

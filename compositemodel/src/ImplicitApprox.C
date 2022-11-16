@@ -235,6 +235,8 @@ double ImplicitApprox::estimateDist(RevEngPoint* pt)
   SISLIntcurve **intcv = 0;
   if (qc)
     s1871(qc, &zero, 1, eps, &kpt, &epar, &kcrv, &intcv, &kstat);
+  if (qc)
+    freeCurve(qc);
   
   // Compute cartesian points and curves associated with intersections
   double dd = std::numeric_limits<double>::max();
@@ -312,7 +314,9 @@ void ImplicitApprox::projectPoint(Point point, Point dir,
       SISLIntcurve **intcv = 0;
       if (qc)
 	s1871(qc, &zero, 1, eps, &kpt, &epar, &kcrv, &intcv, &kstat);
-  
+      if (qc)
+	freeCurve(qc);
+
       // Compute cartesian points and curves associated with intersections
       double mindist = std::numeric_limits<double>::max();
       for (int kr=0; kr<kpt; ++kr)
@@ -442,6 +446,8 @@ void ImplicitApprox::visualize(vector<RevEngPoint*> points, std::ostream& os)
 	    SISLIntcurve **intcv = 0;
 	    if (qc)
 	      s1871(qc, &zero, 1, eps, &kpt, &epar, &kcrv, &intcv, &kstat);
+	    if (qc)
+	      freeCurve(qc);
 
 	    // Compute cartesian points and curves associated with intersections
 	    for (kr=0; kr<kpt; ++kr)
@@ -569,6 +575,8 @@ void ImplicitApprox::visualize(vector<Point> points, Point& dir, std::ostream& o
 	    SISLIntcurve **intcv = 0;
 	    if (qc)
 	      s1871(qc, &zero, 1, eps, &kpt, &epar, &kcrv, &intcv, &kstat);
+	    if (qc)
+	      freeCurve(qc);
 
 	    // Compute cartesian points and curves associated with intersections
 	    for (kr=0; kr<kpt; ++kr)

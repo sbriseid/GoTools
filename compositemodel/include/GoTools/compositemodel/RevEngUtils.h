@@ -43,6 +43,8 @@
 #include "GoTools/utils/Point.h"
 #include "GoTools/compositemodel/RevEngPoint.h"
 #include "GoTools/geometry/ParamSurface.h"
+#include "GoTools/geometry/SplineSurface.h"
+#include "GoTools/utils/BoundingBox.h"
 #include <vector>
 
 namespace Go {
@@ -54,11 +56,23 @@ namespace Go {
     void principalAnalysis(Point& curr, std::vector<Point>& points, 
 			   double lambda[3], double eigenvec[3][3]);
 
+    void TaubinCurvature(Point curr, std::vector<Point>& points,
+			 Point& tvec, Point& normal, Point& mincvec,
+			 double& minc, Point& maxcvec, double& maxc);
+
     void computeMonge(Point& curr, std::vector<Point>& points,
 		      Point& vec1, Point& vec2, Point& normal, Point& mincvec,
 		      double& minc, Point& maxcvec, double& maxc,
 		      double& currdist, double& avdist);
 
+    shared_ptr<SplineSurface> surfApprox(std::vector<double>& data, int dim,
+					 std::vector<double>& param, int order1,
+					 int order2, int nmb_coef1, int nmb_coef2,
+					 double del=0.0);
+
+    void parameterizeWithPlane(std::vector<Point>& pnts, const BoundingBox& bbox,
+			       const Point& vec1, const Point& vec2,
+			       std::vector<double>& data, std::vector<double>& param);
     void computeAxis(std::vector<Point>& points,
 		     Point& axis, Point& Cx, Point& Cy);
 
@@ -80,7 +94,7 @@ namespace Go {
 			     Point& Cy, Point& pos, double& radius);
 
     void computeCircPosRadius(std::vector<Point>& points,
-			      Point& axis, Point& Cx, Point& Cy,
+			      const Point& axis, const Point& Cx, const Point& Cy,
 			      Point& pos, double& radius);
     
     void computeRadius(std::vector<Point>& points,
@@ -107,7 +121,7 @@ namespace Go {
 		    shared_ptr<ParamSurface> surf, double tol,
 		   double& maxdist, double& avdist, int& inside,
 		   std::vector<RevEngPoint*>& in,
-		   std::vector<RevEngPoint*>& out);
+		   std::vector<RevEngPoint*>& out, double angtol=-1.0);
     
     void distToSurf(std::vector<Point>& points,
 		    shared_ptr<ParamSurface> surf, double tol,

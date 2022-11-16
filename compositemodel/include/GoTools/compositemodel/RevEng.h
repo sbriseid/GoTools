@@ -55,6 +55,22 @@ namespace Go
   {
    PLANE, CYLINDER, SPHERE, CONE, TORUS
   };
+
+  struct SurfaceProperties
+  {
+    ClassType type_;
+    Point dir_, loc_;
+    double rad1_, rad2_;
+
+    SurfaceProperties(ClassType type, Point& dir, Point& loc, double rad1=-1, double rad2=-1)
+    {
+      type_ = type;
+      dir_ = dir;
+      loc_ = loc;
+      rad1_ = rad1;
+      rad2_ = rad2;
+    }
+  };
   
   class RevEng
   {
@@ -89,6 +105,7 @@ namespace Go
 
     void storeClassified(std::ostream& os) const;
     void readClassified(std::istream& is);
+    void curvatureFilter();
     
   private:
     shared_ptr<ftPointSet> tri_sf_;
@@ -116,13 +133,29 @@ namespace Go
     int min_point_region_;
     double approx_tol_;  // Approximation tolerance in region growing
     double anglim_;
+    int max_nmb_outlier_;
 
     void initParameters();
     void setClassificationParams();
-    void curvatureFilter();
-    shared_ptr<HedgeSurface> doMergeCylinders(std::vector<size_t>& cand_ix);
-    shared_ptr<HedgeSurface> doMergePlanes(std::vector<size_t>& cand_ix);
+    void growSurface(size_t& ix);
+    void mergeSurfaces();
+    shared_ptr<HedgeSurface> doMerge(std::vector<size_t>& cand_ix);
+    shared_ptr<ParamSurface> doMergePlanes(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+					   std::vector<RevEngPoint*>::iterator> > points,
+					   const BoundingBox& bbox,
+					   std::vector<int>& nmbpts);
+    shared_ptr<ParamSurface> doMergeCylinders(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+					      std::vector<RevEngPoint*>::iterator> > points,
+					      const BoundingBox& bbox,
+					      std::vector<int>& nmbpts);
+    shared_ptr<ParamSurface> doMergeTorus(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+					  std::vector<RevEngPoint*>::iterator> > points,
+					  const BoundingBox& bbox,
+					  std::vector<int>& nmbpts);
 
+    void adaptToMainAxis();
+    void collectAxis(std::vector<SurfaceProperties>& sfprop);
+    
     void storeParams(std::ostream& os) const;
     void readParams(std::istream& is);
   };

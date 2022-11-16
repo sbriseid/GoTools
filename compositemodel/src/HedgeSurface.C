@@ -41,6 +41,7 @@
 #include "GoTools/compositemodel/RevEngRegion.h"
 #include "GoTools/geometry/ParamSurface.h"
 #include "GoTools/geometry/BoundedSurface.h"
+#include "GoTools/geometry/ElementarySurface.h"
 
 using namespace Go;
 using std::vector;
@@ -99,3 +100,97 @@ ClassType HedgeSurface::instanceType(int& code)
     }
   return type;
 }
+
+
+//===========================================================================
+bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double approx_tol)
+//===========================================================================
+{
+  int code1, code2;
+  int type1 = instanceType(code1);
+  int type2 = other->instanceType(code2);
+  if (type1 != type2 || code1 != code2)
+    return false;  // Not the same surface type
+
+  shared_ptr<ParamSurface> surf1 = surface();
+  shared_ptr<ElementarySurface> psurf1 =
+    dynamic_pointer_cast<ElementarySurface,ParamSurface>(surf1);
+  if (!psurf1.get())
+    {
+      shared_ptr<BoundedSurface> bdsf1 =
+	dynamic_pointer_cast<BoundedSurface,ParamSurface>(surf1);
+      if (bdsf1.get())
+	{
+	  surf1 = bdsf1->underlyingSurface();
+	  psurf1 = dynamic_pointer_cast<ElementarySurface,ParamSurface>(surf1);
+	}
+    }
+  
+  shared_ptr<ParamSurface> surf2 = other->surface();
+  shared_ptr<ElementarySurface> psurf2 =
+    dynamic_pointer_cast<ElementarySurface,ParamSurface>(surf2);
+  if (!psurf2.get())
+    {
+      shared_ptr<BoundedSurface> bdsf2 =
+	dynamic_pointer_cast<BoundedSurface,ParamSurface>(surf2);
+      if (bdsf2.get())
+	{
+	  surf2 = bdsf2->underlyingSurface();
+	  psurf2 = dynamic_pointer_cast<ElementarySurface,ParamSurface>(surf2);
+	}
+    }
+  
+  if (!psurf1.get() || !psurf2.get())
+    return false;
+
+  Point loc1 = psurf1->location();
+  Point loc2 = psurf2->location();
+  Point vec1 = psurf1->direction();
+  Point vec2 = psurf2->direction();
+  double rad1 = psurf1->radius(0.0, 0.0);  // Parameters must be set properly for cone
+  double rad2 = psurf2->radius(0.0, 0.0);
+  double smallrad1 = psurf1->radius2(0.0, 0.0);
+  double smallrad2 = psurf2->radius2(0.0, 0.0);
+  vec1.normalize_checked();
+  vec2.normalize_checked();
+
+  int sgn = (type1 == Class_Plane) ? -1 : 1;
+  double ang = vec1.angle(vec2);
+  ang = std::min(ang, M_PI-ang);
+
+  double dlim = (rad1 < 0.0) ? approx_tol : std::max(0.05*rad1, approx_tol);
+  double anglim = 10.0*angtol;
+  double eps = 1.0e-8;
+  if (ang > anglim)
+    return false;
+  if (fabs(rad2-rad1) > dlim && fabs(smallrad2-smallrad1) < eps)
+    return false;
+  else if (smallrad1 > 0.0 &&
+	   (rad1 < rad2-smallrad2 || rad1 > rad2+smallrad2 ||
+	    rad2 < rad1-smallrad1 || rad2 > rad1+smallrad1))
+    return false;
+    
+  double pdist1 = 0.0, pdist2 = 0.0;
+  if (type1 == Class_Plane)
+    {
+      Point loc2_0 = loc2 - ((loc2-loc1)*vec1)*vec1;
+      Point loc1_0 = loc1 - ((loc2-loc1)*vec2)*vec2;
+      pdist1 = loc2.dist(loc2_0);
+      pdist2 = loc1.dist(loc1_0);
+      pdist1 = pdist2 = std::min(pdist1, pdist2);
+    }
+  else if (type1 == Class_Cylinder)
+    {
+      Point loc2_0 = loc1 + ((loc2-loc1)*vec1)*vec1;
+      pdist1 = loc2.dist(loc2_0);
+    }
+  else if (type1 == Class_Torus)
+    {
+      pdist1 = loc1.dist(loc2);
+    }
+  if (pdist1 > 2.0*dlim || pdist2 > 2.0*dlim)    
+    return false;
+
+  return true;
+}
+

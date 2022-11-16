@@ -44,13 +44,20 @@
 #include "GoTools/compositemodel/ImplicitApprox.h"
 #include "GoTools/utils/BoundingBox.h"
 //#include "GoTools/compositemodel/HedgeSurface.h"
+#include <set>
 
 
 namespace Go
 {
   class HedgeSurface;
   //class RevEngPoint;
-
+  class Circle;
+  class SplineCurve;
+  class Plane;
+  class Cylinder;
+  class Cone;
+  class Torus;
+  class SplneSurface;
   enum
     {
      CLASSIFICATION_UNDEF, CLASSIFICATION_CURVATURE, CLASSIFICATION_SHAPEINDEX
@@ -76,6 +83,15 @@ namespace Go
     
     // Extend group
     void addPoint(RevEngPoint* point);
+
+    // Remove. NB! Leaves overview information invalid.
+    void removePoint(RevEngPoint* point);
+
+    void addRegion(RevEngRegion* reg, double maxd=0.0, double avd=0.0,
+		   int num_inside=-1);
+    
+    // Update overview information
+    void updateInfo();
 
     // Extend region with adjacent points having the same classification
     void collect(RevEngPoint *pt);
@@ -117,6 +133,10 @@ namespace Go
 			    std::vector<std::vector<RevEngPoint*> >& separate_group);
     void splitRegion(std::vector<std::vector<RevEngPoint*> >& separate_groups);
 
+    void updateRegion(double approx_tol, double anglim,
+		      std::vector<RevEngRegion*>& adapted_regions,
+		      std::vector<shared_ptr<RevEngRegion> >& outdiv_regions);
+
    bool cylindertype()
     {
       if (classification_type_ == CLASSIFICATION_CURVATURE)
@@ -148,6 +168,11 @@ namespace Go
 			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 			 std::vector<HedgeSurface*>& prevsfs,
 			 std::ostream& fileout);
+
+    bool extractCone(double tol, int min_pt, double mean_edge_len,
+		     std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+		     std::vector<HedgeSurface*>& prevsfs,
+		     std::ostream& fileout);
 
     bool extractTorus(double tol, int min_pt, double mean_edge_len,
 		      std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
@@ -217,8 +242,42 @@ namespace Go
       return visited_;
     }
 
+    bool possiblePlane(double angtol, double inlim);
+    bool possibleCylinder(double angtol, double inlim);
+    bool possibleCone(double angtol, double inlim);
+    bool possibleTorus(double angtol, double inlim);
+
+    bool hasDivideInfo()
+    {
+      return false;
+    }
+
+    void setRegionAdjacency();
+
+    bool integrateInAdjacent(double mean_edge_len, int min_next,
+			     int max_next, double tol, double angtol,
+			     int max_nmb_outlier);
+
+    void addAdjacentRegion(RevEngRegion* adj_reg)
+    {
+      adjacent_regions_.insert(adj_reg);
+    }
+    
+    void removeAdjacentRegion(RevEngRegion* adj_reg)
+    {
+      adjacent_regions_.erase(adj_reg);
+    }
+    
+    bool hasAdjacentRegion(RevEngRegion* adj_reg)
+    {
+      return (adjacent_regions_.find(adj_reg) != adjacent_regions_.end());
+    }
+    
+    void writeRegionInfo(std::ostream& of);
+    void writeUnitSphereInfo(std::ostream& of);
+    
   private:
-    vector<RevEngPoint*> group_points_;   // Points belonging to classified segment
+    std::vector<RevEngPoint*> group_points_;   // Points belonging to classified segment
     int classification_type_;
     std::vector<HedgeSurface*> associated_sf_;  // Can be two due to split along
     // seam of closed surface (should be fixed)
@@ -228,6 +287,7 @@ namespace Go
     DirectionCone normalcone_;
     double maxdist_, avdist_;
     int num_inside_;
+    std::set<RevEngRegion*> adjacent_regions_;
 
     bool visited_;
 
@@ -241,6 +301,18 @@ namespace Go
     void analyseCylinderProperties(Point avvec, double angtol,
 				   std::vector<RevEngPoint*>& in,
 				   std::vector<RevEngPoint*> out);
+    void  curveApprox(std::vector<Point>& points,
+		      shared_ptr<Circle> circle, shared_ptr<SplineCurve>& curve);
+    shared_ptr<Plane> computePlane();
+    shared_ptr<Cylinder> computeCylinder();
+    shared_ptr<Cone> computeCone();
+    shared_ptr<Torus> computeTorus(shared_ptr<Torus>& torus2);
+    shared_ptr<SplineSurface> surfApprox(vector<RevEngPoint*>& points,
+					 const BoundingBox& bbox);
+    void splitCylinderRad(const Point& pos, const Point& axis,
+			  const Point& Cx, const Point& Cy,
+			  int nmb_split, std::vector<Point>& centr,
+			  std::vector<double>& rad);
   };
 }
 

@@ -115,6 +115,118 @@ void RevEngUtils::principalAnalysis(Point& curr, vector<Point>& points,
 }
 
 //===========================================================================
+void RevEngUtils::TaubinCurvature(Point curr, std::vector<Point>& points,
+				  Point& tvec, Point& normal, Point& mincvec,
+				  double& minc, Point& maxcvec, double& maxc)
+//===========================================================================
+{
+  // Define matrix
+  double mat[3][3];
+  for (int ka=0; ka<3; ++ka)
+    for (int kb=0; kb<3; ++kb)
+      mat[ka][kb] = 0.0;
+
+  double wijsum = 0.0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      Point vec = points[ki] - curr;
+      double len = vec.length();
+      wijsum += (1.0/len);
+    }
+  
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      Point vec = points[ki] - curr;
+      double len2 = vec.length2();
+      double kij = 2.0*(normal*vec)/len2;
+      double wij = 1.0/sqrt(len2);
+      wij /= wijsum;
+
+      vec -= (vec*normal)*normal;
+      double fac = wij*kij;
+      for (int ka=0; ka<3; ++ka)
+	for (int kb=0; kb<3; ++kb)
+	  mat[ka][kb] += fac*vec[ka]*vec[kb];
+
+      // double phi = tvec.angle(vec);
+      // double phicos2 = cos(phi);
+      // phicos2 = phicos2*phicos2;
+      // double phisin2 = sin(phi);
+      // phisin2 = phisin2*phisin2;
+      // A += wij*phicos2*phicos2;
+      // B += wij*phisin2*phicos2;
+      // C += wij*phisin2*phisin2;
+    }
+  
+  // Compute singular values
+  NEWMAT::Matrix nmat;
+  nmat.ReSize(3, 3);
+  for (int ka = 0; ka < 3; ++ka) {
+    for (int kb = 0; kb < 3; ++kb) {
+      nmat.element(ka, kb) = mat[ka][kb];
+    }
+  }
+      
+  static NEWMAT::DiagonalMatrix diag;
+  static NEWMAT::Matrix V;
+  try {
+    NEWMAT::SVD(nmat, diag, nmat, V);
+  } catch(...) {
+    std::cout << "Exception in SVD" << std::endl;
+    return;
+  }
+  
+  // Singular values
+  double lambda1 = diag.element(0, 0);
+  double lambda2 = diag.element(1, 1);
+  Point cvec1 = Point(V.element(0, 0), V.element(0, 1), V.element(0, 2));
+  Point cvec2 = Point(V.element(1, 0), V.element(1, 1), V.element(1, 2));
+
+  double A=0.0, B=0.0, C=0.0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      Point vec = points[ki] - curr;
+      double len2 = vec.length2();
+      double wij = 1.0/sqrt(len2);
+      wij /= wijsum;
+      vec -= (vec*normal)*normal;
+      double phi = cvec1.angle(vec);
+      double phicos2 = cos(phi);
+      phicos2 = phicos2*phicos2;
+      double phisin2 = sin(phi);
+      phisin2 = phisin2*phisin2;
+      A += wij*phicos2*phicos2;
+      B += wij*phisin2*phicos2;
+      C += wij*phisin2*phisin2;
+    }
+  
+  double div = B*B - A*C;
+  if (fabs(div) < 1.0e-10)
+    {
+      minc = maxc = 0.0;
+      mincvec = maxcvec = Point(0.0, 0.0, 0.0);
+      return;
+    }
+  
+  double k1 = (B*lambda2 - C*lambda1)/div;
+  double k2 = (B*lambda1 - A*lambda2)/div;
+  if (fabs(k1) < fabs(k2))
+    {
+      minc = k1;
+      mincvec = cvec1;
+      maxc = k2;
+      maxcvec = cvec2;
+    }
+  else
+    {
+      minc = k2;
+      mincvec = cvec2;
+      maxc = k1;
+      maxcvec = cvec1;
+    }
+}
+
+//===========================================================================
 void RevEngUtils::computeMonge(Point& curr, std::vector<Point>& points,
 			       Point& vec1, Point& vec2, Point& normal, Point& mincvec,
 			       double& minc, Point& maxcvec, double& maxc,
@@ -139,9 +251,8 @@ void RevEngUtils::computeMonge(Point& curr, std::vector<Point>& points,
   int nmbpts = (int)points.size() + 1;
   vector<double> par(2*nmbpts);
   vector<double> zval(nmbpts);
-  double xmin, xmax, ymin, ymax;
-  xmin = xmax = par[0] = curr[0];
-  ymin = ymax = par[1] = curr[1];
+  par[0] = curr[0];
+  par[1] = curr[1];
   zval[0] = curr[2];
   for (int ki=1; ki<nmbpts; ++ki)
     {
@@ -152,42 +263,12 @@ void RevEngUtils::computeMonge(Point& curr, std::vector<Point>& points,
       par[2*ki] = curr[0] + dvrot[0];
       par[2*ki+1] = curr[1] + dvrot[1];
       zval[ki] = curr[2] + dvrot[2];
-      xmin = std::min(xmin, par[2*ki]);
-      xmax = std::max(xmax, par[2*ki]);
-      ymin = std::min(ymin, par[2*ki+1]);
-      ymax = std::max(ymax, par[2*ki+1]);
     }
 
   // Approximate z-component by biquadratic Bezier function in x and y
-  // First make quadratic B-spline function with coefficients equal to zero
   int order = 3;
-  vector<double> knots1(2*order), knots2(2*order);
-  for (int kj=0; kj<order; ++kj)
-    {
-      knots1[kj] = xmin;
-      knots1[order+kj] = xmax;
-      knots2[kj] = ymin;
-      knots2[order+kj] = ymax;
-    }
-  vector<double> coefs(order*order, 0.0);
-  shared_ptr<SplineSurface> bez(new SplineSurface(order, order, order, order, 
-						  &knots1[0], &knots2[0], &coefs[0], 1));
-
-  // Approximate
-  SmoothSurf approx;
-  vector<int> coef_known(order*order, 0);
-  int seem[2];
-  seem[0] = seem[1] = 0;
-  vector<double> ptwgt(nmbpts, 1.0);
-  approx.attach(bez, seem, &coef_known[0]);
-
-  double wgt1 = 0.0, wgt2 = 0.0001, wgt3 = 0.0;
-  double approxwgt = 1.0 - wgt1 - wgt2 - wgt3;
-  approx.setOptimize(wgt1, wgt2, wgt3);
-  approx.setLeastSquares(zval, par, ptwgt, approxwgt);
-
-  shared_ptr<SplineSurface> mongesf;
-  approx.equationSolve(mongesf);
+  shared_ptr<SplineSurface> mongesf = RevEngUtils::surfApprox(zval, 1, par, order,
+							      order, order, order);
 
   vector<double> coefs2(3*order*order);
   std::vector<double>::iterator cf = mongesf->coefs_begin();
@@ -203,21 +284,25 @@ void RevEngUtils::computeMonge(Point& curr, std::vector<Point>& points,
 	}
     }
   shared_ptr<SplineSurface> tmp(new SplineSurface(order, order, order, order, 
-						  &knots1[0], &knots2[0], &coefs2[0], 3));
-  // std::ofstream of("approx_sf.g2");
-  // tmp->writeStandardHeader(of);
-  // tmp->write(of);
-  // of << "400 1 0 4 0 255 0 255" << std::endl;
-  // of << 1 << std::endl;
-  // of << curr << std::endl;
-  // of << "400 1 0 4 255 0 0 255" << std::endl;
-  // of << nmbpts << std::endl;
-  // for (int ka=0; ka<nmbpts; ++ka)
-  //   {
-  //     Point tmppt(par[2*ka], par[2*ka+1], zval[ka]);
-  //     of << tmppt << std::endl;
-  //   }
-  
+						  mongesf->basis_u().begin(),
+						  mongesf->basis_v().begin(), &coefs2[0], 3));
+  int writesurface = 0;
+  if (writesurface)
+    {
+      std::ofstream of("approx_sf.g2");
+      tmp->writeStandardHeader(of);
+      tmp->write(of);
+      of << "400 1 0 4 0 255 0 255" << std::endl;
+      of << 1 << std::endl;
+      of << curr << std::endl;
+      of << "400 1 0 4 255 0 0 255" << std::endl;
+      of << nmbpts << std::endl;
+      for (int ka=0; ka<nmbpts; ++ka)
+	{
+	  Point tmppt(par[2*ka], par[2*ka+1], zval[ka]);
+	  of << tmppt << std::endl;
+	}
+    }
   
   // Compute surface normal in curr
   vector<Point> der(3);
@@ -285,12 +370,125 @@ void RevEngUtils::computeMonge(Point& curr, std::vector<Point>& points,
 }
 
 //===========================================================================
+shared_ptr<SplineSurface> RevEngUtils::surfApprox(vector<double>& data, int dim,
+						  vector<double>& param, int order1,
+						  int order2, int nmb_coef1, int nmb_coef2,
+						  double del)
+//===========================================================================
+{
+  // Define spline space
+  double umin, umax, vmin, vmax;
+  umin = umax = param[0];
+  vmin = vmax = param[1];
+  for (size_t kj=2; kj<param.size(); kj+=2)
+    {
+      umin = std::min(umin, param[kj]);
+      umax = std::max(umax, param[kj]);
+      vmin = std::min(vmin, param[kj+1]);
+      vmax = std::max(vmax, param[kj+1]);
+    }
+  umin -= del;
+  umax += del;
+  vmin -= del;
+  vmax += del;
+  
+  double udel = (umax - umin)/(double)(nmb_coef1-order1+1);
+  double vdel = (vmax - vmin)/(double)(nmb_coef2-order2+1);
+  
+  vector<double> knots1(order1+nmb_coef1), knots2(order2+nmb_coef2);
+  for (int ka=0; ka<order1; ++ka)
+    {
+      knots1[ka] = umin;
+      knots1[nmb_coef1+ka] = umax;
+    }
+  for (int ka=order1; ka<nmb_coef1; ++ka)
+    knots1[ka] = umin + (ka-order1+1)*udel;
+  
+  for (int ka=0; ka<order2; ++ka)
+    {
+      knots2[ka] = vmin;
+      knots2[nmb_coef2+ka] = vmax;
+    }
+  for (int ka=order2; ka<nmb_coef2; ++ka)
+    knots2[ka] = vmin + (ka-order2+1)*vdel;
+  
+
+  vector<double> coefs((nmb_coef1+order1)*(nmb_coef2+order2), 0.0);
+  shared_ptr<SplineSurface> bez(new SplineSurface(nmb_coef1, nmb_coef2, order1, order2, 
+						  &knots1[0], &knots2[0], &coefs[0], dim));
+
+  // Approximate
+  SmoothSurf approx;
+  vector<int> coef_known((nmb_coef1+order1)*(nmb_coef2+order2), 0);
+  int seem[2];
+  seem[0] = seem[1] = 0;
+  int nmbpts = (int)data.size()/dim;
+  vector<double> ptwgt(nmbpts, 1.0);
+  approx.attach(bez, seem, &coef_known[0]);
+
+  double wgt1 = 0.0, wgt2 = 0.001, wgt3 = 0.001;
+  double approxwgt = 1.0 - wgt1 - wgt2 - wgt3;
+  approx.setOptimize(wgt1, wgt2, wgt3);
+  approx.setLeastSquares(data, param, ptwgt, approxwgt);
+
+  shared_ptr<SplineSurface> surf;
+  approx.equationSolve(surf);
+  return surf;
+ }
+
+//===========================================================================
+void RevEngUtils::parameterizeWithPlane(vector<Point>& pnts, const BoundingBox& bbox,
+					const Point& vec1, const Point& vec2,
+					vector<double>& data, vector<double>& param)
+//===========================================================================
+{
+  double eps = 1.0e-6;
+  Point mid = 0.5*(bbox.low() + bbox.high());
+  int dim = mid.dimension();
+  double diag = bbox.low().dist(bbox.high());
+  int order = 2;
+  double et[4];
+  et[0] = et[1] = -diag;
+  et[2] = et[3] = diag;
+  vector<double> coefs;
+  int sgn1, sgn2;
+  int ka, kb;
+  for (kb=0, sgn2=-1; kb<2; ++kb, sgn2=1)
+    for (ka=0, sgn1=-1; ka<2; ++ka, sgn1=1)
+      {
+	Point pos = mid+sgn1*diag*vec1+sgn2*diag*vec2;
+	coefs.insert(coefs.end(), pos.begin(), pos.end());
+      }
+
+  shared_ptr<SplineSurface> surf(new SplineSurface(order, order, order, order, &et[0], 
+						   &et[0], coefs.begin(), dim));
+  std::ofstream of("parplane.g2");
+  surf->writeStandardHeader(of);
+  surf->write(of);
+  
+  param.resize(2*pnts.size());
+  data.reserve(dim*pnts.size());
+  for (size_t ki=0; ki<pnts.size(); ++ki)
+    {
+      double upar, vpar, dist;
+      Point close;
+      surf->closestPoint(pnts[ki], upar, vpar, close, dist, eps);
+      param[2*ki] = upar;
+      param[2*ki+1] = vpar;
+      data.insert(data.end(), pnts[ki].begin(), pnts[ki].end());
+    }
+}
+
+//===========================================================================
 void RevEngUtils::computeAxis(vector<pair<vector<RevEngPoint*>::iterator,
 			      vector<RevEngPoint*>::iterator> >& points,
 			      Point& axis, Point& Cx, Point& Cy)
 //===========================================================================
 {
   double Cmat[3][3];
+  for (int ka=0; ka<3; ++ka)
+    for (int kb=0; kb<3; ++kb)
+      Cmat[ka][kb] = 0.0;
   for (size_t ki=0; ki<points.size(); ++ki)
     {
       vector<RevEngPoint*>::iterator start = points[ki].first;
@@ -298,7 +496,6 @@ void RevEngUtils::computeAxis(vector<pair<vector<RevEngPoint*>::iterator,
       for (int ka=0; ka<3; ++ka)
 	for (int kb=0; kb<3; ++kb)
 	  {
-	    Cmat[ka][kb] = 0.0;
 	    for (auto it=start; it!=end; ++it)
 	      {
 		RevEngPoint *pt = *it;
@@ -677,8 +874,8 @@ void RevEngUtils::computeCylPosRadius(vector<pair<vector<RevEngPoint*>::iterator
 
 //===========================================================================
 void RevEngUtils::computeCircPosRadius(vector<Point>& points,
-				      Point& axis, Point& Cx, Point& Cy,
-				      Point& pos, double& radius)
+				      const Point& axis, const Point& Cx, 
+				      const Point& Cy, Point& pos, double& radius)
 //===========================================================================
 {
   double Amat[3][3];
@@ -697,8 +894,11 @@ void RevEngUtils::computeCircPosRadius(vector<Point>& points,
       bvec[ka] = 0.0;
     }
 
+  double wgt = 1.0/(double)points.size();
+  Point mid(0.0, 0.0, 0.0);
   for (size_t ki=0; ki<points.size(); ++ki)
     {
+      mid += wgt*points[ki];
       double pxy[3];
       double px = points[ki]*Cx;
       double py = points[ki]*Cy;
@@ -755,6 +955,7 @@ void RevEngUtils::computeCircPosRadius(vector<Point>& points,
   double r2 = bx[2]/detA;
 
   pos = sx*Cx + sy*Cy;
+  pos -= ((pos-mid)*axis)*axis;
 
   radius = sqrt(r2 + sx*sx + sy*sy);
  }
@@ -1043,7 +1244,7 @@ void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
 			     shared_ptr<ParamSurface> surf, double tol,
 			     double& maxdist, double& avdist, int& num_inside,
 			     vector<RevEngPoint*>& in,
-			     vector<RevEngPoint*>& out)
+			     vector<RevEngPoint*>& out, double angtol)
 //===========================================================================
 {
   double eps = 1.0e-6;
@@ -1062,8 +1263,24 @@ void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
       avdist += dist;
       if (dist <= tol)
 	{
-	  in.push_back(*it);
-	  ++num_inside;
+	  if (angtol > 0.0)
+	    {
+	      Point norm1, norm2;
+	      surf->normal(norm1, upar, vpar);
+	      norm2 = (*it)->getPCANormal();
+	      if (norm1.angle(norm2) < angtol)
+		{
+		  in.push_back(*it);
+		  ++num_inside;
+		}
+	      else
+		out.push_back(*it);
+	    }
+	  else
+	    {
+	      in.push_back(*it);
+	      ++num_inside;
+	    }
 	}
       else
 	{

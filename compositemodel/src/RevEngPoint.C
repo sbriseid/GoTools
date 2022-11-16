@@ -63,6 +63,8 @@ RevEngPoint::RevEngPoint()
   avedglen_ = -1.0;
   region_ = 0;
   visited_ = 0;
+  moved_ = 0;
+  outlier_ = false;
 }
 
 //===========================================================================
@@ -82,6 +84,7 @@ RevEngPoint::RevEngPoint(Vector3D xyz, int bnd)
   avedglen_ = -1.0;
   region_ = 0;
   visited_ = 0;
+  outlier_ = false;
 }
 
 //===========================================================================
@@ -106,6 +109,25 @@ double RevEngPoint::getMeanEdgLen()
       avedglen_ = len;
     }
   return avedglen_;
+
+}
+
+//===========================================================================
+double RevEngPoint::getMeanEdgLen(double maxlen)
+//===========================================================================
+{
+  int nmb = 0;
+  double len = 0.0;
+  for (size_t ki=0; ki<next_.size(); ++ki)
+    {
+      double currlen = xyz_.dist(next_[ki]->getPoint());
+      if (currlen > maxlen)
+	continue;
+	  len += currlen;
+      ++nmb;
+    }
+  len /= (double)nmb;
+  return len;
 
 }
 

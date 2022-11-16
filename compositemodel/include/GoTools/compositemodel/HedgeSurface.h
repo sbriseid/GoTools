@@ -65,6 +65,30 @@ public:
 
   ClassType instanceType(int& code);
 
+  bool isPlane()
+  {
+    int code;
+    return (instanceType(code) == Class_Plane);
+  }
+
+  bool isCylinder()
+  {
+    int code;
+    return (instanceType(code) == Class_Cylinder);
+  }
+
+  bool isTorus()
+  {
+    int code;
+    return (instanceType(code) == Class_Torus);
+  }
+
+  bool isCone()
+  {
+    int code;
+    return (instanceType(code) == Class_Cone);
+  }
+
   std::vector<RevEngRegion*> getRegions()
   {
     return regions_;
@@ -83,6 +107,7 @@ public:
       return regions_[ix];
   }
     
+  bool isCompatible(HedgeSurface* other, double angtol, double approx_tol);
   
 private:
   std::vector<RevEngRegion*> regions_;
