@@ -60,11 +60,17 @@ RevEngPoint::RevEngPoint()
   kvecmax_ = Point(dim);
   lambda1_ = lambda2_ = lambda3_ = -1.0;
   kmin_ = kmax_ = 0.0;
+  ptdist_ = avdist_ = 0.0;
+  Point dummy(0.0, 0.0, 0.0);
+  // normalcone_.setFromArray(dummy.begin(), dummy.end(), 3);
+  normalcone_ = DirectionCone(dummy);
   avedglen_ = -1.0;
   region_ = 0;
   visited_ = 0;
   moved_ = 0;
   outlier_ = false;
+  sfdist_ = -1.0;
+  sfang_ = -1.0;
 }
 
 //===========================================================================
@@ -81,10 +87,16 @@ RevEngPoint::RevEngPoint(Vector3D xyz, int bnd)
   kvecmax_ = Point(dim);
   lambda1_ = lambda2_ = lambda3_ = -1.0;
   kmin_ = kmax_ = 0.0;
+  Point dummy(0.0, 0.0, 0.0);
+  // normalcone_.setFromArray(dummy.begin(), dummy.end(), 3);
+  normalcone_ = DirectionCone(dummy);
   avedglen_ = -1.0;
   region_ = 0;
   visited_ = 0;
   outlier_ = false;
+  sfdist_ = -1.0;
+  sfang_ = -1.0;
+
 }
 
 //===========================================================================
@@ -132,26 +144,38 @@ double RevEngPoint::getMeanEdgLen(double maxlen)
 }
 
 //===========================================================================
-void RevEngPoint::computeTriangNormal()
+void RevEngPoint::computeTriangNormal(double lim)
 //===========================================================================
 {
   if (next_.size() == 0)
     return;
+  double eps = 1.0e-10;
   Vector3D vec1 = next_[next_.size()-1]->getPoint() - xyz_;
-  for (size_t ki=0; ki<next_.size(); ++ki)
+  size_t ki, kj;
+  for (ki=0, kj=0; ki<next_.size(); ++ki)
     {
       Vector3D vec2 = next_[ki]->getPoint() - xyz_;
       Vector3D norm = vec1 % vec2;
 
-      if (ki == 0)
-	normalcone_.setFromArray(norm.begin(), norm.end(), 3);
+      if (vec1.length() <= lim && vec2.length() <= lim && norm.length() > eps)
+	{
+	  if (kj == 0)
+	    normalcone_.setFromArray(norm.begin(), norm.end(), 3);
+	  else
+	    {
+	      Point norm2(norm[0], norm[1], norm[2]);
+	      normalcone_.addUnionWith(norm2);
+	    }
+	  ++kj;
+	}
       else
 	{
-	  Point norm2(norm[0], norm[1], norm[2]);
-	  normalcone_.addUnionWith(norm2);
+	  int stop_break = 1;
 	}
       vec1 = vec2;
     }
+  if (kj == 0)
+    setOutlier();
 }
 
 //===========================================================================
@@ -397,6 +421,7 @@ void RevEngPoint::store(std::ostream& os) const
     os << " " << edge_[ka];
   for (int ka=0; ka<3; ++ka)
     os << " " << surf_[ka];
+  os << " " << outlier_ << std::endl;
   os << std::endl;
 }
 
@@ -414,7 +439,7 @@ void RevEngPoint::read(std::istream& is, double eps, vector<int>& next_ix)
   is >> eigen3_ >> lambda3_ >> Mongenormal_ >> kvecmin_ >> kmin_;
   is >> kvecmax_ >> kmax_ >> ptdist_ >> avdist_;
   Point dummy(3);
-  normalcone_ = DirectionCone(dummy);
+  //normalcone_ = DirectionCone(dummy);
   normalcone_.read(is);
     meancurv0_ = meancurv_ = 0.5*(kmin_ + kmax_);
   gausscurv0_ = gausscurv_ = kmin_*kmax_;
@@ -429,6 +454,10 @@ void RevEngPoint::read(std::istream& is, double eps, vector<int>& next_ix)
     is >> edge_[ka];
   for (int ka=0; ka<3; ++ka)
     is >> surf_[ka];
+  is >> outlier_;
+  sfdist_ = -1.0;
+  sfang_ = -1.0;
+
 }
 
 

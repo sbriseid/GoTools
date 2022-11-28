@@ -105,6 +105,8 @@ namespace Go
 
     void storeClassified(std::ostream& os) const;
     void readClassified(std::istream& is);
+    void storeGrownRegions(std::ostream& os) const;
+    void readGrownRegions(std::istream& is);
     void curvatureFilter();
     
   private:

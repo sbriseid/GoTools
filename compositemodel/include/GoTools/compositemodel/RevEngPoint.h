@@ -96,7 +96,7 @@ namespace Go
 
     virtual ~RevEngPoint();
 
-    void computeTriangNormal();
+    void computeTriangNormal(double lim);
 
     void addCovarianceEigen(Point& eigen1, double lambda1, Point& eigen2,
 			    double lambda2, Point& eigen3, double lambda3);
@@ -354,6 +354,18 @@ namespace Go
       return outlier_;
     }
 
+    void setSurfaceDist(double dist, double ang)
+    {
+      sfdist_ = dist;
+      sfang_ = ang;
+    }
+
+    void getSurfaceDist(double& dist, double& ang)
+    {
+      dist = sfdist_;
+      ang = sfang_;
+    }
+
     void store(std::ostream& os) const;
     void read(std::istream& is, double eps, vector<int>& next_ix);
     
@@ -368,7 +380,7 @@ namespace Go
     // lambda1_>= lambda2_ >= lambda3_
     Point Mongenormal_, kvecmin_, kvecmax_;  // Normal and principal curvature vectors
     double kmin_, kmax_;  // Principal curvatures from Monge's patch
-    double ptdist_, avdist_;
+    double ptdist_, avdist_;  // Distance to Monge's patch
     DirectionCone normalcone_;  // Span of surface normals computed from triangulation
 
     double meancurv0_, meancurv_;
@@ -387,6 +399,9 @@ namespace Go
     // Group (segment) of classified points
     RevEngRegion* region_;
     bool outlier_;
+
+    double sfdist_;  // Distance beteen point and surface representation
+    double sfang_;   // Angle between estimated normal and surface normal
 
     mutable int visited_;
     mutable int moved_;

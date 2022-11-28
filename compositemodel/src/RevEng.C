@@ -125,7 +125,9 @@ void RevEng::enhancePoints()
       RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
 
       // Compute surface normal from triangulation
-      pt->computeTriangNormal();
+      pt->computeTriangNormal(100.0*mean_edge_len_);
+      if (pt->isOutlier())
+	continue;
 
       double avlen = pt->getMeanEdgLen();
 
@@ -163,7 +165,12 @@ void RevEng::enhancePoints()
       Point eigen1(eigenvec[0][0], eigenvec[0][1], eigenvec[0][2]);
       Point eigen2(eigenvec[1][0], eigenvec[1][1], eigenvec[1][2]);
       Point eigen3(eigenvec[2][0], eigenvec[2][1], eigenvec[2][2]);
-      if (eigen3*pt->getTriangNormal() <  0.0)
+      Point tnorm = pt->getTriangNormal();
+      if (tnorm.length() < 1.0e-10)
+	{
+	  int stop_norm = 1;
+	}
+      else if (eigen3*tnorm <  0.0)
 	{
 	  eigen2 *= -1;
 	  eigen3 *= -1;
@@ -225,7 +232,9 @@ void RevEng::enhancePoints()
   ofM << nmbpt << std::endl;
   for (int ki=0; ki<nmbpt; ++ki)
     {
-      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
+      if (pt->isOutlier())
+	continue;
       Vector3D xyz = pt->getPoint();
       Point xyz2(xyz[0], xyz[1], xyz[2]);
       Point norm = pt->getTriangNormal();
@@ -906,8 +915,69 @@ void RevEng::growRegions(int classification_type)
       for (size_t kr=0; kr<small.size(); ++kr)
 	ofs4 << small[kr] << std::endl;
      }
+
+  std::cout << "Pre join. Number of regions: " << regions_.size() << std::endl;
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      vector<RevEngRegion*> adapted_regions;
+      regions_[ki]->joinRegions(approx_tol_, 10.0*anglim_, adapted_regions);
+      for (size_t kj=0; kj<adapted_regions.size(); ++kj)
+	{
+	  size_t kr=0;
+	  for (kr=0; kr<regions_.size(); ++kr)
+	    if (adapted_regions[kj] == regions_[kr].get())
+	      break;
+	  if (kr < regions_.size())
+	    regions_.erase(regions_.begin()+kr);
+	}
+    }
+  std::cout << "Post join. Number of regions: " << regions_.size() << std::endl;
   
-  bool updatereg = true; //false;
+  if (regions_.size() > 0)
+    {
+      std::ofstream of3_2("regions2_2.g2");
+       vector<Vector3D> small;
+     for (size_t kr=0; kr<regions_.size(); ++kr)
+	{
+	  // BoundingBox bbox = regions_[kr]->boundingBox();
+	  // if (bbox.low().dist(bbox.high()) < 0.1)
+	  //   std::cout << "Small bounding box" << std::endl;
+	  int nmb = regions_[kr]->numPoints();
+	  if (nmb < 50)
+	    {
+	      for (int ki=0; ki<nmb; ++ki)
+		small.push_back(regions_[kr]->getPoint(ki)->getPoint());
+	    }
+	  else
+	    {
+	      of3_2 << "400 1 0 0" << std::endl;
+	      int nmb = regions_[kr]->numPoints();
+	      of3_2 << nmb << std::endl;
+	      for (int ki=0; ki<nmb; ++ki)
+		{
+		  of3_2 << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+		}
+	    }
+	}
+      std::ofstream ofs3_2("small_regions2_2.g2");
+      ofs3_2 << "400 1 0 4 0 0 0 255" << std::endl;
+      ofs3_2 << small.size() << std::endl;
+      for (size_t kr=0; kr<small.size(); ++kr)
+	ofs3_2 << small[kr] << std::endl;
+     }
+
+  // Update adjacency between regions
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->clearRegionAdjacency();
+    }
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->setRegionAdjacency();
+    }
+
+
+bool updatereg = true; //false;
   if (updatereg)
     {
   for (size_t ki=0; ki<regions_.size(); ++ki)
@@ -928,9 +998,19 @@ void RevEng::growRegions(int classification_type)
 	regions_.insert(regions_.end(), outdiv_regions.begin(), outdiv_regions.end());
     }
 	      
+  // Update adjacency between regions
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->clearRegionAdjacency();
+    }
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->setRegionAdjacency();
+    }
+
   if (regions_.size() > 0)
     {
-      std::ofstream of3("regions2_2.g2");
+      std::ofstream of3("regions2_3.g2");
        vector<Vector3D> small;
      for (size_t kr=0; kr<regions_.size(); ++kr)
 	{
@@ -954,7 +1034,7 @@ void RevEng::growRegions(int classification_type)
 		}
 	    }
 	}
-      std::ofstream ofs2("small_regions2_2.g2");
+      std::ofstream ofs2("small_regions2_3.g2");
       ofs2 << "400 1 0 4 0 0 0 255" << std::endl;
       ofs2 << small.size() << std::endl;
       for (size_t kr=0; kr<small.size(); ++kr)
@@ -1142,11 +1222,13 @@ void RevEng::recognizeElementary()
   bool doGrow = true; //false;
   if (doGrow)
     {
+      std::cout << "Number of regions, pre grow with surf: " << regions_.size() << std::endl;
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->hasSurface())
 	growSurface(ki);
     }
+      std::cout << "Number of regions, post grow with surf: " << regions_.size() << std::endl;
 
   if (regions_.size() > 0)
     {
@@ -1374,15 +1456,21 @@ void RevEng::mergeSurfaces()
       surf->write(*ofs);
       
       int nreg = surfaces_[ki]->numRegions();
+      int nmb = 0;
       for (int ka=0; ka<nreg; ++ka)
 	{
 	  RevEngRegion *reg =  surfaces_[ki]->getRegion(ka);
-	  int nmb = reg->numPoints();
-	  of1 << "400 1 0 4 255 0 0 255" << std::endl;
-	  of1 << nmb << std::endl;
-	  *ofs << "400 1 0 4 255 0 0 255" << std::endl;
-	  *ofs << nmb << std::endl;
-	  for (int kb=0; kb<nmb; ++kb)
+	  nmb += reg->numPoints();
+	}
+      of1 << "400 1 0 4 255 0 0 255" << std::endl;
+      of1 << nmb << std::endl;
+      *ofs << "400 1 0 4 255 0 0 255" << std::endl;
+      *ofs << nmb << std::endl;
+      for (int ka=0; ka<nreg; ++ka)
+	{
+	  RevEngRegion *reg =  surfaces_[ki]->getRegion(ka);
+	  int nmb2 = reg->numPoints();;
+	  for (int kb=0; kb<nmb2; ++kb)
 	    {
 	      of1 << reg->getPoint(kb)->getPoint() << std::endl;
 	      *ofs << reg->getPoint(kb)->getPoint() << std::endl;
@@ -1460,8 +1548,10 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix)
 	  double maxd, avd;
 	  int num2;
 	  vector<RevEngPoint*> in, out;
+	  vector<pair<double,double> > distang;
 	  RevEngUtils::distToSurf(points[ki].first, points[ki].second,
-				  surf, approx_tol_, maxd, avd, num2, in, out);
+				  surf, approx_tol_, maxd, avd, num2, in, out,
+				  distang);
 
 	  of2 << "400 1 0 4 155 50 50 255" << std::endl;
 	  of2 << in.size() << std::endl;
@@ -2336,8 +2426,8 @@ void RevEng::initParameters()
   // cfac_ times the average length of triangulation edges in a vertex
   norm_plane_lim_= 0.005; // Limit for when the cone angle corresponding
   // to triangle normals indicate an edge
-  zero_H_ = 0.0001;  // When mean curvature is considered zero
-  zero_K_ = 0.0001;  // When Gauss curvature is considered zero
+  zero_H_ = 0.001; //0.0001;  // When mean curvature is considered zero
+  zero_K_ = 0.001; //0.0001;  // When Gauss curvature is considered zero
   zero_si_ = 0.0075; //0.001; // When shape index is considered zero
   norm_ang_lim_ = 0.1*M_PI; // Limit for when the cone angle corresponding
     // to triangle normals indicate an edge
@@ -2394,13 +2484,46 @@ void RevEng::readClassified(istream& is)
 }
 
  //===========================================================================
+void RevEng::storeGrownRegions(ostream& os) const
+//===========================================================================
+{
+  storeClassified(os);
+  os << regions_.size() << std::endl;
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    regions_[ki]->store(os);
+}
+
+ //===========================================================================
+void RevEng::readGrownRegions(istream& is)
+//===========================================================================
+{
+  readClassified(is);
+  curvatureFilter();
+  int num_regions;
+  is >> num_regions;
+  regions_.resize(num_regions);
+  for (int ki=0; ki<num_regions; ++ki)
+    {
+      regions_[ki] = shared_ptr<RevEngRegion>(new RevEngRegion());
+      regions_[ki]->read(is, tri_sf_);
+    }
+
+  for (int ki=0; ki<num_regions; ++ki)
+    {
+      regions_[ki]->setRegionAdjacency();
+    }
+}
+  
+
+ //===========================================================================
 void RevEng::storeParams(ostream& os) const
 //===========================================================================
 {
   os << mean_edge_len_ << " " << min_next_ << " " << rfac_ << " " << cfac_;
   os << " " << pca_lim_ << " " << cness_lim_ << " " << norm_ang_lim_;
   os << " " << norm_plane_lim_ << " " << zero_H_ << " " << zero_K_;
-  os << " " << zero_si_ << std::endl;
+  os << " " << zero_si_ << " " << min_point_region_ << " " << approx_tol_ ;
+  os << " " << anglim_ << " " << max_nmb_outlier_ << std::endl;
 }
 
  //===========================================================================
@@ -2409,4 +2532,5 @@ void RevEng::readParams(istream& is)
 {
   is >> mean_edge_len_ >> min_next_ >> rfac_ >> cfac_ >> pca_lim_ >> cness_lim_;
   is >> norm_ang_lim_ >> norm_plane_lim_ >> zero_H_ >> zero_K_ >> zero_si_;
+  is >> min_point_region_ >> approx_tol_ >> anglim_ >> max_nmb_outlier_;
 }

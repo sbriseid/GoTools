@@ -74,6 +74,8 @@ namespace Go
     RevEngRegion(int classification_type,
 		 std::vector<RevEngPoint*> & points);
 
+    ~RevEngRegion();
+    
      int getClassification()
     {
       return classification_type_;
@@ -119,6 +121,16 @@ namespace Go
       return group_points_.end();
     }
     
+    std::vector<RevEngPoint*> getPoints()
+    {
+      return group_points_;
+    }
+
+    const BoundingBox& getBbox()
+    {
+      return bbox_;
+    }
+    
     RevEngPoint* seedPoint();
     
     void growLocal(RevEngPoint* seed, double tol, double radius, int min_close,
@@ -136,6 +148,9 @@ namespace Go
     void updateRegion(double approx_tol, double anglim,
 		      std::vector<RevEngRegion*>& adapted_regions,
 		      std::vector<shared_ptr<RevEngRegion> >& outdiv_regions);
+
+     void joinRegions(double approx_tol, double anglim,
+		     std::vector<RevEngRegion*>& adapted_regions);
 
    bool cylindertype()
     {
@@ -268,6 +283,11 @@ namespace Go
       adjacent_regions_.erase(adj_reg);
     }
     
+    void clearRegionAdjacency()
+    {
+      adjacent_regions_.clear();
+    }
+    
     bool hasAdjacentRegion(RevEngRegion* adj_reg)
     {
       return (adjacent_regions_.find(adj_reg) != adjacent_regions_.end());
@@ -275,7 +295,10 @@ namespace Go
     
     void writeRegionInfo(std::ostream& of);
     void writeUnitSphereInfo(std::ostream& of);
-    
+
+    void store(std::ostream& os) const;
+    void read(std::istream& is, shared_ptr<ftPointSet>& tri_sf);
+	      
   private:
     std::vector<RevEngPoint*> group_points_;   // Points belonging to classified segment
     int classification_type_;
@@ -304,7 +327,7 @@ namespace Go
     void  curveApprox(std::vector<Point>& points,
 		      shared_ptr<Circle> circle, shared_ptr<SplineCurve>& curve);
     shared_ptr<Plane> computePlane();
-    shared_ptr<Cylinder> computeCylinder();
+    shared_ptr<Cylinder> computeCylinder(double tol);
     shared_ptr<Cone> computeCone();
     shared_ptr<Torus> computeTorus(shared_ptr<Torus>& torus2);
     shared_ptr<SplineSurface> surfApprox(vector<RevEngPoint*>& points,
@@ -313,6 +336,12 @@ namespace Go
 			  const Point& Cx, const Point& Cy,
 			  int nmb_split, std::vector<Point>& centr,
 			  std::vector<double>& rad);
+    void approximationAccuracy(std::vector<RevEngPoint*>& points,
+			       shared_ptr<ParamSurface> surf,
+			       double tol, double angtol,
+			       double& maxd, double& avd,
+			       std::vector<RevEngPoint*>& in,
+			       std::vector<RevEngPoint*>& out);
   };
 }
 

@@ -121,10 +121,17 @@ namespace Go {
 		    shared_ptr<ParamSurface> surf, double tol,
 		   double& maxdist, double& avdist, int& inside,
 		   std::vector<RevEngPoint*>& in,
-		   std::vector<RevEngPoint*>& out, double angtol=-1.0);
+		   std::vector<RevEngPoint*>& out,
+		   std::vector<std::pair<double,double> >& distang,
+		   double angtol=-1.0);
     
     void distToSurf(std::vector<Point>& points,
 		    shared_ptr<ParamSurface> surf, double tol,
+		    double& maxdist, double& avdist, int& inside,
+		    std::vector<double>& distance);
+    
+    void distToCurve(std::vector<Point>& points,
+		    shared_ptr<ParamCurve> curve, double tol,
 		    double& maxdist, double& avdist, int& inside);
   }
   
