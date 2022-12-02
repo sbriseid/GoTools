@@ -413,7 +413,7 @@ shared_ptr<SplineSurface> RevEngUtils::surfApprox(vector<double>& data, int dim,
     knots2[ka] = vmin + (ka-order2+1)*vdel;
   
 
-  vector<double> coefs((nmb_coef1+order1)*(nmb_coef2+order2), 0.0);
+  vector<double> coefs((nmb_coef1+order1)*(nmb_coef2+order2)*dim, 0.0);
   shared_ptr<SplineSurface> bez(new SplineSurface(nmb_coef1, nmb_coef2, order1, order2, 
 						  &knots1[0], &knots2[0], &coefs[0], dim));
 
@@ -435,6 +435,23 @@ shared_ptr<SplineSurface> RevEngUtils::surfApprox(vector<double>& data, int dim,
   approx.equationSolve(surf);
   return surf;
  }
+
+//===========================================================================
+void RevEngUtils::parameterizeWithPlane(vector<RevEngPoint*>& pnts,
+					const BoundingBox& bbox,
+					const Point& vec1, const Point& vec2,
+					vector<double>& data, vector<double>& param)
+//===========================================================================
+{
+  vector<Point> pos(pnts.size());
+  for (size_t ki=0; ki<pnts.size(); ++ki)
+    {
+      Vector3D xyz = pnts[ki]->getPoint();
+      pos[ki] = Point(xyz[0], xyz[1], xyz[2]);
+    }
+
+  parameterizeWithPlane(pos, bbox, vec1, vec2, data, param);
+}
 
 //===========================================================================
 void RevEngUtils::parameterizeWithPlane(vector<Point>& pnts, const BoundingBox& bbox,
@@ -1266,6 +1283,7 @@ void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
       maxdist = std::max(maxdist, dist);
       avdist += dist;
       double ang = norm1.angle(norm2);
+      ang = std::min(M_PI-ang, ang);
       distang.push_back(std::make_pair(dist, ang));
       if (dist <= tol && (angtol < 0.0 || ang <= angtol))
 	{

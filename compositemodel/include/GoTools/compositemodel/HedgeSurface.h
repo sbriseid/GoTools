@@ -89,6 +89,12 @@ public:
     return (instanceType(code) == Class_Cone);
   }
 
+  bool isSpline()
+  {
+    int code;
+    return (instanceType(code) == Class_SplineSurface);
+  }
+
   std::vector<RevEngRegion*> getRegions()
   {
     return regions_;

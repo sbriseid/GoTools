@@ -155,6 +155,8 @@ public:
     /// Distance between sample points
     double pntDist(ftSamplePoint* other) const;
 
+  bool isNeighbour(ftSamplePoint* other) const;
+
     /// Fetch all triangles containing this point
     void getAttachedTriangles(std::vector<std::vector<int> >& triangles) const;
 

@@ -89,8 +89,9 @@ namespace Go
     // Remove. NB! Leaves overview information invalid.
     void removePoint(RevEngPoint* point);
 
-    void addRegion(RevEngRegion* reg, double maxd=0.0, double avd=0.0,
-		   int num_inside=-1);
+    void addRegion(RevEngRegion* reg,
+		   std::vector<std::pair<double, double> >& dist_ang,
+		   double maxd=0.0, double avd=0.0, int num_inside=-1);
     
     // Update overview information
     void updateInfo();
@@ -194,6 +195,11 @@ namespace Go
 		      std::vector<HedgeSurface*>& prevsfs,
 		      std::ostream& fileout);
 
+    bool extractFreeform(double tol, int min_pt, double mean_edge_len,
+			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+			 std::vector<HedgeSurface*>& prevsfs,
+			 std::ostream& fileout);
+
     void setHedge(HedgeSurface* surface)
     {
       associated_sf_.clear();
@@ -293,6 +299,38 @@ namespace Go
       return (adjacent_regions_.find(adj_reg) != adjacent_regions_.end());
     }
     
+    void adjustWithSurf(double tol, double angtol);
+
+    bool hasBaseSf()
+    {
+      return basesf_.get();
+    }
+
+    void setBaseSf(shared_ptr<ParamSurface> base, double maxd, double avd,
+		   int num_in)
+    {
+      basesf_ = base;
+      maxdist_base_ = maxd;
+      avdist_base_ = avd;
+      num_in_base_ = num_in;
+    }
+
+    void getBase(shared_ptr<ParamSurface>& base, double& maxd, double& avd,
+		 int& num_in)
+    {
+      base = basesf_;
+      maxd = maxdist_base_;
+      avd = avdist_base_;
+      num_in = num_in_base_;
+    }
+    
+    void getBaseDist(double& maxd, double& avd, int& num_in)
+    {
+      maxd = maxdist_base_;
+      avd = avdist_base_;
+      num_in = num_in_base_;
+    }
+    
     void writeRegionInfo(std::ostream& of);
     void writeUnitSphereInfo(std::ostream& of);
 
@@ -311,6 +349,9 @@ namespace Go
     double maxdist_, avdist_;
     int num_inside_;
     std::set<RevEngRegion*> adjacent_regions_;
+    shared_ptr<ParamSurface> basesf_;
+    double maxdist_base_, avdist_base_;
+    int num_in_base_;
 
     bool visited_;
 
@@ -330,6 +371,8 @@ namespace Go
     shared_ptr<Cylinder> computeCylinder(double tol);
     shared_ptr<Cone> computeCone();
     shared_ptr<Torus> computeTorus(shared_ptr<Torus>& torus2);
+    shared_ptr<SplineSurface> computeFreeform(double tol);
+    void getPCA(double lambda[3], Point& eigen1, Point& eigen2, Point& eigen3);
     shared_ptr<SplineSurface> surfApprox(vector<RevEngPoint*>& points,
 					 const BoundingBox& bbox);
     void splitCylinderRad(const Point& pos, const Point& axis,
@@ -342,6 +385,11 @@ namespace Go
 			       double& maxd, double& avd,
 			       std::vector<RevEngPoint*>& in,
 			       std::vector<RevEngPoint*>& out);
+    void checkReplaceSurf(double tol);
+    void parameterizeOnSurf(shared_ptr<ParamSurface> surf,
+			    std::vector<double>& data,
+			    std::vector<double>& param,
+			    int& inner1, int& inner2);
   };
 }
 

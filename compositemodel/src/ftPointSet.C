@@ -180,6 +180,16 @@ double ftSamplePoint::pntDist(ftSamplePoint* other) const
 }
 
 //===========================================================================
+bool ftSamplePoint::isNeighbour(ftSamplePoint* other) const
+//===========================================================================
+{
+  for (size_t ki=0; ki<next_.size(); ++ki)
+    if (next_[ki] == other)
+      return true;
+  return false;
+}
+
+//===========================================================================
   void ftSamplePoint::getAttachedTriangles(vector<vector<int> >& triangles) const
 //===========================================================================
 {

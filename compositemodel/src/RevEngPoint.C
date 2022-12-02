@@ -117,7 +117,8 @@ double RevEngPoint::getMeanEdgLen()
 	  double currlen = xyz_.dist(next_[ki]->getPoint());
 	  len += currlen;
 	}
-      len /= (double)next_.size();
+      if (next_.size() > 0)
+	len /= (double)next_.size();
       avedglen_ = len;
     }
   return avedglen_;
@@ -138,7 +139,8 @@ double RevEngPoint::getMeanEdgLen(double maxlen)
 	  len += currlen;
       ++nmb;
     }
-  len /= (double)nmb;
+  if (nmb > 0)
+    len /= (double)nmb;
   return len;
 
 }
@@ -150,14 +152,18 @@ void RevEngPoint::computeTriangNormal(double lim)
   if (next_.size() == 0)
     return;
   double eps = 1.0e-10;
-  Vector3D vec1 = next_[next_.size()-1]->getPoint() - xyz_;
+  size_t prev = next_.size()-1;
+  Vector3D vec1 = next_[prev]->getPoint() - xyz_;
+
   size_t ki, kj;
-  for (ki=0, kj=0; ki<next_.size(); ++ki)
+  for (ki=0, kj=0; ki<next_.size(); prev=ki, ++ki)
     {
       Vector3D vec2 = next_[ki]->getPoint() - xyz_;
       Vector3D norm = vec1 % vec2;
-
-      if (vec1.length() <= lim && vec2.length() <= lim && norm.length() > eps)
+      bool neighbour = next_[ki]->isNeighbour(next_[prev]);
+  
+      if (neighbour && vec1.length() <= lim && vec2.length() <= lim &&
+	  norm.length() > eps)
 	{
 	  if (kj == 0)
 	    normalcone_.setFromArray(norm.begin(), norm.end(), 3);
@@ -403,6 +409,19 @@ void RevEngPoint::adjustWithTriangNorm(double anglim)
 }
 
 //===========================================================================
+bool RevEngPoint::isNeighbour(RevEngRegion* reg) const
+//===========================================================================
+{
+  for (size_t ki=0; ki<next_.size(); ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>(next_[ki]);
+      if (pt->region() == reg)
+	return true;
+    }
+  return false;
+}
+
+//===========================================================================
 void RevEngPoint::store(std::ostream& os) const
 //===========================================================================
 {
@@ -432,7 +451,8 @@ void RevEngPoint::read(std::istream& is, double eps, vector<int>& next_ix)
   is >> index_ >> xyz_;
   int nmb_next;
   is >> nmb_next;
-  next_ix.resize(nmb_next);
+  if (nmb_next > 0)
+    next_ix.resize(nmb_next);
   for (int ki=0; ki<nmb_next; ++ki)
     is >> next_ix[ki];
   is >> avedglen_ >> eigen1_ >> lambda1_ >> eigen2_ >> lambda2_;

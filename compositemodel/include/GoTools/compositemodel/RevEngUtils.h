@@ -70,6 +70,10 @@ namespace Go {
 					 int order2, int nmb_coef1, int nmb_coef2,
 					 double del=0.0);
 
+    void parameterizeWithPlane(std::vector<RevEngPoint*>& pnts, const BoundingBox& bbox,
+			       const Point& vec1, const Point& vec2,
+			       std::vector<double>& data, std::vector<double>& param);
+    
     void parameterizeWithPlane(std::vector<Point>& pnts, const BoundingBox& bbox,
 			       const Point& vec1, const Point& vec2,
 			       std::vector<double>& data, std::vector<double>& param);

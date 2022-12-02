@@ -104,9 +104,11 @@ namespace Go
     void addMongeInfo(Point& norm, Point& mincvec, double minc, Point& maxcvec,
 		      double maxc, double currdist, double avdist, double eps);
 
-    const Point& getTriangNormal()
+    Point getTriangNormal()
     {
-      return normalcone_.centre();
+      Point zero(0.0,0.0,0.0);
+      return normalcone_.greaterThanPi() ? zero :
+	      normalcone_.centre();
     }
 
     double getTriangAngle()
@@ -123,6 +125,11 @@ namespace Go
       return Mongenormal_;
     }
 
+    void turnMongeNorm()
+      {
+	Mongenormal_ *= -1;
+      }
+
     const Point& getPCAEigen1()
     {
       return eigen1_;
@@ -131,6 +138,12 @@ namespace Go
     const Point& getPCANormal()
     {
       return eigen3_;
+    }
+
+    void turnPCA()
+    {
+      eigen2_ *= -1;
+      eigen3_ *= -1;
     }
 
     Point fetchClosePoints(double radius, int min_nmb, int max_nmb,
@@ -365,6 +378,8 @@ namespace Go
       dist = sfdist_;
       ang = sfang_;
     }
+
+    bool isNeighbour(RevEngRegion* reg) const;
 
     void store(std::ostream& os) const;
     void read(std::istream& is, double eps, vector<int>& next_ix);
