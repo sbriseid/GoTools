@@ -58,15 +58,23 @@ namespace Go
 
   struct SurfaceProperties
   {
+    int sfix_;
     ClassType type_;
+    ClassType prev_type_;
     Point dir_, loc_;
     double rad1_, rad2_;
+    int num_points_;
 
-    SurfaceProperties(ClassType type, Point& dir, Point& loc, double rad1=-1, double rad2=-1)
+    SurfaceProperties(int ix, ClassType type, int num, Point& dir, Point& loc,
+		      ClassType prev_type=Class_Unknown, double rad1=-1,
+		      double rad2=-1)
     {
+      sfix_ = ix;
       type_ = type;
+      num_points_ = num;
       dir_ = dir;
       loc_ = loc;
+      prev_type_ = prev_type;
       rad1_ = rad1;
       rad2_ = rad2;
     }
@@ -92,9 +100,9 @@ namespace Go
 
       void recognizeElementary();
       
-      void recognizePlanes();
+      // void recognizePlanes();
       
-      void recognizeCylinders();
+      // void recognizeCylinders();
       
        void mergePlanes(size_t first, size_t last);
 
@@ -141,22 +149,42 @@ namespace Go
     void setClassificationParams();
     void growSurface(size_t& ix);
     void mergeSurfaces();
-    shared_ptr<HedgeSurface> doMerge(std::vector<size_t>& cand_ix);
+    void mergeSplineSurfaces();
+    shared_ptr<HedgeSurface> doMerge(std::vector<size_t>& cand_ix,
+				     std::vector<double>& cand_score,
+				     ClassType type);
+    shared_ptr<ParamSurface> approxMergeSet(std::vector<size_t>& cand_ix,
+					    std::vector<size_t>& select_ix,
+					    ClassType type);
+    
     shared_ptr<ParamSurface> doMergePlanes(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
 					   std::vector<RevEngPoint*>::iterator> > points,
 					   const BoundingBox& bbox,
-					   std::vector<int>& nmbpts);
+					   std::vector<int>& nmbpts,
+					   bool set_bound = true);
     shared_ptr<ParamSurface> doMergeCylinders(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
 					      std::vector<RevEngPoint*>::iterator> > points,
 					      const BoundingBox& bbox,
-					      std::vector<int>& nmbpts);
+					      std::vector<int>& nmbpts,
+					      bool set_bound = true);
     shared_ptr<ParamSurface> doMergeTorus(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
 					  std::vector<RevEngPoint*>::iterator> > points,
 					  const BoundingBox& bbox,
 					  std::vector<int>& nmbpts);
 
     void adaptToMainAxis();
+    void cylinderFit(std::vector<int>& sf_ix, Point normal);
+    
     void collectAxis(std::vector<SurfaceProperties>& sfprop);
+
+    shared_ptr<HedgeSurface> doMergeSpline(shared_ptr<HedgeSurface>& surf1,
+					   DirectionCone& cone1,
+					   shared_ptr<HedgeSurface>& surf2,
+					   DirectionCone& cone2);
+
+    double computeCylRadius(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+				std::vector<RevEngPoint*>::iterator> >& points,
+			    Point mid, Point vec1, Point vec2);
     
     void storeParams(std::ostream& os) const;
     void readParams(std::istream& is);

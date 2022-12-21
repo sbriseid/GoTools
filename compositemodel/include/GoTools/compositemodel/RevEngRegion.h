@@ -55,9 +55,11 @@ namespace Go
   class SplineCurve;
   class Plane;
   class Cylinder;
+  class Sphere;
   class Cone;
   class Torus;
   class SplneSurface;
+  
   enum
     {
      CLASSIFICATION_UNDEF, CLASSIFICATION_CURVATURE, CLASSIFICATION_SHAPEINDEX
@@ -134,8 +136,8 @@ namespace Go
     
     RevEngPoint* seedPoint();
     
-    void growLocal(RevEngPoint* seed, double tol, double radius, int min_close,
-		   std::vector<RevEngPoint*>& out);
+    // void growLocal(RevEngPoint* seed, double tol, double radius, int min_close,
+    // 		   std::vector<RevEngPoint*>& out);
 
     void growWithSurf(int max_nmb, double tol,
 		      std::vector<RevEngRegion*>& grown_regions,
@@ -153,6 +155,10 @@ namespace Go
      void joinRegions(double approx_tol, double anglim,
 		     std::vector<RevEngRegion*>& adapted_regions);
 
+    void extractOutPoints(std::vector<std::pair<double, double> >& dist_ang,
+			  double tol,
+			  std::vector<std::vector<RevEngPoint*> >& out_groups);
+    
    bool cylindertype()
     {
       if (classification_type_ == CLASSIFICATION_CURVATURE)
@@ -175,29 +181,45 @@ namespace Go
 	return false;
     }
     
-    bool extractPlane(double tol, int min_pt,
+    bool extractPlane(double tol, int min_pt, double angtol,
 		      std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		      std::vector<HedgeSurface*>& prevsfs,
+		      std::vector<std::vector<RevEngPoint*> >& out_groups,
 		      std::ostream& fileout);
 
-    bool extractCylinder(double tol, int min_pt, double mean_edge_len,
+    bool extractCylinder(double tol, int min_pt, double angtol,
+			 double mean_edge_len,
 			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 			 std::vector<HedgeSurface*>& prevsfs,
+			 std::vector<std::vector<RevEngPoint*> >& out_groups,
 			 std::ostream& fileout);
 
-    bool extractCone(double tol, int min_pt, double mean_edge_len,
+    bool extractSphere(double tol, int min_pt, double angtol,
+		       double mean_edge_len,
+		       std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+		       std::vector<HedgeSurface*>& prevsfs,
+		       std::vector<std::vector<RevEngPoint*> >& out_groups,
+		       std::ostream& fileout);
+
+    bool extractCone(double tol, int min_pt, double angtol,
+		     double mean_edge_len,
 		     std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		     std::vector<HedgeSurface*>& prevsfs,
+		     std::vector<std::vector<RevEngPoint*> >& out_groups,
 		     std::ostream& fileout);
 
-    bool extractTorus(double tol, int min_pt, double mean_edge_len,
+    bool extractTorus(double tol, int min_pt, double angtol,
+		      double mean_edge_len,
 		      std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		      std::vector<HedgeSurface*>& prevsfs,
+		      std::vector<std::vector<RevEngPoint*> >& out_groups,
 		      std::ostream& fileout);
 
-    bool extractFreeform(double tol, int min_pt, double mean_edge_len,
+    bool extractFreeform(double tol, int min_pt, double angtol,
+			 double mean_edge_len,
 			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 			 std::vector<HedgeSurface*>& prevsfs,
+			 std::vector<std::vector<RevEngPoint*> >& out_groups,
 			 std::ostream& fileout);
 
     void setHedge(HedgeSurface* surface)
@@ -330,6 +352,27 @@ namespace Go
       avd = avdist_base_;
       num_in = num_in_base_;
     }
+
+    bool hasEdgeBetween(RevEngRegion* adj);
+
+    bool hasPrimary()
+    {
+      return (primary_.get() != 0);
+    }
+
+    shared_ptr<ParamSurface> getPrimary()
+    {
+      return primary_;
+    }
+
+    void getPrimaryInfo(double& maxdist_primary,
+			double& avdist_primary, int& num_in_primary)
+    {
+      maxdist_primary = maxdist_primary_;
+      avdist_primary = avdist_primary_;
+      num_in_primary = num_in_primary_;
+    }
+      
     
     void writeRegionInfo(std::ostream& of);
     void writeUnitSphereInfo(std::ostream& of);
@@ -352,6 +395,9 @@ namespace Go
     shared_ptr<ParamSurface> basesf_;
     double maxdist_base_, avdist_base_;
     int num_in_base_;
+    shared_ptr<ParamSurface> primary_;
+    double maxdist_primary_, avdist_primary_;
+    int num_in_primary_;
 
     bool visited_;
 
@@ -367,10 +413,17 @@ namespace Go
 				   std::vector<RevEngPoint*> out);
     void  curveApprox(std::vector<Point>& points,
 		      shared_ptr<Circle> circle, shared_ptr<SplineCurve>& curve);
-    shared_ptr<Plane> computePlane();
-    shared_ptr<Cylinder> computeCylinder(double tol);
-    shared_ptr<Cone> computeCone();
-    shared_ptr<Torus> computeTorus(shared_ptr<Torus>& torus2);
+    void  curveApprox(std::vector<Point>& points,
+		      shared_ptr<ParamCurve> cvin,
+		      int ik, int in, 
+		      shared_ptr<SplineCurve>& curve);
+    shared_ptr<Plane> computePlane(std::vector<RevEngPoint*>& points);
+    shared_ptr<Cylinder> computeCylinder(std::vector<RevEngPoint*>& points,
+					 double tol);
+    shared_ptr<Sphere> computeSphere(std::vector<RevEngPoint*>& points);
+    shared_ptr<Cone> computeCone(std::vector<RevEngPoint*>& points);
+    shared_ptr<Torus> computeTorus(std::vector<RevEngPoint*>& points,
+				   shared_ptr<Torus>& torus2);
     shared_ptr<SplineSurface> computeFreeform(double tol);
     void getPCA(double lambda[3], Point& eigen1, Point& eigen2, Point& eigen3);
     shared_ptr<SplineSurface> surfApprox(vector<RevEngPoint*>& points,
@@ -386,10 +439,19 @@ namespace Go
 			       std::vector<RevEngPoint*>& in,
 			       std::vector<RevEngPoint*>& out);
     void checkReplaceSurf(double tol);
-    void parameterizeOnSurf(shared_ptr<ParamSurface> surf,
+    bool parameterizeOnSurf(shared_ptr<ParamSurface> surf,
 			    std::vector<double>& data,
 			    std::vector<double>& param,
 			    int& inner1, int& inner2);
+    void setPrimarySf(shared_ptr<ParamSurface> surf, double maxd, double avd,
+		      int num_in)
+    {
+      primary_ = surf;
+      maxdist_primary_ = maxd;
+      avdist_primary_ = avd;
+      num_in_primary_ = num_in;
+    }
+
   };
 }
 

@@ -59,6 +59,7 @@ HedgeSurface::HedgeSurface(shared_ptr<ParamSurface> sf, RevEngRegion *region)
 //===========================================================================
 {
   regions_.push_back(region);
+  bbox_ = region->boundingBox();
 }
 
 //===========================================================================
@@ -67,6 +68,12 @@ HedgeSurface::HedgeSurface(shared_ptr<ParamSurface> sf,
   : ftSurface(sf, -1), regions_(region)
 //===========================================================================
 {
+  if (region.size() > 0)
+    {
+      bbox_ = region[0]->boundingBox();
+      for (size_t ki=1; ki<region.size(); ++ki)
+	bbox_.addUnionWith(region[ki]->boundingBox());
+    }
 }
 
 //===========================================================================
@@ -103,14 +110,13 @@ ClassType HedgeSurface::instanceType(int& code)
 
 
 //===========================================================================
-bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double approx_tol)
+bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double approx_tol, ClassType& type, double& score)
 //===========================================================================
 {
-  int code1, code2;
-  int type1 = instanceType(code1);
-  int type2 = other->instanceType(code2);
-  if (type1 != type2 || code1 != code2)
-    return false;  // Not the same surface type
+  score = std::numeric_limits<double>::max();
+  int code1 = -1, code2 = -1;
+  ClassType type1 = instanceType(code1);
+  ClassType type2 = other->instanceType(code2);
 
   shared_ptr<ParamSurface> surf1 = surface();
   shared_ptr<ElementarySurface> psurf1 =
@@ -139,9 +145,70 @@ bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double appro
 	  psurf2 = dynamic_pointer_cast<ElementarySurface,ParamSurface>(surf2);
 	}
     }
+
+  if (!psurf1.get())
+    {
+      RevEngRegion *preg = 0;
+      int numpt = 0;
+      int nreg = numRegions();
+      for (int ka=0; ka<nreg; ++ka)
+	{
+	  RevEngRegion *reg =  getRegion(ka);
+	  if (reg->hasPrimary())
+	    {
+	      double maxdp, avdp;
+	      int num_inp;
+	      int curr_numpt = reg->numPoints();
+	      reg->getPrimaryInfo(maxdp, avdp, num_inp);
+	      if (avdp < approx_tol && num_inp > curr_numpt/2 && curr_numpt > numpt)
+		{
+		  preg = reg;
+		  numpt = curr_numpt;
+		}
+	    }
+	}
+      if (preg)
+	{
+	  psurf1 =
+	    dynamic_pointer_cast<ElementarySurface,ParamSurface>(preg->getPrimary());
+	  type1 = preg->getPrimary()->instanceType();
+	}
+    }
+  
+  if (!psurf2.get())
+    {
+      RevEngRegion *preg = 0;
+      int numpt = 0;
+      int nreg = other->numRegions();
+      for (int ka=0; ka<nreg; ++ka)
+	{
+	  RevEngRegion *reg =  other->getRegion(ka);
+	  if (reg->hasPrimary())
+	    {
+	      double maxdp, avdp;
+	      int num_inp;
+	      int curr_numpt = reg->numPoints();
+	      reg->getPrimaryInfo(maxdp, avdp, num_inp);
+	      if (avdp < approx_tol && num_inp > curr_numpt/2 && curr_numpt > numpt)
+		{
+		  preg = reg;
+		  numpt = curr_numpt;
+		}
+	    }
+	}
+      if (preg)
+	{
+	  psurf2 =
+	    dynamic_pointer_cast<ElementarySurface,ParamSurface>(preg->getPrimary());
+	  type2 = preg->getPrimary()->instanceType();
+	}
+    }
   
   if (!psurf1.get() || !psurf2.get())
     return false;
+  if (type1 != type2 || code1 != code2)
+    return false;  // Not the same surface type
+  type = type1;
 
   Point loc1 = psurf1->location();
   Point loc2 = psurf2->location();
@@ -163,7 +230,9 @@ bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double appro
   double eps = 1.0e-8;
   if (ang > anglim)
     return false;
-  if (fabs(rad2-rad1) > dlim && fabs(smallrad2-smallrad1) < eps)
+  // if (fabs(rad2-rad1) > dlim && fabs(smallrad2-smallrad1) < eps)
+  //   return false;
+  if (fabs(rad2-rad1) > std::min(rad1, rad2) && fabs(smallrad2-smallrad1) < eps)
     return false;
   else if (smallrad1 > 0.0 &&
 	   (rad1 < rad2-smallrad2 || rad1 > rad2+smallrad2 ||
@@ -178,19 +247,35 @@ bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double appro
       pdist1 = loc2.dist(loc2_0);
       pdist2 = loc1.dist(loc1_0);
       pdist1 = pdist2 = std::min(pdist1, pdist2);
+      if (pdist1 > 2.0*dlim || pdist2 > 2.0*dlim)    
+	return false;
     }
   else if (type1 == Class_Cylinder)
     {
       Point loc2_0 = loc1 + ((loc2-loc1)*vec1)*vec1;
       pdist1 = loc2.dist(loc2_0);
+      if (pdist1 + fabs(rad2-rad1) > std::min(rad1, rad2))
+      // if (pdist1 > dlim)
+	return false;
     }
   else if (type1 == Class_Torus)
     {
       pdist1 = loc1.dist(loc2);
+      if (pdist1 > 2.0*dlim || pdist2 > 2.0*dlim)    
+	return false;
     }
-  if (pdist1 > 2.0*dlim || pdist2 > 2.0*dlim)    
-    return false;
 
+  score = 10.0*ang + fabs(rad2-rad1) + fabs(smallrad2-smallrad1) +
+    pdist1 + pdist2;
   return true;
 }
 
+//===========================================================================
+bool HedgeSurface::hasPrimary()
+//===========================================================================
+{
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    if (regions_[ki]->hasPrimary())
+      return true;
+  return false;
+}

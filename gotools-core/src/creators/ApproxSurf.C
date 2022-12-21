@@ -649,7 +649,8 @@ int ApproxSurf::doApprox(int max_iter, int keep_init)
       if (maxdist_ < aepsge_)
 	break;
 
-      if (maxdist_ > prevdist_)
+      //if (maxdist_ > prevdist_)
+      if (avdist_ > prevav_)
 	{
 	  curr_srf_ = prev_srf_;
 	  maxdist_ = prevdist_;

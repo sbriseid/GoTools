@@ -56,6 +56,9 @@ namespace Go {
     void principalAnalysis(Point& curr, std::vector<Point>& points, 
 			   double lambda[3], double eigenvec[3][3]);
 
+    void principalAnalysis(std::vector<RevEngPoint*>& points, 
+			   double lambda[3], double eigenvec[3][3]);
+
     void TaubinCurvature(Point curr, std::vector<Point>& points,
 			 Point& tvec, Point& normal, Point& mincvec,
 			 double& minc, Point& maxcvec, double& maxc);
@@ -68,6 +71,11 @@ namespace Go {
     shared_ptr<SplineSurface> surfApprox(std::vector<double>& data, int dim,
 					 std::vector<double>& param, int order1,
 					 int order2, int nmb_coef1, int nmb_coef2,
+					 int max_iter, double tol, double& maxd, 
+					 double& avd, int& num_out, double del=0.0);
+    shared_ptr<SplineSurface> surfApprox(std::vector<double>& data, int dim,
+					 std::vector<double>& param, int order1,
+					 int order2, int nmb_coef1, int nmb_coef2,
 					 double del=0.0);
 
     void parameterizeWithPlane(std::vector<RevEngPoint*>& pnts, const BoundingBox& bbox,
@@ -77,12 +85,23 @@ namespace Go {
     void parameterizeWithPlane(std::vector<Point>& pnts, const BoundingBox& bbox,
 			       const Point& vec1, const Point& vec2,
 			       std::vector<double>& data, std::vector<double>& param);
-    void computeAxis(std::vector<Point>& points,
+    void parameterizeOnPrimary(std::vector<RevEngPoint*>& points,
+			       shared_ptr<ParamSurface> surf,
+			       std::vector<double>& data, 
+			       std::vector<double>& param,
+			       int& inner1, int& inner2);
+
+  void computeAxis(std::vector<Point>& points,
 		     Point& axis, Point& Cx, Point& Cy);
 
     void computeAxis(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
 		     std::vector<RevEngPoint*>::iterator> >& points,
 		     Point& axis, Point& Cx, Point& Cy);
+
+    void
+    computeSphereProp(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+		      std::vector<RevEngPoint*>::iterator> >& points,
+		      Point& centre, double& radius);
 
     void coneAxis(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
 		     std::vector<RevEngPoint*>::iterator> >& points,

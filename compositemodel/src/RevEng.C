@@ -44,6 +44,7 @@
 #include "GoTools/compositemodel/HedgeSurface.h"
 #include "GoTools/compositemodel/ImplicitApprox.h"
 #include "GoTools/utils/DirectionCone.h"
+#include "GoTools/utils/MatrixXD.h"
 #include "GoTools/geometry/Cylinder.h"
 #include "GoTools/geometry/Plane.h"
 #include "GoTools/geometry/Torus.h"
@@ -58,6 +59,7 @@ using std::pair;
 using std::istream;
 using std::ostream;
 
+typedef MatrixXD<double, 3> Matrix3D;
 
 #define MAX_COLORS 12
 int colors[MAX_COLORS][3] = {
@@ -861,32 +863,32 @@ void RevEng::growRegions(int classification_type)
      }
     }
   
-  bool thirdpass = false;
-  if (thirdpass)
-    {
-      // Third pass: Verify/update regions with surface approximation
-      std::ofstream of2("seed_points.g2");
-      for (size_t kr=0; kr<regions_.size(); ++kr)
-	{
-	  if (regions_[kr]->numPoints() < min_point_region_)
-	    break;
+  // bool thirdpass = false;
+  // if (thirdpass)
+  //   {
+  //     // Third pass: Verify/update regions with surface approximation
+  //     std::ofstream of2("seed_points.g2");
+  //     for (size_t kr=0; kr<regions_.size(); ++kr)
+  // 	{
+  // 	  if (regions_[kr]->numPoints() < min_point_region_)
+  // 	    break;
 
-	  // Fetch seed point
-	  RevEngPoint *seed = regions_[kr]->seedPoint();
-	  if (seed)
-	    {
-	      of2 << "400 1 0 4 255 0 0 255" << std::endl;
-	      of2 << "1" << std::endl;
-	      of2 << seed->getPoint() << std::endl;
-	    }
+  // 	  // Fetch seed point
+  // 	  RevEngPoint *seed = regions_[kr]->seedPoint();
+  // 	  if (seed)
+  // 	    {
+  // 	      of2 << "400 1 0 4 255 0 0 255" << std::endl;
+  // 	      of2 << "1" << std::endl;
+  // 	      of2 << seed->getPoint() << std::endl;
+  // 	    }
 
-	  vector<RevEngPoint*> outpts;
-	  double local_len = seed->getMeanEdgLen();
-	  double radius = 2.0*rfac_*local_len;
-	  int mnext = std::max(min_next_, regions_[kr]->numPoints()/100);
-	  regions_[kr]->growLocal(seed, approx_tol_, radius, mnext, outpts);
-	  int stop_break = 1;
-	}
+  // 	  vector<RevEngPoint*> outpts;
+  // 	  double local_len = seed->getMeanEdgLen();
+  // 	  double radius = 2.0*rfac_*local_len;
+  // 	  int mnext = std::max(min_next_, regions_[kr]->numPoints()/100);
+  // 	  regions_[kr]->growLocal(seed, approx_tol_, radius, mnext, outpts);
+  // 	  int stop_break = 1;
+  // 	}
   
       // Until all points are checked
 
@@ -902,7 +904,7 @@ void RevEng::growRegions(int classification_type)
       // Depends strongly on correct classification
 
       // Will leave unassigned points
-    }
+    // }
 
   // Sort regions according to number of points
   std::sort(regions_.begin(), regions_.end(), sort_region);
@@ -1115,11 +1117,13 @@ void RevEng::recognizeElementary()
 {
   std::ofstream planeout("plane.g2");
   std::ofstream cylout("cylinder.g2");
+  std::ofstream sphout("sphere.g2");
   std::ofstream coneout("cone.g2");
   std::ofstream torout("torus.g2");
   std::ofstream splout("spline.g2");
   double frac = 0.75;   // Fraction of points with a certain property
   double angfac = 10.0;
+  double angtol = -1; //angfac*anglim_;
   
   min_point_region_ = 200;  // Testing
   int min_point_in = 20;
@@ -1127,20 +1131,30 @@ void RevEng::recognizeElementary()
     {
       if (regions_[ki]->numPoints() < min_point_region_)
 	continue;
+      int classtype = regions_[ki]->getClassification();
       
       std::ofstream of1("region.g2");
       regions_[ki]->writeRegionInfo(of1);
       std::ofstream of2("unitsphere.g2");
       regions_[ki]->writeUnitSphereInfo(of2);
 
-      bool found1 = false, found2 = false, found3 = false, found4 = false, found5 = false;
+      bool found1 = false, found2 = false, found3 = false, found4 = false;
+      bool found5 = false, found6 = false;
       if (true) //regions_[ki]->possiblePlane(2.0*angfac*anglim_, frac))
       {
 	vector<shared_ptr<HedgeSurface> > plane_sfs;
 	vector<HedgeSurface*> prev_surfs;
-	found1 = regions_[ki]->extractPlane(approx_tol_, min_point_in,
-					    plane_sfs, prev_surfs, planeout);
-      
+	vector<vector<RevEngPoint*> > out_groups;
+	found1 = regions_[ki]->extractPlane(approx_tol_, angtol, min_point_in,
+					    plane_sfs, prev_surfs, out_groups,
+					    planeout);
+
+	for (size_t kr=0; kr<out_groups.size(); ++kr)
+	  {
+	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  out_groups[kr]));
+	    regions_.push_back(reg);
+	  }	  
 	for (size_t kr=0; kr<prev_surfs.size(); ++kr)
 	  {
 	    size_t kj;
@@ -1156,14 +1170,22 @@ void RevEng::recognizeElementary()
 
       
       if (true) //regions_[ki]->possibleCylinder(angfac*anglim_, frac))
-	 {
-	   vector<shared_ptr<HedgeSurface> > cyl_sfs;
-	   vector<HedgeSurface*> prev_surfs;
+	{
+	  vector<shared_ptr<HedgeSurface> > cyl_sfs;
+	  vector<HedgeSurface*> prev_surfs;
+	  vector<vector<RevEngPoint*> > out_groups;
 	   found2 = regions_[ki]->extractCylinder(approx_tol_, min_point_in,
-						  mean_edge_len_, cyl_sfs, prev_surfs,
-						  cylout);
+						  angtol, mean_edge_len_,
+						  cyl_sfs, prev_surfs,
+						  out_groups, cylout);
 
       
+	for (size_t kr=0; kr<out_groups.size(); ++kr)
+	  {
+	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  out_groups[kr]));
+	    regions_.push_back(reg);
+	  }	  
 	   for (size_t kr=0; kr<prev_surfs.size(); ++kr)
 	     {
 	       size_t kj;
@@ -1178,15 +1200,54 @@ void RevEng::recognizeElementary()
 	 }
 
        
+      if (true) //regions_[ki]->possibleSphere(angfac*anglim_, frac))
+	 {
+	   vector<shared_ptr<HedgeSurface> > sph_sfs;
+	   vector<HedgeSurface*> prev_surfs;
+	  vector<vector<RevEngPoint*> > out_groups;
+	   found3 = regions_[ki]->extractSphere(approx_tol_, min_point_in,
+						angtol, mean_edge_len_,
+						sph_sfs, prev_surfs,
+						out_groups, sphout);
+
+      
+	for (size_t kr=0; kr<out_groups.size(); ++kr)
+	  {
+	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  out_groups[kr]));
+	    regions_.push_back(reg);
+	  }	  
+	   for (size_t kr=0; kr<prev_surfs.size(); ++kr)
+	     {
+	       size_t kj;
+	       for (kj=0; kj<surfaces_.size(); ++kj)
+		 if (surfaces_[kj].get() == prev_surfs[kr])
+		   break;
+	       if (kj < surfaces_.size())
+		 surfaces_.erase(surfaces_.begin()+kj);
+	     }
+	   if (sph_sfs.size() > 0)
+	     surfaces_.insert(surfaces_.end(), sph_sfs.begin(), sph_sfs.end());
+	 }
+
+       
       if (regions_[ki]->possibleCone(angfac*anglim_, frac))
 	 {
 	   vector<shared_ptr<HedgeSurface> > cone_sfs;
 	   vector<HedgeSurface*> prev_surfs;
-	   found3 = regions_[ki]->extractCone(approx_tol_, min_point_in,
-					      mean_edge_len_, cone_sfs, prev_surfs,
-					      coneout);
+	  vector<vector<RevEngPoint*> > out_groups;
+	   found4 = regions_[ki]->extractCone(approx_tol_, min_point_in,
+					      angtol, mean_edge_len_,
+					      cone_sfs, prev_surfs,
+					      out_groups, coneout);
 
       
+	for (size_t kr=0; kr<out_groups.size(); ++kr)
+	  {
+	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  out_groups[kr]));
+	    regions_.push_back(reg);
+	  }	  
 	   for (size_t kr=0; kr<prev_surfs.size(); ++kr)
 	     {
 	       size_t kj;
@@ -1205,10 +1266,18 @@ void RevEng::recognizeElementary()
 	{
 	  vector<shared_ptr<HedgeSurface> > tor_sfs;
 	  vector<HedgeSurface*> prev_surfs;
-	  found4 = regions_[ki]->extractTorus(approx_tol_, min_point_in,
-					      mean_edge_len_, tor_sfs, prev_surfs,
-					      torout);
+	  vector<vector<RevEngPoint*> > out_groups;
+	  found5 = regions_[ki]->extractTorus(approx_tol_, min_point_in,
+					      angtol, mean_edge_len_,
+					      tor_sfs, prev_surfs,
+					      out_groups, torout);
 
+	for (size_t kr=0; kr<out_groups.size(); ++kr)
+	  {
+	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  out_groups[kr]));
+	    regions_.push_back(reg);
+	  }	  
 	  for (size_t kr=0; kr<prev_surfs.size(); ++kr)
 	     {
 	       size_t kj;
@@ -1226,10 +1295,18 @@ void RevEng::recognizeElementary()
 	 {
 	  vector<shared_ptr<HedgeSurface> > spl_sfs;
 	  vector<HedgeSurface*> prev_surfs;
-	  found5 = regions_[ki]->extractFreeform(approx_tol_, min_point_in,
-						 mean_edge_len_, spl_sfs, prev_surfs,
-						 splout);
+	  vector<vector<RevEngPoint*> > out_groups;
+	  found6 = regions_[ki]->extractFreeform(approx_tol_, min_point_in,
+						 angtol, mean_edge_len_,
+						 spl_sfs, prev_surfs,
+						 out_groups, splout);
 
+	for (size_t kr=0; kr<out_groups.size(); ++kr)
+	  {
+	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  out_groups[kr]));
+	    regions_.push_back(reg);
+	  }	  
 	  for (size_t kr=0; kr<prev_surfs.size(); ++kr)
 	     {
 	       size_t kj;
@@ -1241,6 +1318,12 @@ void RevEng::recognizeElementary()
 	     }
 	   if (spl_sfs.size() > 0)
 	     surfaces_.insert(surfaces_.end(), spl_sfs.begin(), spl_sfs.end());
+	 }
+
+       if ((!found1) && (!found2) && (!found3) && (!found4) &&
+	   (!found5) && (!found6))
+	 {
+	   int stop_no_surf = 1;
 	 }
        
       if (regions_[ki]->hasDivideInfo())
@@ -1446,6 +1529,20 @@ void RevEng::recognizeElementary()
   mergeSurfaces();
   std::cout << "Post merge: " << surfaces_.size() << " surfaces" << std::endl;
 
+  // Update adjacency between regions
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->clearRegionAdjacency();
+    }
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->setRegionAdjacency();
+    }
+
+  std::cout << "Pre merge2: " << surfaces_.size() << " surfaces" << std::endl;
+  mergeSplineSurfaces();
+  std::cout << "Post merge2: " << surfaces_.size() << " surfaces" << std::endl;
+
   adaptToMainAxis();
   int stop_break = 1;
 }
@@ -1547,15 +1644,34 @@ void RevEng::mergeSurfaces()
       
       // Identify possible merge candidates
       vector<size_t> cand_ix;
+      vector<double> cand_score;
       cand_ix.push_back(ki);
+      cand_score.push_back(0.0);
+      ClassType type;
       for (size_t kj=ki+1; kj<surfaces_.size(); ++kj)
 	{
-	  if (surfaces_[ki]->isCompatible(surfaces_[kj].get(), anglim_, approx_tol_))
-	    cand_ix.push_back(kj);
+	  double score;
+	  if (surfaces_[ki]->isCompatible(surfaces_[kj].get(), anglim_,
+					  approx_tol_, type, score))
+	    {
+	      cand_ix.push_back(kj);
+	      cand_score.push_back(score);
+	    }
 	}
 
      if (cand_ix.size() > 1)
 	{
+	  // Sort accorading to compability
+	  for (size_t kr=1; kr<cand_ix.size(); ++kr)
+	    for (size_t kh=kr+1; kh<cand_ix.size(); ++kh)
+	      {
+		if (cand_score[kh] < cand_score[kr])
+		  {
+		    std::swap(cand_ix[kr], cand_ix[kh]);
+		    std::swap(cand_score[kr], cand_score[kh]);
+		  }
+	      }
+	  
 	  std::ofstream pre("pre_merge.g2");
 	  for (size_t kr=0; kr<cand_ix.size(); ++kr)
 	    {
@@ -1563,7 +1679,8 @@ void RevEng::mergeSurfaces()
 	      surf->writeStandardHeader(pre);
 	      surf->write(pre);
 	    }
-	  shared_ptr<HedgeSurface> merged_surf = doMerge(cand_ix);
+	  shared_ptr<HedgeSurface> merged_surf = doMerge(cand_ix, cand_score,
+							 type);
 	  if (merged_surf.get())
 	    {
 	      std::ofstream post("post_merge.g2");
@@ -1592,7 +1709,8 @@ void RevEng::mergeSurfaces()
 		    }
 		}
 	     
-		  
+
+	      std::sort(cand_ix.begin(), cand_ix.end());
 	      std::swap(surfaces_[cand_ix[0]], merged_surf);
 	      if (cand_ix[0] > ki)
 		std::swap(surfaces_[ki], surfaces_[cand_ix[0]]);
@@ -1607,6 +1725,7 @@ void RevEng::mergeSurfaces()
   std::ofstream of1("surfs1.g2");
   shared_ptr<std::ofstream> ofp(new std::ofstream("planes_2.g2"));
   shared_ptr<std::ofstream> ofc1(new std::ofstream("cylinders_2.g2"));
+  shared_ptr<std::ofstream> of0(new std::ofstream("spheres_2.g2"));
   shared_ptr<std::ofstream> ofc2(new std::ofstream("cones_2.g2"));
   shared_ptr<std::ofstream> oft(new std::ofstream("tori_2.g2"));
   shared_ptr<std::ofstream> ofsp(new std::ofstream("spline_2.g2"));
@@ -1617,7 +1736,9 @@ void RevEng::mergeSurfaces()
 	ofs = ofp;
       else if (surfaces_[ki]->isCylinder())
 	ofs = ofc1;
-      else if (surfaces_[ki]->isCone())
+       else if (surfaces_[ki]->isSphere())
+	ofs = of0;
+     else if (surfaces_[ki]->isCone())
 	ofs = ofc2;
       else if (surfaces_[ki]->isTorus())
 	ofs = oft;
@@ -1626,8 +1747,11 @@ void RevEng::mergeSurfaces()
       shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
       surf->writeStandardHeader(of1);
       surf->write(of1);
-      surf->writeStandardHeader(*ofs);
-      surf->write(*ofs);
+      if (ofs.get())
+	{
+	  surf->writeStandardHeader(*ofs);
+	  surf->write(*ofs);
+	}
       
       int nreg = surfaces_[ki]->numRegions();
       int nmb = 0;
@@ -1656,409 +1780,993 @@ void RevEng::mergeSurfaces()
 }
 
 //===========================================================================
-shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix)
+void RevEng::mergeSplineSurfaces()
+//===========================================================================
+{
+  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+    {
+      int code1;
+      int type1 = surfaces_[ki]->instanceType(code1);
+      if (type1 != Class_SplineSurface)
+	continue;
+      
+      std::ofstream ofn("surfsn.g2");
+      for (size_t kh=0; kh<surfaces_.size(); ++kh)
+	{
+	  shared_ptr<ParamSurface> surf = surfaces_[kh]->surface();
+	  surf->writeStandardHeader(ofn);
+	  surf->write(ofn);
+	}
+
+      vector<RevEngRegion*> regions1 = surfaces_[ki]->getRegions();
+      DirectionCone cone1 = surfaces_[ki]->surface()->normalCone();
+      
+      // Identify possible merge candidates
+      for (size_t kj=ki+1; kj<surfaces_.size(); ++kj)
+	{
+	  int code2;
+	  int type2 = surfaces_[kj]->instanceType(code2);
+	  if (type2 != Class_SplineSurface)
+	    continue;
+
+	  // Check adjacency
+	  vector<RevEngRegion*> regions2 = surfaces_[kj]->getRegions();
+	  DirectionCone cone2 = surfaces_[kj]->surface()->normalCone();
+	  DirectionCone cone3 = cone2;
+	  cone3.addUnionWith(cone1);
+	  // if (cone3.greaterThanPi())
+	  //   continue;
+	  bool can_merge = false;
+	  int num_edge_between = 0;
+	  for (size_t kr=0; kr<regions1.size(); ++kr)
+	    for (size_t kh=0; kh<regions2.size(); ++kh)
+	      {
+		bool adjacent = regions1[kr]->hasAdjacentRegion(regions2[kh]);
+		if (adjacent)
+		  {
+		    can_merge = true;
+		    bool edge_between =
+		      regions1[kr]->hasEdgeBetween(regions2[kh]);
+		    if (edge_between)
+		      ++num_edge_between;
+		    int stop_break = 1;
+		  }
+	      }
+	  if (can_merge && num_edge_between == 0)
+	    {
+	      std::ofstream pre("pre_merge_spline.g2");
+	      shared_ptr<ParamSurface> surf1 = surfaces_[ki]->surface();
+	      surf1->writeStandardHeader(pre);
+	      surf1->write(pre);
+	      shared_ptr<ParamSurface> surf2 = surfaces_[kj]->surface();
+	      surf2->writeStandardHeader(pre);
+	      surf2->write(pre);
+
+	      shared_ptr<HedgeSurface> merged =
+		doMergeSpline(surfaces_[ki], cone1, surfaces_[kj], cone2);
+	      if (merged)
+		{
+		  std::ofstream post("post_merge_spline.g2");
+		  shared_ptr<ParamSurface> surfm = merged->surface();
+		  surfm->writeStandardHeader(post);
+		  surfm->write(post);
+		  int nreg = merged->numRegions();
+		  for (int ka=0; ka<nreg; ++ka)
+		    {
+		      RevEngRegion *reg =  merged->getRegion(ka);
+		      int nmb = reg->numPoints();
+		      post << "400 1 0 4 255 0 0 255" << std::endl;
+		      post << nmb << std::endl;
+		      for (int kb=0; kb<nmb; ++kb)
+			{
+			  post << reg->getPoint(kb)->getPoint() << std::endl;
+			}
+		    }
+		  std::swap(surfaces_[ki], merged);
+		  surfaces_.erase(surfaces_.begin()+kj);
+		  kj--;
+		}
+	      int stop_break2 = 1;
+	    }
+	}
+    }
+  std::ofstream of1("surfs2.g2");
+  std::ofstream of1n("surfs2n.g2");
+  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+    {
+      shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
+      surf->writeStandardHeader(of1);
+      surf->write(of1);
+      surf->writeStandardHeader(of1n);
+      surf->write(of1n);
+      int nreg = surfaces_[ki]->numRegions();
+      int nmb = 0;
+      for (int ka=0; ka<nreg; ++ka)
+	{
+	  RevEngRegion *reg =  surfaces_[ki]->getRegion(ka);
+	  nmb += reg->numPoints();
+	}
+      of1 << "400 1 0 4 255 0 0 255" << std::endl;
+      of1 << nmb << std::endl;
+      for (int ka=0; ka<nreg; ++ka)
+	{
+	  RevEngRegion *reg =  surfaces_[ki]->getRegion(ka);
+	  int nmb2 = reg->numPoints();;
+	  for (int kb=0; kb<nmb2; ++kb)
+	    {
+	      of1 << reg->getPoint(kb)->getPoint() << std::endl;
+	    }
+	}
+    }
+}
+
+// //===========================================================================
+// shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
+// 					 vector<double>& cand_score,
+// 					 ClassType type)
+// //===========================================================================
+// {
+//   size_t candsize = cand_ix.size();
+//   shared_ptr<HedgeSurface> merged_surf;
+//   double delscore = (cand_score[candsize-1]-cand_score[0])/(double)(candsize-1);
+
+//   std::ofstream ofp("all_merge_points.g2");
+
+//   // Collect regions and point clouds
+//   vector<RevEngRegion*> regions;
+//   vector<pair<vector<RevEngPoint*>::iterator,
+// 	      vector<RevEngPoint*>::iterator> > points;
+//   BoundingBox bbox(3);
+//   vector<int> nmbpts;
+//   vector<int> nmbreg;
+//   for (size_t ki=0; ki<cand_ix.size(); ++ki)
+//     {
+//       HedgeSurface* surf = surfaces_[cand_ix[ki]].get();
+//       vector<RevEngRegion*> reg = surf->getRegions();
+//       regions.insert(regions.end(), reg.begin(), reg.end());
+//       nmbreg.push_back((int)reg.size());
+//       for (size_t kj=0; kj<reg.size(); ++kj)
+// 	{
+// 	  nmbpts.push_back(reg[kj]->numPoints());
+// 	  points.push_back(std::make_pair(reg[kj]->pointsBegin(),
+// 					  reg[kj]->pointsEnd()));
+// 	  bbox.addUnionWith(reg[kj]->boundingBox());
+// 	  ofp << "400 1 0 0" << std::endl;
+// 	  int npt = reg[kj]->numPoints();
+// 	  ofp << npt << std::endl;
+// 	  for (int ka=0; ka<npt; ++ka)
+// 	    ofp << reg[kj]->getPoint(ka)->getPoint() << std::endl;
+// 	}
+//     }
+
+//   for (size_t kh=0; kh<cand_ix.size(); ++kh)
+//     {
+//       // Extract appropriate point clouds
+//       vector<pair<vector<RevEngPoint*>::iterator,
+// 		  vector<RevEngPoint*>::iterator> > curr_points;
+//       vector<int> curr_nmbpts;
+//       size_t ki, kj, kr;
+//       for (ki=0, kr=0; ki<cand_ix.size(); ++ki)
+// 	{
+// 	  if (ki > 0 && cand_score[ki]-cand_score[ki-1] > delscore)
+// 	    break;
+// 	  for (kj=0; kj<nmbreg[ki]; ++kj, ++kr)
+// 	    {
+// 	      curr_points.push_back(points[kr]);
+// 	      curr_nmbpts.push_back(nmbpts[kr]);
+// 	    }
+// 	}
+//       size_t appn = ki;
+      
+//       // Try merge current candidate set
+//       // Distinguish between the different surface types
+//       shared_ptr<ParamSurface> surf;
+//       if (type == Class_Plane)
+// 	{
+// 	  surf = doMergePlanes(curr_points, bbox, curr_nmbpts);
+// 	}
+//       else if (type == Class_Cylinder)
+// 	{
+// 	  surf = doMergeCylinders(curr_points, bbox, curr_nmbpts);
+// 	}
+//       else if (type == Class_Torus)
+// 	{
+// 	  surf = doMergeTorus(curr_points, bbox, curr_nmbpts);
+// 	}
+//       if (!surf.get())
+// 	return merged_surf;
+
+//       std::ofstream of0("merge_surface.g2");
+//       surf->writeStandardHeader(of0);
+//       surf->write(of0);
+
+//       // Check accuracy
+//       double dfac = 5.0;
+//       std::ofstream of1("regions_merge.g2");
+//       std::ofstream of2("in_out_merge.g2");
+//       vector<vector<RevEngPoint*> > all_in;
+//       double all_maxd = 0.0, all_avd = 0.0;
+//       int all_inside = 0;
+//       for (ki=0, kr=0; ki<cand_ix.size(); ++ki)
+// 	{
+// 	  for (kj=0; kj<nmbreg[ki]; ++kj, ++kr)
+// 	    {
+// 	      regions[kr]->writeRegionInfo(of1);
+	      
+// 	      double maxd, avd;
+// 	      int num2;
+// 	      vector<RevEngPoint*> in, out;
+// 	      vector<pair<double,double> > distang;
+// 	      RevEngUtils::distToSurf(points[kr].first, points[kr].second,
+// 				      surf, approx_tol_, maxd, avd, num2, 
+// 				      in, out, distang);
+
+// 	      of2 << "400 1 0 4 155 50 50 255" << std::endl;
+// 	      of2 << in.size() << std::endl;
+// 	      for (size_t kn=0; kn<in.size(); ++kn)
+// 		of2 << in[kn]->getPoint() << std::endl;
+// 	      of2 << "400 1 0 4 50 155 50 255" << std::endl;
+// 	      of2 << out.size() << std::endl;
+// 	      for (size_t kn=0; kn<out.size(); ++kn)
+// 		of2 << out[kn]->getPoint() << std::endl;
+	  
+// 	      double maxd_init, avd_init;
+// 	      int num2_init;
+// 	      regions[kr]->getAccuracy(maxd_init, avd_init, num2_init);
+// 	      int num = regions[kr]->numPoints();
+
+// 	      if (num2 < num/2 || avd > approx_tol_)
+// 		{
+// 		  if (ki < appn)
+// 		    {
+// 		      cand_ix.erase(cand_ix.begin() + ki);
+// 		      cand_score.erase(cand_score.begin() + ki);
+
+// 		      for ()
+// 			{
+// 			  regions.erase(regions.begin()+ki);
+// 			  points.erase(points.begin()+ki);
+// 			  nmbpts.erase(nmbpts.begin()+ki);
+// 			}
+// 		    }
+// 		  else
+// 		    {
+// 		    }
+// 		}
+// 	      else
+// 		{
+// 		  all_in.push_back(in);
+// 		  all_maxd = std::max(all_maxd, maxd);
+// 		  all_avd += num*avd;
+// 		  all_inside += num2;
+// 		  ++ki;
+// 		}
+// 	  int stop_break = 1;
+// 	}
+//       if (cand_ix.size() <= 1)
+// 	break;
+//       candsize = cand_ix.size();
+//     }
+//   if (cand_ix.size() == candsize)
+//     {
+//       merged_surf =
+// 	shared_ptr<HedgeSurface>(new HedgeSurface(surf, regions));
+//       for (size_t kj=0; kj<regions.size(); ++kj)
+// 	regions[kj]->setHedge(merged_surf.get());
+//     }
+
+//   return merged_surf;
+// }
+
+//===========================================================================
+shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
+					 vector<double>& cand_score,
+					 ClassType type)
 //===========================================================================
 {
   size_t candsize = cand_ix.size();
   shared_ptr<HedgeSurface> merged_surf;
+  if (cand_ix.size() <= 1)
+    return merged_surf;
+  double delscore = 2.0*(cand_score[1]-cand_score[0]);
 
-  std::ofstream ofp("all_merge_points.g2");
-  for (size_t kh=0; kh<cand_ix.size(); ++kh)
+  vector<size_t> select_ix;
+  select_ix.push_back(0);
+  for (size_t ki=1; ki<cand_ix.size(); ++ki)
     {
-      // Try merge current candidate set
-      // Collect regions and point clouds
-      vector<RevEngRegion*> regions;
-      vector<pair<vector<RevEngPoint*>::iterator,
-		  vector<RevEngPoint*>::iterator> > points;
-      BoundingBox bbox(3);
-      vector<int> nmbpts;
-      for (size_t ki=0; ki<cand_ix.size(); ++ki)
-	{
-	  HedgeSurface* surf = surfaces_[cand_ix[ki]].get();
-	  vector<RevEngRegion*> reg = surf->getRegions();
-	  regions.insert(regions.end(), reg.begin(), reg.end());
-	  for (size_t kj=0; kj<reg.size(); ++kj)
-	    {
-	      nmbpts.push_back(reg[kj]->numPoints());
-	      points.push_back(std::make_pair(reg[kj]->pointsBegin(),
-					      reg[kj]->pointsEnd()));
-	      bbox.addUnionWith(reg[kj]->boundingBox());
-	      ofp << "400 1 0 0" << std::endl;
-	      int npt = reg[kj]->numPoints();
-	      ofp << npt << std::endl;
-	      for (int ka=0; ka<npt; ++ka)
-		ofp << reg[kj]->getPoint(ka)->getPoint() << std::endl;
-	    }
-	}
+      if (cand_score[ki]-cand_score[ki-1] > delscore)
+	break;
+      select_ix.push_back(ki);
+    }
+  size_t init_select = select_ix.size();
 
-      // Distinguish between the different surface types
-      shared_ptr<ParamSurface> surf;
-      if (surfaces_[cand_ix[kh]]->isPlane())
-	{
-	  surf = doMergePlanes(points, bbox, nmbpts);
-	}
-      else if (surfaces_[cand_ix[kh]]->isCylinder())
-	{
-	  surf = doMergeCylinders(points, bbox, nmbpts);
-	}
-      else if (surfaces_[cand_ix[kh]]->isTorus())
-	{
-	  surf = doMergeTorus(points, bbox, nmbpts);
-	}
+  shared_ptr<ParamSurface> prev_surf, surf;
+  vector<vector<RevEngPoint*> > all_in, all_in2;
+  BoundingBox bbox(3);
+  double avd_all = 0.0, maxd_all = 0.0;
+  int num_in_all = 0, num_all = 0, num_all2 = 0;
+  vector<RevEngRegion*> regions, regions2;
+  double tolfac = 2.0;
+  for (size_t kh=0; kh<init_select; ++kh)
+    {
+      surf = approxMergeSet(cand_ix, select_ix, type);
       if (!surf.get())
-	return merged_surf;
+	break;
 
-      std::ofstream of0("merge_surface.g2");
-      surf->writeStandardHeader(of0);
-      surf->write(of0);
-
-      // Check accuracy
-      double dfac = 5.0;
-      std::ofstream of1("regions_merge.g2");
+      std::ofstream of1("merge_sf.g2");
       std::ofstream of2("in_out_merge.g2");
-      for (size_t ki=0; ki<regions.size(); )
+      surf->writeStandardHeader(of1);
+      surf->write(of1);
+      
+      // Test accuracy
+      all_in.clear();
+      regions.clear();
+      all_in2.clear();
+      regions2.clear();
+      num_in_all = num_all = num_all2 = 0;
+       vector<size_t> select_ix2;
+      BoundingBox bb(3);
+      size_t ki, kj;
+      for (ki=0; ki<cand_ix.size(); ++ki)
 	{
-	  regions[ki]->writeRegionInfo(of1);
-	  double maxd, avd;
-	  int num2;
+	  HedgeSurface* hsurf = surfaces_[cand_ix[ki]].get();
+	  vector<RevEngRegion*> reg = hsurf->getRegions();
 	  vector<RevEngPoint*> in, out;
 	  vector<pair<double,double> > distang;
-	  RevEngUtils::distToSurf(points[ki].first, points[ki].second,
-				  surf, approx_tol_, maxd, avd, num2, in, out,
-				  distang);
-
-	  of2 << "400 1 0 4 155 50 50 255" << std::endl;
-	  of2 << in.size() << std::endl;
-	  for (size_t kr=0; kr<in.size(); ++kr)
-	    of2 << in[kr]->getPoint() << std::endl;
-	  of2 << "400 1 0 4 50 155 50 255" << std::endl;
-	  of2 << out.size() << std::endl;
-	  for (size_t kr=0; kr<out.size(); ++kr)
-	    of2 << out[kr]->getPoint() << std::endl;
-	  
-	  double maxd_init, avd_init;
-	  int num2_init;
-	  regions[ki]->getAccuracy(maxd_init, avd_init, num2_init);
-	  int num = regions[ki]->numPoints();
-
-	  if (num2 < num/2 /*|| maxd > dfac*maxd_init || avd > dfac*avd_init */
-	      || avd > approx_tol_)
+	  double avd_sf = 0.0, maxd_sf = 0.0;
+	  int num_in_sf = 0, num_sf = hsurf->numPoints();
+	  for (kj=0; kj<reg.size(); ++kj)
 	    {
-	      size_t kj, kr;
-	      for (kj=0; kj<cand_ix.size(); ++kj)
-		{
-		  HedgeSurface* surf = surfaces_[cand_ix[kj]].get();
-		  vector<RevEngRegion*> reg = surf->getRegions();
-		  for (kr=0; kr<reg.size(); ++kr)
-		    if (reg[kr] == regions[ki])
-		      break;
-		  if (kr < reg.size())
-		    break;
-		}
-	      if (kj < cand_ix.size())
-		cand_ix.erase(cand_ix.begin() + kj);
-	      regions.erase(regions.begin()+ki);
-	      points.erase(points.begin()+ki);
-	      nmbpts.erase(nmbpts.begin()+ki);
+ 	      double maxd, avd;
+	      int num_in;
+	      int num = reg[kj]->numPoints();
+	      RevEngUtils::distToSurf(reg[kj]->pointsBegin(),
+				      reg[kj]->pointsEnd(),
+				      surf, approx_tol_, maxd, avd, num_in, 
+				      in, out, distang);
+	      maxd_sf = std::max(maxd_sf, maxd);
+	      avd_sf += num*avd/(double)num_sf;
+	      num_in_sf += num_in;
 	    }
-	  else
-	    ++ki;
-	  int stop_break = 1;
+	    of2 << "400 1 0 4 155 50 50 255" << std::endl;
+	    of2 << in.size() << std::endl;
+	    for (size_t kn=0; kn<in.size(); ++kn)
+	      of2 << in[kn]->getPoint() << std::endl;
+	    of2 << "400 1 0 4 50 155 50 255" << std::endl;
+	    of2 << out.size() << std::endl;
+	    for (size_t kn=0; kn<out.size(); ++kn)
+	      of2 << out[kn]->getPoint() << std::endl;
+
+	    if (num_in_sf > num_sf/2 && avd_sf < approx_tol_)
+	      {
+		all_in.push_back(in);
+		select_ix2.push_back(ki);
+		bb.addUnionWith(hsurf->regionsBox());
+		avd_all += num_sf*avd_sf;
+		maxd_all = std::max(maxd_all, maxd_sf);
+		num_in_all += num_in_sf;
+		num_all += num_sf;
+		regions.insert(regions.end(), reg.begin(), reg.end());
+	      }
+	    else
+	      {
+		if (num_in_sf > num_sf/2 && avd_sf < tolfac*approx_tol_)
+		  {
+		    all_in2.push_back(in);
+		    regions2.insert(regions2.end(), reg.begin(), reg.end());
+		    num_all2 += num_sf;
+		  }
+		if (ki < init_select)
+		  init_select--;
+		else
+		  break;
+	      }
 	}
-      if (cand_ix.size() <= 1)
+      
+      avd_all /= (double)num_all;
+      bbox = bb;
+      if (select_ix == select_ix2)
 	break;
-      if (cand_ix.size() == candsize)
-	{
-	  merged_surf =
-	    shared_ptr<HedgeSurface>(new HedgeSurface(surf, regions));
-	  for (size_t kj=0; kj<regions.size(); ++kj)
-	    regions[kj]->setHedge(merged_surf.get());
-	  break;
-	}
-      candsize = cand_ix.size();
+      select_ix = select_ix2;
+      
+      if (ki < cand_ix.size())
+	break;
+      prev_surf = surf;
+    }
+  
+  for (size_t ki=0; ki<cand_ix.size(); )
+    {
+      vector<size_t>::iterator found =
+	std::find(select_ix.begin(), select_ix.end(), ki);
+      if (found == select_ix.end())
+	cand_ix.erase(cand_ix.begin()+ki);
+      else
+	++ki;
     }
 
+  if (all_in.size() + all_in2.size() <= 1)
+    return merged_surf;
+
+  
+  vector<RevEngRegion*> regions3 = regions;
+  if (all_in2.size() > 0)
+    {
+      all_in.insert(all_in.end(), all_in2.begin(), all_in2.end());
+      regions3.insert(regions3.end(), regions2.begin(), regions2.end());
+      num_all2 += num_all;
+    }
+  
+  vector<pair<vector<RevEngPoint*>::iterator,
+	      vector<RevEngPoint*>::iterator> > points(all_in.size());
+  vector<int> nmbpts(all_in.size());
+  for (size_t kj=0; kj<all_in.size(); ++kj)
+    {
+      points[kj] = std::make_pair(all_in[kj].begin(),
+				  all_in[kj].end());
+      nmbpts[kj] = (int)all_in[kj].size();
+    }
+		       
+  shared_ptr<ParamSurface> surf2;
+  if (type == Class_Plane)
+    {
+      surf2 = doMergePlanes(points, bbox, nmbpts);
+    }
+  else if (type == Class_Cylinder)
+    {
+      surf2 = doMergeCylinders(points, bbox, nmbpts);
+    }
+  else if (type == Class_Torus)
+    {
+      surf2 = doMergeTorus(points, bbox, nmbpts);
+    }
+  
+  std::ofstream of3("merge_sf2.g2");
+  std::ofstream of4("in_out_merge2.g2");
+  surf2->writeStandardHeader(of3);
+  surf2->write(of3);
+  vector<RevEngPoint*> in2, out2;
+  vector<pair<double,double> > distang2;
+  double avd_all2 = 0.0, maxd_all2 = 0.0;
+  int num_in_all2 = 0;
+  for (size_t kj=0; kj<regions3.size(); ++kj)
+    {
+      double maxd, avd;
+      int num_in;
+      RevEngUtils::distToSurf(regions3[kj]->pointsBegin(),
+			      regions3[kj]->pointsEnd(),
+			      surf2, approx_tol_, maxd, avd, num_in, 
+			      in2, out2, distang2);
+      maxd_all2 = std::max(maxd_all2, maxd);
+      avd_all2 += regions3[kj]->numPoints()*avd/(double)num_all2;
+      num_in_all2 += num_in;
+    }
+  of4 << "400 1 0 4 155 50 50 255" << std::endl;
+  of4 << in2.size() << std::endl;
+  for (size_t kn=0; kn<in2.size(); ++kn)
+    of4 << in2[kn]->getPoint() << std::endl;
+  of4 << "400 1 0 4 50 155 50 255" << std::endl;
+  of4 << out2.size() << std::endl;
+  for (size_t kn=0; kn<out2.size(); ++kn)
+    of4 << out2[kn]->getPoint() << std::endl;
+
+  if (surf2.get() && num_in_all2 >= num_in_all && avd_all2 < avd_all &&
+      num_in_all2 > num_all2/2 && avd_all2 < approx_tol_)
+    {
+      merged_surf =
+	shared_ptr<HedgeSurface>(new HedgeSurface(surf2, regions3));
+      for (size_t kj=0; kj<regions3.size(); ++kj)
+	regions3[kj]->setHedge(merged_surf.get());
+    }
+  else if (surf.get() && num_in_all > num_all/2 && avd_all < approx_tol_)
+    {
+      merged_surf =
+	shared_ptr<HedgeSurface>(new HedgeSurface(surf2, regions));
+      for (size_t kj=0; kj<regions.size(); ++kj)
+	regions[kj]->setHedge(merged_surf.get());
+    }
   return merged_surf;
 }
+ 
+
 
 //===========================================================================
-void RevEng::recognizePlanes()
+  shared_ptr<ParamSurface> RevEng::approxMergeSet(vector<size_t>& cand_ix,
+						  vector<size_t>& select_ix,
+						  ClassType type)
+						  
 //===========================================================================
-{
-  std::ofstream planeout("plane.g2");
-  double anglim = 0.1;
-  size_t nmbsfs = surfaces_.size();
-  for (size_t ki=0; ki<regions_.size(); ++ki)
+  {
+  // Collect point clouds
+  std::ofstream ofp("all_merge_points.g2");
+  vector<pair<vector<RevEngPoint*>::iterator,
+	      vector<RevEngPoint*>::iterator> > points;
+  BoundingBox bbox(3);
+  vector<int> nmbpts;
+  for (size_t ki=0; ki<select_ix.size(); ++ki)
     {
-      // Check type
-      bool planar = regions_[ki]->planartype();
-      DirectionCone normalcone = regions_[ki]->getNormalCone();
-      if (!planar /*&& (normalcone.angle() > anglim ||
-		    normalcone.greaterThanPi())*/)
-	continue;  // Not a probable plane
-
-      // Try to fit the point cloud with a plane
-      vector<shared_ptr<HedgeSurface> > plane_sfs;
-      vector<HedgeSurface*> prev_surfs;
-      bool found = regions_[ki]->extractPlane(approx_tol_, min_point_region_,
-					      plane_sfs, prev_surfs, planeout);
-      for (size_t kr=0; kr<prev_surfs.size(); ++kr)
+      HedgeSurface* surf = surfaces_[cand_ix[select_ix[ki]]].get();
+      vector<RevEngRegion*> reg = surf->getRegions();
+      for (size_t kj=0; kj<reg.size(); ++kj)
 	{
-	  size_t kj;
-	  for (kj=0; kj<surfaces_.size(); ++kj)
-	    if (surfaces_[kj].get() == prev_surfs[kr])
-	      break;
-	  if (kj < surfaces_.size())
-	    surfaces_.erase(surfaces_.begin()+kj);
+	  nmbpts.push_back(reg[kj]->numPoints());
+	  points.push_back(std::make_pair(reg[kj]->pointsBegin(),
+					  reg[kj]->pointsEnd()));
+	  bbox.addUnionWith(reg[kj]->boundingBox());
+	  ofp << "400 1 0 0" << std::endl;
+	  int npt = reg[kj]->numPoints();
+	  ofp << npt << std::endl;
+	  for (int ka=0; ka<npt; ++ka)
+	    ofp << reg[kj]->getPoint(ka)->getPoint() << std::endl;
 	}
-      if (plane_sfs.size() > 0)
-	{
-	  surfaces_.insert(surfaces_.end(), plane_sfs.begin(), plane_sfs.end());
-
-	  vector<RevEngRegion*> grown_regions;
-	  int min_nmb = 5*min_point_region_;  // Should be set from distribution of how many
-	  // points the regions have
-	  vector<HedgeSurface*> adj_surfs;
-	  regions_[ki]->growWithSurf(min_nmb, approx_tol_, grown_regions, adj_surfs);
-	  if (grown_regions.size() > 0)
-	    {
-	      for (size_t kr=0; kr<grown_regions.size(); ++kr)
-		{
-		  size_t kj;
-		  for (kj=0; kj<regions_.size(); )
-		    {
-		      if (kj == ki)
-			{
-			  ++kj;
-			  continue;
-			}
-
-		      if (grown_regions[kr] == regions_[kj].get())
-			{
-			  regions_.erase(regions_.begin()+kj);
-			  if (kj < ki)
-			    --ki;
-			}
-		      else
-			++kj;
-		    }
-		}
-	      for (size_t kr=0; kr<adj_surfs.size(); ++kr)
-		{
-		  size_t kj;
-		  for (kj=0; kj<surfaces_.size(); ++kj)
-		    if (surfaces_[kj].get() == adj_surfs[kr])
-		      break;
-		  if (kj < surfaces_.size())
-		    surfaces_.erase(surfaces_.begin()+kj);
-		}
-	    }
-	}
-
-      for (size_t kj=0; kj<regions_.size(); ++kj)
-	regions_[kj]->setVisited(false);
-
-
-      // if not planar
-      // continue;
-
-      // apply method for recognition of plane
-      // Should RevEngPoint be given as input or should the method take a
-      // vector of Points as input to enforce independence on a triangulation?
-      // The class HedgeSurface must lie in compositemodel due to the
-      // connection to RevEngRegion
-      // Should the computation take place in HedgeSurface? Or in RevEngRegion?
-      // Or in this class?
-      
-      // some points may be disassembled
-
-      // check if the number of points in the plane is large enough
-      // if not, should the region be removed?
-      int stop_break = 1;
     }
   
-  std::ofstream ofp("planes2.g2");
-  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+  shared_ptr<ParamSurface> surf;
+  if (type == Class_Plane)
     {
-      shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
-      surf->writeStandardHeader(ofp);
-      surf->write(ofp);
+      surf = doMergePlanes(points, bbox, nmbpts);
     }
-
-  if (regions_.size() > 0)
+  else if (type == Class_Cylinder)
     {
-      std::ofstream ofr("regions3.g2");
-      for (size_t kr=0; kr<regions_.size(); ++kr)
-	{
-	  // BoundingBox bbox = regions_[kr]->boundingBox();
-	  // if (bbox.low().dist(bbox.high()) < 0.1)
-	  //   std::cout << "Small bounding box" << std::endl;
-	  if (regions_[kr]->numPoints() < 5)
-	    continue;
-	  ofr << "400 1 0 0" << std::endl;
-	  int nmb = regions_[kr]->numPoints();
-	  ofr << nmb << std::endl;
-	  for (int ki=0; ki<nmb; ++ki)
-	    {
-	      ofr << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
-	    }
-	}
+      surf = doMergeCylinders(points, bbox, nmbpts);
     }
-
-  if (surfaces_.size() - nmbsfs > 1)
-    mergePlanes(nmbsfs, surfaces_.size());
-
-  std::ofstream of("surfaces0.g2");
-  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+  else if (type == Class_Torus)
     {
-      shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
-      surf->writeStandardHeader(of);
-      surf->write(of);
+      surf = doMergeTorus(points, bbox, nmbpts);
     }
-}
-
+  return surf;
+  }
+  
 //===========================================================================
-void RevEng::recognizeCylinders()
+shared_ptr<HedgeSurface> RevEng::doMergeSpline(shared_ptr<HedgeSurface>& surf1,
+					       DirectionCone& cone1,
+					       shared_ptr<HedgeSurface>& surf2,
+					       DirectionCone& cone2)
 //===========================================================================
 {
-  std::ofstream cylout("cylinder.g2");
-  int nmbsfs = surfaces_.size();
-  for (size_t ki=0; ki<regions_.size(); ++ki)
+  ClassType type1 = Class_Unknown, type2 = Class_Unknown;
+
+  // Parameterize
+  // Collect all points
+  vector<RevEngPoint*> all_pts;
+  vector<RevEngRegion*> regions;
+  int dim = surf1->surface()->dimension();
+  BoundingBox bbox(dim);
+  int num1 = surf1->numRegions();
+  for (int ka=0; ka<num1; ++ka)
     {
-      // Check type
-      bool cyl = regions_[ki]->cylindertype();
-      // if (!cyl)
-      // 	continue;
-      
-      // So far, try to regognize cylinders
-      vector<shared_ptr<HedgeSurface> > cyl_sfs;
-      vector<HedgeSurface*> prev_surfs;
-      bool found = regions_[ki]->extractCylinder(approx_tol_, min_point_region_,
-						 mean_edge_len_, cyl_sfs, prev_surfs,
-						 cylout);
-      for (size_t kr=0; kr<prev_surfs.size(); ++kr)
+      RevEngRegion *reg = surf1->getRegion(ka);
+      regions.push_back(reg);
+      bbox.addUnionWith(reg->getBbox());
+      vector<RevEngPoint*> pts = reg->getPoints();
+      all_pts.insert(all_pts.end(), pts.begin(), pts.end());
+      if (reg->hasPrimary())
 	{
-	  size_t kj;
-	  for (kj=0; kj<surfaces_.size(); ++kj)
-	    if (surfaces_[kj].get() == prev_surfs[kr])
-	      break;
-	  if (kj < surfaces_.size())
-	    {
-	      surfaces_.erase(surfaces_.begin()+kj);
-	      nmbsfs--;
-	    }
+	  ClassType ctype = reg->getPrimary()->instanceType();
+	  if (type1 == Class_Unknown)
+	    type1 = ctype;
+	  else if (type1 != ctype)
+	    type1 = Class_Unknown;  // Can be a problem with several regions
 	}
-      if (cyl_sfs.size() > 0)
-	{
-	  surfaces_.insert(surfaces_.end(), cyl_sfs.begin(), cyl_sfs.end());
-      
-	  vector<RevEngRegion*> grown_regions;
-	  int min_nmb = 10*min_point_region_;  // Should be set from distribution of how many
-	  // points the regions have
-	  vector<HedgeSurface*> adj_surfs;
-	  regions_[ki]->growWithSurf(min_nmb, approx_tol_, grown_regions, adj_surfs);
-	  if (grown_regions.size() > 0)
-	    {
-	      for (size_t kr=0; kr<grown_regions.size(); ++kr)
-		{
-		  size_t kj;
-		  for (kj=0; kj<regions_.size(); )
-		    {
-		      if (kj == ki)
-			{
-			  ++kj;
-			  continue;
-			}
-
-		      if (grown_regions[kr] == regions_[kj].get())
-			{
-			  regions_.erase(regions_.begin()+kj);
-			  if (kj < ki)
-			    ki--;
-			}
-		      else
-			++kj;
-		    }
-		}
-	      for (size_t kr=0; kr<adj_surfs.size(); ++kr)
-		{
-		  size_t kj;
-		  for (kj=0; kj<surfaces_.size(); ++kj)
-		    if (surfaces_[kj].get() == adj_surfs[kr])
-		      break;
-		  if (kj < surfaces_.size())
-		    {
-		      surfaces_.erase(surfaces_.begin()+kj);
-		      if (kj < nmbsfs)
-			nmbsfs--;
-		    }
-		}
-	    }
-	}
-
-      for (size_t kj=0; kj<regions_.size(); ++kj)
-	regions_[kj]->setVisited(false);
-      
-      // if not planar
-      // continue;
-
-      // apply method for recognition of plane
-      // Should RevEngPoint be given as input or should the method take a
-      // vector of Points as input to enforce independence on a triangulation?
-      // The class HedgeSurface must lie in compositemodel due to the
-      // connection to RevEngRegion
-      // Should the computation take place in HedgeSurface? Or in RevEngRegion?
-      // Or in this class?
-      
-      // some points may be disassembled
-
-      // check if the number of points in the plane is large enough
-      // if not, should the region be removed?
     }
+  int num2 = surf2->numRegions();
+  for (int ka=0; ka<num2; ++ka)
+    {
+      RevEngRegion *reg = surf2->getRegion(ka);
+      regions.push_back(reg);
+      bbox.addUnionWith(reg->getBbox());
+      vector<RevEngPoint*> pts = reg->getPoints();
+      all_pts.insert(all_pts.end(), pts.begin(), pts.end());
+      if (reg->hasPrimary())
+	{
+	  ClassType ctype = reg->getPrimary()->instanceType();
+	  if (type2 == Class_Unknown)
+	    type2 = ctype;
+	  else if (type1 != ctype)
+	    type2 = Class_Unknown;
+	}
+    }
+  
+  double avd_all = 0.0, maxd_all = 0.0;
+  int num_in_all = 0;
+  for (size_t ki=0; ki<regions.size(); ++ki)
+    {
+      double avdr, maxdr;
+      int num_inr;
+      regions[ki]->getAccuracy(maxdr, avdr, num_inr);
+      maxd_all = std::max(maxd_all, maxdr);
+      double wgt = (double)regions[ki]->numPoints()/(double)all_pts.size();
+      avd_all += wgt*avdr;
+      num_in_all += num_inr;
+    }
+  
+  // Define base surface
+  ClassType type = Class_Unknown;
+  if (type1 == type2 && type1 != Class_Unknown)
+    {
+      type = type1;
+    }
+  else if (type1 != Class_Unknown && type2 != Class_Unknown)
+    {
+    }
+  else if (type1 != Class_Unknown)
+    {
+      type = type1;
+    }
+  else if (type2 != Class_Unknown)
+    {
+      type = type2;
+    }
+
+  shared_ptr<ParamSurface> projectsf;
+  vector<pair<vector<RevEngPoint*>::iterator,
+	      vector<RevEngPoint*>::iterator> > all_pts2(1);
+  all_pts2[0] = std::make_pair(all_pts.begin(),all_pts.end());
+  vector<int> nmbpts(1, (int)all_pts.size());
+  if (type == Class_Plane)
+    {
+      projectsf = doMergePlanes(all_pts2, bbox, nmbpts, false);
+    }
+  else if (type == Class_Cylinder)
+    {
+      projectsf = doMergeCylinders(all_pts2, bbox, nmbpts, false);
+    }
+  else if (type == Class_Torus)
+    {
+      projectsf = doMergeTorus(all_pts2, bbox, nmbpts);
+    }
+
+  if (projectsf.get())
+    {
+      std::ofstream of1("projectsf.g2");
+      projectsf->writeStandardHeader(of1);
+      projectsf->write(of1);
+    }
+  
+  // Parameterize on surface
+  vector<double> data;
+  vector<double> param;
+  int inner_u = 0, inner_v = 0;
+  if (projectsf.get())
+    RevEngUtils::parameterizeOnPrimary(all_pts, projectsf, data, param,
+				       inner_u, inner_v);
+  else
+    {
+     double lambda[3];
+     double eigenvec[3][3];
+     RevEngUtils::principalAnalysis(all_pts, lambda, eigenvec);
+     Point xAxis(eigenvec[0][0], eigenvec[0][1], eigenvec[0][2]);
+     Point yAxis(eigenvec[1][0], eigenvec[1][1], eigenvec[1][2]);
+     RevEngUtils::parameterizeWithPlane(all_pts, bbox, xAxis, yAxis,
+					data, param);
+    }
+  
+  // Approximate
+  double maxd, avd;
+  int num_out;
+  int order = 4;
+  int ncoef1 = order + inner_u;
+  int ncoef2 = order + inner_v;
+  int max_iter = 3;
+  double belt = 0.05;
+  shared_ptr<HedgeSurface> merged;
+  shared_ptr<SplineSurface> surf;
+  try {
+    surf =
+    RevEngUtils::surfApprox(data, dim, param, order, order, ncoef1, ncoef2,
+			    max_iter, approx_tol_, maxd, avd, num_out, belt);
+  }
+  catch (...)
+    {
+      return merged;
+    }
+  int num_in = (int)all_pts.size() - num_out;
+
+  if (surf.get())
+    {
+      std::ofstream of2("mergedsf.g2");
+      surf->writeStandardHeader(of2);
+      surf->write(of2);
+      for (size_t ki=0; ki<regions.size(); ++ki)
+	regions[ki]->writeRegionInfo(of2);
+    }
+
+  BoundingBox bb1 = surf1->boundingBox();
+  BoundingBox bb2 = surf2->boundingBox();
+  bb1.addUnionWith(bb2);
+  BoundingBox bb3 = surf->boundingBox();
+  double diag1 = bb1.low().dist(bb1.high());
+  double diag3 = bb3.low().dist(bb3.high());
+  double frac1 = (double)num_in_all/(double)all_pts.size();
+  double frac2 = (double)num_in/(double)all_pts.size();
+  if (frac2 > 2.0*frac1/3.0 && frac2 > 0.5 && avd <= approx_tol_ &&
+      diag3 < 1.5*diag1)
+    {
+      merged = shared_ptr<HedgeSurface>(new HedgeSurface(surf, regions));
+      for (size_t kj=0; kj<regions.size(); ++kj)
+	regions[kj]->setHedge(merged.get());
+    }
+  return merged;
+}
+
+// //===========================================================================
+// void RevEng::recognizePlanes()
+// //===========================================================================
+// {
+//   std::ofstream planeout("plane.g2");
+//   double anglim = 0.1;
+//   size_t nmbsfs = surfaces_.size();
+//   for (size_t ki=0; ki<regions_.size(); ++ki)
+//     {
+//       // Check type
+//       bool planar = regions_[ki]->planartype();
+//       DirectionCone normalcone = regions_[ki]->getNormalCone();
+//       if (!planar /*&& (normalcone.angle() > anglim ||
+// 		    normalcone.greaterThanPi())*/)
+// 	continue;  // Not a probable plane
+
+//       // Try to fit the point cloud with a plane
+//       vector<shared_ptr<HedgeSurface> > plane_sfs;
+//       vector<HedgeSurface*> prev_surfs;
+//       bool found = regions_[ki]->extractPlane(approx_tol_, min_point_region_,
+// 					      10.0*anglim_, plane_sfs, prev_surfs, planeout);
+//       for (size_t kr=0; kr<prev_surfs.size(); ++kr)
+// 	{
+// 	  size_t kj;
+// 	  for (kj=0; kj<surfaces_.size(); ++kj)
+// 	    if (surfaces_[kj].get() == prev_surfs[kr])
+// 	      break;
+// 	  if (kj < surfaces_.size())
+// 	    surfaces_.erase(surfaces_.begin()+kj);
+// 	}
+//       if (plane_sfs.size() > 0)
+// 	{
+// 	  surfaces_.insert(surfaces_.end(), plane_sfs.begin(), plane_sfs.end());
+
+// 	  vector<RevEngRegion*> grown_regions;
+// 	  int min_nmb = 5*min_point_region_;  // Should be set from distribution of how many
+// 	  // points the regions have
+// 	  vector<HedgeSurface*> adj_surfs;
+// 	  regions_[ki]->growWithSurf(min_nmb, approx_tol_, grown_regions, adj_surfs);
+// 	  if (grown_regions.size() > 0)
+// 	    {
+// 	      for (size_t kr=0; kr<grown_regions.size(); ++kr)
+// 		{
+// 		  size_t kj;
+// 		  for (kj=0; kj<regions_.size(); )
+// 		    {
+// 		      if (kj == ki)
+// 			{
+// 			  ++kj;
+// 			  continue;
+// 			}
+
+// 		      if (grown_regions[kr] == regions_[kj].get())
+// 			{
+// 			  regions_.erase(regions_.begin()+kj);
+// 			  if (kj < ki)
+// 			    --ki;
+// 			}
+// 		      else
+// 			++kj;
+// 		    }
+// 		}
+// 	      for (size_t kr=0; kr<adj_surfs.size(); ++kr)
+// 		{
+// 		  size_t kj;
+// 		  for (kj=0; kj<surfaces_.size(); ++kj)
+// 		    if (surfaces_[kj].get() == adj_surfs[kr])
+// 		      break;
+// 		  if (kj < surfaces_.size())
+// 		    surfaces_.erase(surfaces_.begin()+kj);
+// 		}
+// 	    }
+// 	}
+
+//       for (size_t kj=0; kj<regions_.size(); ++kj)
+// 	regions_[kj]->setVisited(false);
+
+
+//       // if not planar
+//       // continue;
+
+//       // apply method for recognition of plane
+//       // Should RevEngPoint be given as input or should the method take a
+//       // vector of Points as input to enforce independence on a triangulation?
+//       // The class HedgeSurface must lie in compositemodel due to the
+//       // connection to RevEngRegion
+//       // Should the computation take place in HedgeSurface? Or in RevEngRegion?
+//       // Or in this class?
+      
+//       // some points may be disassembled
+
+//       // check if the number of points in the plane is large enough
+//       // if not, should the region be removed?
+//       int stop_break = 1;
+//     }
+  
+//   std::ofstream ofp("planes2.g2");
+//   for (size_t ki=0; ki<surfaces_.size(); ++ki)
+//     {
+//       shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
+//       surf->writeStandardHeader(ofp);
+//       surf->write(ofp);
+//     }
+
+//   if (regions_.size() > 0)
+//     {
+//       std::ofstream ofr("regions3.g2");
+//       for (size_t kr=0; kr<regions_.size(); ++kr)
+// 	{
+// 	  // BoundingBox bbox = regions_[kr]->boundingBox();
+// 	  // if (bbox.low().dist(bbox.high()) < 0.1)
+// 	  //   std::cout << "Small bounding box" << std::endl;
+// 	  if (regions_[kr]->numPoints() < 5)
+// 	    continue;
+// 	  ofr << "400 1 0 0" << std::endl;
+// 	  int nmb = regions_[kr]->numPoints();
+// 	  ofr << nmb << std::endl;
+// 	  for (int ki=0; ki<nmb; ++ki)
+// 	    {
+// 	      ofr << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+// 	    }
+// 	}
+//     }
+
+//   if (surfaces_.size() - nmbsfs > 1)
+//     mergePlanes(nmbsfs, surfaces_.size());
+
+//   std::ofstream of("surfaces0.g2");
+//   for (size_t ki=0; ki<surfaces_.size(); ++ki)
+//     {
+//       shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
+//       surf->writeStandardHeader(of);
+//       surf->write(of);
+//     }
+// }
+
+// //===========================================================================
+// void RevEng::recognizeCylinders()
+// //===========================================================================
+// {
+//   std::ofstream cylout("cylinder.g2");
+//   int nmbsfs = surfaces_.size();
+//   for (size_t ki=0; ki<regions_.size(); ++ki)
+//     {
+//       // Check type
+//       bool cyl = regions_[ki]->cylindertype();
+//       // if (!cyl)
+//       // 	continue;
+      
+//       // So far, try to regognize cylinders
+//       vector<shared_ptr<HedgeSurface> > cyl_sfs;
+//       vector<HedgeSurface*> prev_surfs;
+//       bool found = regions_[ki]->extractCylinder(approx_tol_, min_point_region_,
+// 						 10.0*anglim_,
+// 						 mean_edge_len_, cyl_sfs, prev_surfs,
+// 						 cylout);
+//       for (size_t kr=0; kr<prev_surfs.size(); ++kr)
+// 	{
+// 	  size_t kj;
+// 	  for (kj=0; kj<surfaces_.size(); ++kj)
+// 	    if (surfaces_[kj].get() == prev_surfs[kr])
+// 	      break;
+// 	  if (kj < surfaces_.size())
+// 	    {
+// 	      surfaces_.erase(surfaces_.begin()+kj);
+// 	      nmbsfs--;
+// 	    }
+// 	}
+//       if (cyl_sfs.size() > 0)
+// 	{
+// 	  surfaces_.insert(surfaces_.end(), cyl_sfs.begin(), cyl_sfs.end());
+      
+// 	  vector<RevEngRegion*> grown_regions;
+// 	  int min_nmb = 10*min_point_region_;  // Should be set from distribution of how many
+// 	  // points the regions have
+// 	  vector<HedgeSurface*> adj_surfs;
+// 	  regions_[ki]->growWithSurf(min_nmb, approx_tol_, grown_regions, adj_surfs);
+// 	  if (grown_regions.size() > 0)
+// 	    {
+// 	      for (size_t kr=0; kr<grown_regions.size(); ++kr)
+// 		{
+// 		  size_t kj;
+// 		  for (kj=0; kj<regions_.size(); )
+// 		    {
+// 		      if (kj == ki)
+// 			{
+// 			  ++kj;
+// 			  continue;
+// 			}
+
+// 		      if (grown_regions[kr] == regions_[kj].get())
+// 			{
+// 			  regions_.erase(regions_.begin()+kj);
+// 			  if (kj < ki)
+// 			    ki--;
+// 			}
+// 		      else
+// 			++kj;
+// 		    }
+// 		}
+// 	      for (size_t kr=0; kr<adj_surfs.size(); ++kr)
+// 		{
+// 		  size_t kj;
+// 		  for (kj=0; kj<surfaces_.size(); ++kj)
+// 		    if (surfaces_[kj].get() == adj_surfs[kr])
+// 		      break;
+// 		  if (kj < surfaces_.size())
+// 		    {
+// 		      surfaces_.erase(surfaces_.begin()+kj);
+// 		      if (kj < nmbsfs)
+// 			nmbsfs--;
+// 		    }
+// 		}
+// 	    }
+// 	}
+
+//       for (size_t kj=0; kj<regions_.size(); ++kj)
+// 	regions_[kj]->setVisited(false);
+      
+//       // if not planar
+//       // continue;
+
+//       // apply method for recognition of plane
+//       // Should RevEngPoint be given as input or should the method take a
+//       // vector of Points as input to enforce independence on a triangulation?
+//       // The class HedgeSurface must lie in compositemodel due to the
+//       // connection to RevEngRegion
+//       // Should the computation take place in HedgeSurface? Or in RevEngRegion?
+//       // Or in this class?
+      
+//       // some points may be disassembled
+
+//       // check if the number of points in the plane is large enough
+//       // if not, should the region be removed?
+//     }
 
   
-  std::ofstream ofp("cylinders2.g2");
-  for (size_t ki=0; ki<surfaces_.size(); ++ki)
-    {
-      shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
-      surf->writeStandardHeader(ofp);
-      surf->write(ofp);
-    }
+//   std::ofstream ofp("cylinders2.g2");
+//   for (size_t ki=0; ki<surfaces_.size(); ++ki)
+//     {
+//       shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
+//       surf->writeStandardHeader(ofp);
+//       surf->write(ofp);
+//     }
 
-  if (regions_.size() > 0)
-    {
-      std::ofstream ofr("regions4.g2");
-      for (size_t kr=0; kr<regions_.size(); ++kr)
-	{
-	  // BoundingBox bbox = regions_[kr]->boundingBox();
-	  // if (bbox.low().dist(bbox.high()) < 0.1)
-	  //   std::cout << "Small bounding box" << std::endl;
-	  if (regions_[kr]->numPoints() < 5)
-	    continue;
-	  ofr << "400 1 0 0" << std::endl;
-	  int nmb = regions_[kr]->numPoints();
-	  ofr << nmb << std::endl;
-	  for (int ki=0; ki<nmb; ++ki)
-	    {
-	      ofr << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
-	    }
-	}
-    }
+//   if (regions_.size() > 0)
+//     {
+//       std::ofstream ofr("regions4.g2");
+//       for (size_t kr=0; kr<regions_.size(); ++kr)
+// 	{
+// 	  // BoundingBox bbox = regions_[kr]->boundingBox();
+// 	  // if (bbox.low().dist(bbox.high()) < 0.1)
+// 	  //   std::cout << "Small bounding box" << std::endl;
+// 	  if (regions_[kr]->numPoints() < 5)
+// 	    continue;
+// 	  ofr << "400 1 0 0" << std::endl;
+// 	  int nmb = regions_[kr]->numPoints();
+// 	  ofr << nmb << std::endl;
+// 	  for (int ki=0; ki<nmb; ++ki)
+// 	    {
+// 	      ofr << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+// 	    }
+// 	}
+//     }
 
-  // Now the surfaces between nmbsfs and surfaces_.size() are cylinder surfaces
-  // and can be merged if they represent the same cylinder
-  if (surfaces_.size() + nmbsfs > 1)
-    mergeCylinders(nmbsfs, surfaces_.size());
-  //    mergeCylinders(0, surfaces_.size());
+//   // Now the surfaces between nmbsfs and surfaces_.size() are cylinder surfaces
+//   // and can be merged if they represent the same cylinder
+//   if (surfaces_.size() + nmbsfs > 1)
+//     mergeCylinders(nmbsfs, surfaces_.size());
+//   //    mergeCylinders(0, surfaces_.size());
 
-  std::ofstream of("surfaces.g2");
-  for (size_t ki=0; ki<surfaces_.size(); ++ki)
-    {
-      shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
-      surf->writeStandardHeader(of);
-      surf->write(of);
-    }
-}
+//   std::ofstream of("surfaces.g2");
+//   for (size_t ki=0; ki<surfaces_.size(); ++ki)
+//     {
+//       shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
+//       surf->writeStandardHeader(of);
+//       surf->write(of);
+//     }
+// }
 
 //===========================================================================
 void RevEng::mergePlanes(size_t first, size_t last)
@@ -2228,7 +2936,8 @@ void RevEng::mergePlanes(size_t first, size_t last)
 shared_ptr<ParamSurface> RevEng::doMergePlanes(vector<pair<vector<RevEngPoint*>::iterator,
 					       vector<RevEngPoint*>::iterator> > points,
 					       const BoundingBox& bbox,
-					       vector<int>& nmbpts)
+					       vector<int>& nmbpts,
+					       bool set_bound)
 //===========================================================================
 {
   int totnmb = 0;
@@ -2264,8 +2973,11 @@ shared_ptr<ParamSurface> RevEng::doMergePlanes(vector<pair<vector<RevEngPoint*>:
   shared_ptr<Plane> surf(new Plane(pos2, normal2));
   Point low = bbox.low();
   Point high = bbox.high();
-  double len = low.dist(high);
-  surf->setParameterBounds(-0.5*len, -0.5*len, 0.5*len, 0.5*len);
+  if (set_bound)
+    {
+      double len = low.dist(high);
+      surf->setParameterBounds(-0.5*len, -0.5*len, 0.5*len, 0.5*len);
+    }
 
   return surf;
 }
@@ -2402,7 +3114,8 @@ void RevEng::mergeCylinders(size_t first, size_t last)
 shared_ptr<ParamSurface> RevEng::doMergeCylinders(vector<pair<vector<RevEngPoint*>::iterator,
 						  vector<RevEngPoint*>::iterator> > points,
 						  const BoundingBox& bbox,
-						  vector<int>& nmbpts)
+						  vector<int>& nmbpts,
+						  bool set_bound)
 //===========================================================================
 {
   // Estimate cylinder axis
@@ -2417,8 +3130,11 @@ shared_ptr<ParamSurface> RevEng::doMergeCylinders(vector<pair<vector<RevEngPoint
   RevEngUtils::computeCylPosRadius(points, low, high,
 				   axis, Cx, Cy, pnt, rad);
   shared_ptr<Cylinder> surf(new Cylinder(rad, pnt, axis, Cy));
-  double len = low.dist(high);
-  surf->setParamBoundsV(-len, len);
+  if (set_bound)
+    {
+      double len = low.dist(high);
+      surf->setParamBoundsV(-len, len);
+    }
 
   return surf;
 }
@@ -2512,6 +3228,7 @@ void RevEng::adaptToMainAxis()
   double epsang = 0.05;
   vector<DirectionCone> axis_cone;
   vector<vector<size_t> > group_ixs;
+  vector<int> num_pts;
   for (size_t ki=0; ki<sfprop.size(); ++ki)
     {
       size_t kr;
@@ -2526,6 +3243,7 @@ void RevEng::adaptToMainAxis()
 	    {
 	      axis_cone[kr].addUnionWith(axis);
 	      group_ixs[kr].push_back(ki);
+	      num_pts[kr] += sfprop[ki].num_points_;
 	      break;
 	    }
 	}
@@ -2536,9 +3254,226 @@ void RevEng::adaptToMainAxis()
 	  vector<size_t> ixs;
 	  ixs.push_back(ki);
 	  group_ixs.push_back(ixs);
+	  num_pts.push_back(sfprop[ki].num_points_);
+	}
+    }
+
+  // Sort according to number of points assiciated to the surface
+  for (size_t ki=0; ki<num_pts.size(); ++ki)
+    for (size_t kj=ki+1; kj<num_pts.size(); ++kj)
+      {
+	if (num_pts[kj] > num_pts[ki])
+	  {
+	    std::swap(num_pts[ki], num_pts[kj]);
+	    std::swap(axis_cone[ki], axis_cone[kj]);
+	    std::swap(group_ixs[ki], group_ixs[kj]);
+	  }
+      }
+
+  for (size_t ki=0; ki<num_pts.size(); ++ki)
+    {
+      // Identify cylinders with the "same" axis including location
+      if (group_ixs[ki].size() < 2)
+	continue;
+      for (size_t kj=0; kj<group_ixs[ki].size(); ++kj)
+	{
+	  if (sfprop[group_ixs[ki][kj]].type_ != Class_Cylinder &&
+	      sfprop[group_ixs[ki][kj]].prev_type_  != Class_Cylinder)
+	    continue;
+	  Point loc1 = sfprop[group_ixs[ki][kj]].loc_;
+	  Point vec1 = sfprop[group_ixs[ki][kj]].dir_;
+	  double rad1 = sfprop[group_ixs[ki][kj]].rad1_;
+	  vector<int> adapt_ix;
+	  adapt_ix.push_back(sfprop[group_ixs[ki][kj]].sfix_);
+	  for (size_t kr=kj+1; kr<group_ixs[ki].size(); ++kr)
+	    {
+	      if (sfprop[group_ixs[ki][kr]].type_ != Class_Cylinder &&
+		  sfprop[group_ixs[ki][kr]].prev_type_  != Class_Cylinder)
+		continue;
+	      Point loc2 = sfprop[group_ixs[ki][kr]].loc_;
+	      Point loc2_0 = loc1 + ((loc2-loc1)*vec1)*vec1;
+	      double rad2 = sfprop[group_ixs[ki][kr]].rad1_;
+	      double pdist = loc2.dist(loc2_0);
+	      double dlim = std::max(0.05*std::max(rad1,rad2), approx_tol_);
+	      if (pdist < dlim)
+		{
+		  adapt_ix.push_back(sfprop[group_ixs[ki][kr]].sfix_);
+		}
+	    }
+
+	  if (adapt_ix.size() > 1)
+	    {
+	      // Try simultanous fitting of cylinders
+	      cylinderFit(adapt_ix, axis_cone[ki].centre());
+	      int stop_break = 1;
+	    }
 	}
     }
   int stop_break = 1;
+}
+
+//===========================================================================
+void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
+//===========================================================================
+{
+  // Collect data points
+  vector<pair<vector<RevEngPoint*>::iterator,
+	      vector<RevEngPoint*>::iterator> > points;
+  BoundingBox bbox(3);
+  for (size_t ki=0; ki<sf_ix.size(); ++ki)
+    {
+      HedgeSurface* surf = surfaces_[sf_ix[ki]].get();
+      vector<RevEngRegion*> reg = surf->getRegions();
+      for (size_t kj=0; kj<reg.size(); ++kj)
+	{
+	  points.push_back(std::make_pair(reg[kj]->pointsBegin(),
+					  reg[kj]->pointsEnd()));
+	  bbox.addUnionWith(reg[kj]->boundingBox());
+	}
+    }
+
+  Point axis, Cx, Cy;
+  RevEngUtils::computeAxis(points, axis, Cx, Cy);
+
+  Point low = bbox.low();
+  Point high = bbox.high();
+  Point pos;
+  double radius;
+  RevEngUtils::computeCylPosRadius(points, low, high, axis, Cx, Cy, pos,
+				   radius);
+
+  std::ofstream of("cylinderfit.g2");
+  
+  for (size_t ki=0; ki<sf_ix.size(); ++ki)
+    {
+      HedgeSurface* surf = surfaces_[sf_ix[ki]].get();
+      vector<RevEngRegion*> reg = surf->getRegions();
+      vector<pair<vector<RevEngPoint*>::iterator,
+		  vector<RevEngPoint*>::iterator> > points0;
+      BoundingBox bbox0(3);
+      for (size_t kj=0; kj<reg.size(); ++kj)
+	{
+	  points0.push_back(std::make_pair(reg[kj]->pointsBegin(),
+					  reg[kj]->pointsEnd()));
+	  bbox0.addUnionWith(reg[kj]->boundingBox());
+	}
+      Point low0 = bbox0.low();
+      Point high0 = bbox0.high();
+      Point pos0;
+      double radius0;
+      RevEngUtils::computeCylPosRadius(points0, low0, high0, axis, Cx, Cy, 
+				      pos0, radius0);
+      double radius2 = computeCylRadius(points0, pos, Cx, Cy);
+      
+      shared_ptr<Cylinder> cyl(new Cylinder(radius0, pos0, axis, Cy));
+      cyl->writeStandardHeader(of);
+      cyl->write(of);
+      shared_ptr<Cylinder> cyl2(new Cylinder(radius2, pos, axis, Cy));
+      cyl2->writeStandardHeader(of);
+      cyl2->write(of);
+
+      shared_ptr<Cylinder> cyl3(new Cylinder(radius0, pos, axis, Cy));
+      cyl2->writeStandardHeader(of);
+      cyl2->write(of);
+
+      for (size_t kj=0; kj<reg.size(); ++kj)
+	{
+	  double maxd, avd;
+	  int num_in;
+	  vector<RevEngPoint*> in, out;
+	  vector<pair<double,double> > distang;
+	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
+				  cyl, approx_tol_, maxd, avd, num_in, in, out,
+				  distang);
+	  of << "400 1 0 4 155 50 50 255" << std::endl;
+	  of << in.size() << std::endl;
+	  for (size_t kr=0; kr<in.size(); ++kr)
+	    of << in[kr]->getPoint() << std::endl;
+	  of << "400 1 0 4 50 155 50 255" << std::endl;
+	  of << out.size() << std::endl;
+	  for (size_t kr=0; kr<out.size(); ++kr)
+	    of << out[kr]->getPoint() << std::endl;
+	  
+	  double maxd2, avd2;
+	  int num_in2;
+	  vector<RevEngPoint*> in2, out2;
+	  vector<pair<double,double> > distang2;
+	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
+				  cyl2, approx_tol_, maxd2, avd2, num_in2, in2,
+				  out2, distang2);
+	  of << "400 1 0 4 155 50 50 255" << std::endl;
+	  of << in2.size() << std::endl;
+	  for (size_t kr=0; kr<in2.size(); ++kr)
+	    of << in2[kr]->getPoint() << std::endl;
+	  of << "400 1 0 4 50 155 50 255" << std::endl;
+	  of << out2.size() << std::endl;
+	  for (size_t kr=0; kr<out2.size(); ++kr)
+	    of << out2[kr]->getPoint() << std::endl;
+	  
+	  double maxd3, avd3;
+	  int num_in3;
+	  vector<RevEngPoint*> in3, out3;
+	  vector<pair<double,double> > distang3;
+	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
+				  cyl3, approx_tol_, maxd3, avd3, num_in3, in3,
+				  out3, distang3);
+	  of << "400 1 0 4 155 50 50 255" << std::endl;
+	  of << in3.size() << std::endl;
+	  for (size_t kr=0; kr<in3.size(); ++kr)
+	    of << in3[kr]->getPoint() << std::endl;
+	  of << "400 1 0 4 50 155 50 255" << std::endl;
+	  of << out3.size() << std::endl;
+	  for (size_t kr=0; kr<out3.size(); ++kr)
+	    of << out3[kr]->getPoint() << std::endl;
+	  
+	  int stop_break = 1;
+	}
+    }
+}
+
+//===========================================================================
+double RevEng::computeCylRadius(vector<pair<vector<RevEngPoint*>::iterator,
+				vector<RevEngPoint*>::iterator> >& points,
+				Point mid, Point vec1, Point vec2)
+//===========================================================================
+{
+  int nmb = 0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    nmb += (int)(points[ki].second - points[ki].first);
+
+  double wgt = 1.0/(double)nmb;
+
+  // Make tranformation matrix
+  Matrix3D mat1, mat2, rotmat;
+  Vector3D vec1_2(vec1[0], vec1[1], vec1[2]);
+  Vector3D vec2_2(vec2[0], vec2[1], vec2[2]);
+  Vector3D xaxis(1, 0, 0);
+  Vector3D yaxis(0, 1, 0);
+  mat1.setToRotation(vec1_2, xaxis);
+  Vector3D v1 = mat1*vec1_2;
+  Vector3D vec2_3 = mat1*vec2_2;
+  mat2.setToRotation(vec2_3, yaxis);
+  Vector3D v2 = mat2*vec2_3;
+  rotmat = mat2*mat1;
+
+  // Rotate points and add to circle decription
+  double r2 = 0.0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      for (auto it=start; it!=end; ++it)
+	{
+	  RevEngPoint *pt = *it;
+	  Vector3D pnt = pt->getPoint();
+	  Vector3D rpnt = rotmat*pnt;
+	  double curr = rpnt[0]*rpnt[0] + rpnt[1]*rpnt[1];
+	  r2 += wgt*curr;
+	}
+    }
+
+  double radius = sqrt(r2);
+  return radius;
 }
 
 //===========================================================================
@@ -2549,9 +3484,41 @@ void RevEng::collectAxis(vector<SurfaceProperties>& sfprop)
     {
       int code;
       ClassType type = surfaces_[ki]->instanceType(code);
+      ClassType type2 = Class_Unknown;
       shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
       shared_ptr<ElementarySurface> elemsf =
 	dynamic_pointer_cast<ElementarySurface,ParamSurface>(surf);
+
+      int nreg = surfaces_[ki]->numRegions();
+      int num_pts = 0;
+      shared_ptr<ParamSurface> primary;
+      int num_pt_primary = 0;
+      for (int ka=0; ka<nreg; ++ka)
+	{
+	  RevEngRegion *reg = surfaces_[ki]->getRegion(ka);
+	  int num = reg->numPoints();
+	  num_pts += num;
+	  if (reg->hasPrimary() && num > num_pt_primary)
+	    {
+	      double maxdp, avdp;
+	      int num_inp;
+	      reg->getPrimaryInfo(maxdp, avdp, num_inp);
+	      if (num_inp > num/2 && avdp < approx_tol_)
+		{
+		  primary = reg->getPrimary();
+		  num_pt_primary = num;
+		}
+	    }
+	}
+      if (primary.get())
+	type2 = primary->instanceType();
+      
+      if (!elemsf.get())
+	{
+	  if (primary.get())
+	    elemsf =
+	      dynamic_pointer_cast<ElementarySurface,ParamSurface>(primary);
+	}
       if (!elemsf.get())
 	continue;
       
@@ -2561,7 +3528,8 @@ void RevEng::collectAxis(vector<SurfaceProperties>& sfprop)
       dir = elemsf->direction();
       rad1 = elemsf->radius(0.0, 0.0);   // Not good enough for cones
       rad2 = elemsf->radius2(0.0, 0.0);   // Not good enough for cones
-      SurfaceProperties currprop(type, dir, loc, rad1, rad2);
+      SurfaceProperties currprop(ki, type, num_pts, dir, loc, type2,
+				 rad1, rad2);
       sfprop.push_back(currprop);
     }
 }

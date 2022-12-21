@@ -41,6 +41,7 @@
 #define _HEDGESURFACE_H
 
 #include "GoTools/compositemodel/ftSurface.h"
+#include "GoTools/geometry/ClassType.h"
 //#include "GoTools/compositemodel/RevEngRegion.h"
 
 namespace Go {
@@ -61,6 +62,11 @@ public:
   // Destructor
   ~HedgeSurface();
 
+  int dimension()
+  {
+    return surface()->dimension();
+  }
+  
   int numPoints();
 
   ClassType instanceType(int& code);
@@ -75,6 +81,12 @@ public:
   {
     int code;
     return (instanceType(code) == Class_Cylinder);
+  }
+
+  bool isSphere()
+  {
+    int code;
+    return (instanceType(code) == Class_Sphere);
   }
 
   bool isTorus()
@@ -112,11 +124,20 @@ public:
     else
       return regions_[ix];
   }
+
+  BoundingBox regionsBox()
+  {
+    return bbox_;
+  }
     
-  bool isCompatible(HedgeSurface* other, double angtol, double approx_tol);
-  
+  bool isCompatible(HedgeSurface* other, double angtol, double approx_tol,
+		    ClassType& type, double& score);
+
+  bool hasPrimary();
+
 private:
   std::vector<RevEngRegion*> regions_;
+  BoundingBox bbox_;
 };
 }
 

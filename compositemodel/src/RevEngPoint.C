@@ -71,6 +71,7 @@ RevEngPoint::RevEngPoint()
   outlier_ = false;
   sfdist_ = -1.0;
   sfang_ = -1.0;
+  nmb_move_ = 0;
 }
 
 //===========================================================================
@@ -96,7 +97,7 @@ RevEngPoint::RevEngPoint(Vector3D xyz, int bnd)
   outlier_ = false;
   sfdist_ = -1.0;
   sfang_ = -1.0;
-
+  nmb_move_ = 0;
 }
 
 //===========================================================================

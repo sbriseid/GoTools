@@ -39,8 +39,15 @@
 
 #include "GoTools/compositemodel/RevEngUtils.h"
 #include "GoTools/utils/MatrixXD.h"
+#include "GoTools/utils/LUDecomp.h"
 #include "GoTools/creators/SmoothSurf.h"
+#include "GoTools/creators/ApproxSurf.h"
 #include "GoTools/geometry/SplineSurface.h"
+#include "GoTools/geometry/Cylinder.h"
+#include "GoTools/geometry/Cone.h"
+#include "GoTools/geometry/Sphere.h"
+#include "GoTools/geometry/Torus.h"
+#include "GoTools/geometry/BoundedSurface.h"
 #include "GoTools/geometry/SISLconversion.h"
 #include "sislP.h"
 #include "newmat.h"
@@ -52,6 +59,25 @@ using std::vector;
 using std::pair;
 
 typedef MatrixXD<double, 3> Matrix3D;
+
+//===========================================================================
+void RevEngUtils::principalAnalysis(std::vector<RevEngPoint*>& points, 
+				    double lambda[3], double eigenvec[3][3])
+//===========================================================================
+{
+  if (points.size() < 5)
+    return;
+  vector<Point> remaining(points.size()-1);
+  Vector3D xyz = points[0]->getPoint();
+  Point curr(xyz[0], xyz[1], xyz[2]);
+  for (size_t ki=1; ki<points.size(); ++ki)
+    {
+      xyz = points[ki]->getPoint();
+      Point curr2(xyz[0], xyz[1], xyz[2]);
+      remaining[ki-1] = curr2;
+    }
+  principalAnalysis(curr, remaining, lambda, eigenvec);
+}
 
 //===========================================================================
 void RevEngUtils::principalAnalysis(Point& curr, vector<Point>& points, 
@@ -370,6 +396,81 @@ void RevEngUtils::computeMonge(Point& curr, std::vector<Point>& points,
 }
 
 //===========================================================================
+shared_ptr<SplineSurface>
+RevEngUtils::surfApprox(vector<double>& data, int dim, vector<double>& param,
+			int order1, int order2, int ncoef1, int ncoef2,
+			int max_iter, double tol, double& maxd, double& avd, 
+			int& num_out, double belt_frac)
+//===========================================================================
+{
+  // Create initial spline space
+  double umin = std::numeric_limits<double>::max();
+  double umax = std::numeric_limits<double>::lowest();
+  double vmin = std::numeric_limits<double>::max();
+  double vmax = std::numeric_limits<double>::lowest();
+  for (size_t ki=0; ki<param.size(); ki+=2)
+    {
+      umin = std::min(umin, param[ki]);
+      umax = std::max(umax, param[ki]);
+      vmin = std::min(vmin, param[ki+1]);
+      vmax = std::max(vmax, param[ki+1]);
+    }
+  double udel = (umax - umin);
+  double vdel = (vmax - vmin);
+  umin -= belt_frac*udel;
+  umax += belt_frac*udel;
+  vmin -= belt_frac*vdel;
+  vmax += belt_frac*vdel;
+  udel = (umax - umin)/(double)(ncoef1 - order1 + 1);
+  vdel = (vmax - vmin)/(double)(ncoef2 - order2 + 1);
+  vector<double> et1(order1+ncoef1);
+  vector<double> et2(2*order2+ncoef2);
+  vector<double> coef(ncoef1*ncoef2*dim, 0.0);
+  for (int ka=0; ka<order1; ++ka)
+    {
+      et1[ka] = umin;
+      et1[ka+ncoef1] = umax;
+    }
+  for (int ka=0; ka<order2; ++ka)
+    {
+      et2[ka] = vmin;
+      et2[ka+ncoef2] = vmax;
+    }
+  for (int ka=0; ka<ncoef1-order1; ++ka)
+    et1[order1+ka] = umin + (ka+1)*udel; 
+  for (int ka=0; ka<ncoef2-order2; ++ka)
+    et2[order2+ka] = vmin + (ka+1)*vdel; 
+
+  
+ shared_ptr<SplineSurface> surf(new SplineSurface(ncoef1, ncoef2, order1,
+						  order2, &et1[0], 
+						  &et2[0], &coef[0], dim));
+ shared_ptr<SplineSurface> surf1(new SplineSurface(ncoef1, ncoef2, order1,
+						   order2, &et1[0], 
+						   &et2[0], &coef[0], dim));
+
+ // Approximate
+  SmoothSurf approx2;
+  vector<int> coef_known(ncoef1*ncoef2, 0);
+  int seem[2];
+  seem[0] = seem[1] = 0;
+  int nmbpts = (int)data.size()/dim;
+  vector<double> ptwgt(nmbpts, 1.0);
+  approx2.attach(surf1, seem, &coef_known[0]);
+
+  double wgt1 = 0.0, wgt2 = 0.001, wgt3 = 0.001;
+  double approxwgt = 1.0 - wgt1 - wgt2 - wgt3;
+  approx2.setOptimize(wgt1, wgt2, wgt3);
+  approx2.setLeastSquares(data, param, ptwgt, approxwgt);
+  shared_ptr<SplineSurface> surf3;
+  approx2.equationSolve(surf3);
+
+ ApproxSurf approx(surf3, data, param, dim, tol);
+ shared_ptr<SplineSurface> surf2 = approx.getApproxSurf(maxd, avd, num_out, max_iter);
+ return surf2;
+}
+
+//===========================================================================
 shared_ptr<SplineSurface> RevEngUtils::surfApprox(vector<double>& data, int dim,
 						  vector<double>& param, int order1,
 						  int order2, int nmb_coef1, int nmb_coef2,
@@ -435,6 +536,150 @@ shared_ptr<SplineSurface> RevEngUtils::surfApprox(vector<double>& data, int dim,
   approx.equationSolve(surf);
   return surf;
  }
+
+//===========================================================================
+void RevEngUtils::parameterizeOnPrimary(vector<RevEngPoint*>& points,
+					shared_ptr<ParamSurface> surf,
+					vector<double>& data, vector<double>& param,
+					int& inner1, int& inner2)
+//===========================================================================
+{
+  double eps = 1.0e-6;
+
+  // Make sure to use an untrimmed surface
+  shared_ptr<ParamSurface> sf = surf;
+  shared_ptr<BoundedSurface> bdsf = dynamic_pointer_cast<BoundedSurface,ParamSurface>(sf);
+  if (bdsf.get())
+    sf = bdsf->underlyingSurface();
+  shared_ptr<Cylinder> cyl = dynamic_pointer_cast<Cylinder,ParamSurface>(sf);
+  shared_ptr<Cone> cone = dynamic_pointer_cast<Cone,ParamSurface>(sf);
+  shared_ptr<Sphere> sph = dynamic_pointer_cast<Sphere,ParamSurface>(sf);
+  shared_ptr<Torus> torus = dynamic_pointer_cast<Torus,ParamSurface>(sf);
+  bool close1 = (cyl.get() || cone.get() || sph.get() || torus.get());
+  bool close2 = (sph.get() || torus.get());
+  RectDomain dom = sf->containingDomain();
+  double u1 = dom.umin();
+  double u2 = dom.umax();
+  double v1 = dom.vmin();
+  double v2 = dom.vmax();
+
+  // Parameterize
+  int dim = surf->dimension();
+  param.resize(2*points.size());
+  data.reserve(dim*points.size());
+  double umin = std::numeric_limits<double>::max();
+  double umax = std::numeric_limits<double>::lowest();
+  double vmin = std::numeric_limits<double>::max();
+  double vmax = std::numeric_limits<double>::lowest();
+  double sfac = 0.5;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      Vector3D xyz = points[ki]->getPoint();
+      Point pos(xyz[0], xyz[1], xyz[2]);
+      double upar, vpar, dist;
+      Point close;
+      sf->closestPoint(pos, upar, vpar, close, dist, eps);
+
+      // Check with seam
+      if (ki > 0 && close1 && ((upar-u1 < umin-upar && u2-umax < umin-u1) ||
+			       (u2-upar < upar-umax && umin-u1 < u2-umax)))
+	{
+	  // if (ki >= 2)
+	  //   {
+	  //     // Compare distances
+	  //     double d1 = points[ki-2]->pntDist(points[ki-1]);
+	  //     double d2 = points[ki-1]->pntDist(points[ki]);
+	  //     Point p1(param[2*(ki-2)], param[2*(ki-2)+1]);
+	  //     Point p2(param[2*(ki-1)], param[2*(ki-1)+1]);
+	  //     Point p3(upar,vpar);
+	  //     double dp1 = p1.dist(p2);
+	  //     double dp2 = p2.dist(p3);
+	  //     if (dp1/dp2 < sfac*d1/d2)
+	  // 	{
+		  if (upar-u1 < u2-upar)
+		    upar += (u2-u1);
+		  else
+		    upar -= (u2-u1);
+	    // 	}
+									 
+	    //   int stop_break1 = 1;
+	    // }
+	}
+      if (ki > 0 && close2 && ((vpar-v1 < vmin-vpar && v2-vmax < vmin-v1) ||
+			       (v2-vpar < vpar-vmax && vmin-v1 < v2-vmax)))
+	{
+	  // if (ki >= 2)
+	  //   {
+	  //     // Compare distances
+	  //     double d1 = points[ki-2]->pntDist(points[ki-1]);
+	  //     double d2 = points[ki-1]->pntDist(points[ki]);
+	  //     Point p1(param[2*(ki-2)], param[2*(ki-2)+1]);
+	  //     Point p2(param[2*(ki-1)], param[2*(ki-1)+1]);
+	  //     Point p3(upar,vpar);
+	  //     double dp1 = p1.dist(p2);
+	  //     double dp2 = p2.dist(p3);
+	  //     if (dp1/dp2 < sfac*d1/d2)
+	  // 	{
+		  if (vpar-v1 < v2-vpar)
+		    vpar += (v2-v1);
+		  else
+		    vpar -= (v2-v1);
+	    // 	}
+									 
+	    //   int stop_break2 = 1;
+	    // }
+	}
+      param[2*ki] = upar;
+      param[2*ki+1] = vpar;
+      umin = std::min(umin, upar);
+      umax = std::max(umax, upar);
+      vmin = std::min(vmin, vpar);
+      vmax = std::max(vmax, vpar);
+      data.insert(data.end(), pos.begin(), pos.end());
+    }
+
+  // Reparameterize for surfaces with circular properties
+  inner1 = inner2 = 0;
+  if (cyl.get())
+    {
+      double rad = cyl->getRadius();
+      for (size_t ki=0; ki<param.size(); ki+=2)
+	param[ki] *= rad;
+      inner1 = 2.0*(umax - umin)/M_PI;
+    }
+
+  if (cone.get())
+    {
+      double rad1 = cone->radius(0.0, vmin);
+      double rad2 = cone->radius(0.0, vmax);
+      double rad = 0.5*(rad1 + rad2);
+      for (size_t ki=0; ki<param.size(); ki+=2)
+	param[ki] *= rad;
+      inner1 = 2.0*(umax - umin)/M_PI;
+    }
+  
+  if (sph.get())
+    {
+      double rad = sph->getRadius();
+      for (size_t ki=0; ki<param.size(); ++ki)
+	param[ki] *= rad;
+      inner1 = 2.0*(umax - umin)/M_PI;
+      inner2 = 2.0*(vmax - vmin)/M_PI;
+    }
+
+  if (torus.get())
+    {
+      double rad1 = torus->getMajorRadius();
+      double rad2 = torus->getMinorRadius();
+      for (size_t ki=0; ki<param.size(); ki+=2)
+	{
+	  param[ki] *= rad1;
+	  param[ki+1] *= rad2;
+	}
+      inner1 = 2.0*(umax - umin)/M_PI;
+      inner2 = 2.0*(vmax - vmin)/M_PI;
+    }
+}
 
 //===========================================================================
 void RevEngUtils::parameterizeWithPlane(vector<RevEngPoint*>& pnts,
@@ -786,6 +1031,107 @@ void RevEngUtils::coneApex(vector<pair<vector<RevEngPoint*>::iterator,
 }
 
 //===========================================================================
+void
+RevEngUtils::computeSphereProp(vector<pair<vector<RevEngPoint*>::iterator,
+			       vector<RevEngPoint*>::iterator> >& points,
+			       Point& centre, double& radius)
+//===========================================================================
+{
+  double Amat[4][4];
+  double bvec[4];
+  // vector<vector<double> > Amat(4, vector<double>(4,0.0));
+  // vector<double> bvec(4, 0.0);
+  size_t numpt = 0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      numpt += (points[ki].second - points[ki].first);
+    }
+  
+  vector<vector<double> > A1(numpt);
+  vector<double> b1(numpt);
+  for (size_t kj=0; kj<numpt; ++kj)
+    A1[kj].resize(4);
+      
+  for (int ka=0; ka<4; ++ka)
+    {
+      for (int kb=0; kb<4; ++kb)
+  	Amat[ka][kb] = 0.0;
+      bvec[ka] = 0.0;
+    }
+
+  double wgt = 1.0/(double)numpt;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      vector<RevEngPoint*>::iterator start = points[ki].first;
+      vector<RevEngPoint*>::iterator end = points[ki].second;
+      size_t kj = 0;
+      for (auto it=start; it!=end; ++it, ++kj)
+	{
+	  Vector3D curr = (*it)->getPoint();
+	  A1[kj][0] = 2*curr[0];
+	  A1[kj][1] = 2*curr[1];
+	  A1[kj][2] = 2*curr[2];
+	  A1[kj][3] = 1.0;
+	  b1[kj] = curr.length2();
+	}
+    }
+
+  for (int ka=0; ka<4; ++ka)
+    {
+      for (int kb=0; kb<4; ++kb)
+	{
+	  for (size_t kr=0; kr<numpt; ++kr)
+	    Amat[ka][kb] += wgt*A1[kr][ka]*A1[kr][kb];
+	}
+      for (size_t kr=0; kr<numpt; ++kr)
+	bvec[ka] += wgt*A1[kr][ka]*b1[kr];
+    }
+
+  // double detA = 0.0;
+  // double bx[3];
+  // bx[0] = bx[1] = bx[2] = 0.0;
+  // int sgn1 = 1, sgn2 = 1;
+  // for (int kb=0; kb<4; ++kb, sgn1*=(-1))
+  //   {
+  //     for (int kc=0; kc<4; ++kc)
+  // 	{
+  // 	  if (kc == kb)
+  // 	    continue;
+  // 	  int ka1 = (kb == 0);
+  // 	  int ka2 = 3 - (kb == 3);
+  // 	  detA += sgn1*Amat[0][kb]*
+  // 	    (sgn2*Amat[1][kc]*(Amat[2][ka1]*Amat[3][ka2]-
+  // 			       Amat[3][ka1]*Amat[2][ka2]));
+  // 	  bx[0] += sgn1*bvec[kb]*
+  // 	    (sgn2*Amat[1][kc]*(Amat[2][ka1]*Amat[3][ka2]-
+  // 			       Amat[3][ka1]*Amat[2][ka2]));
+  // 	  bx[1] += sgn1*Amat[0][kb]*
+  // 	    (sgn2*bvec[kc]*(Amat[2][ka1]*Amat[3][ka2]-
+  // 			    Amat[3][ka1]*Amat[2][ka2]));
+  // 	  bx[2] += sgn1*Amat[0][kv]*
+  // 	    (sgn2*Amat[1][kc]*(bvec[ka1]Amat[3][ka2]-
+  // 			       bvec[ka2]*Amat[3][ka1]));
+  // 	  bx[3] += sgn1*Amat[0][kb]*
+  // 	    sgn2*Amat[1][kc]*((Amat[2][ka1]*bvec[ka2]-Amat[1][ka2]*bvec[ka1]);
+  // 	  sgn2 += -1;
+  // 	}
+  //   }
+  // double sx = bx[0]/detA;
+  // double sy = bx[1]/detA;
+  // double sz = bx[2]/detA;
+  // double r2 = bx[3]/detA;
+  LUsolveSystem(Amat, 4, &bvec[0]);
+  double sx = bvec[0];
+  double sy = bvec[1];
+  double sz = bvec[2];
+  double r2 = bvec[3];
+
+  centre = Point(sx,sy,sz);
+
+  radius = sqrt(r2 + sx*sx + sy*sy + sz*sz);
+ }
+
+//===========================================================================
 void RevEngUtils::computeCylPosRadius(vector<pair<vector<RevEngPoint*>::iterator,
 				      vector<RevEngPoint*>::iterator> >& points,
 				      Point& low, Point& high,
@@ -889,6 +1235,8 @@ void RevEngUtils::computeCylPosRadius(vector<pair<vector<RevEngPoint*>::iterator
   pos = pos2 + (vec*ax)*ax;
  }
 
+ 
+
 //===========================================================================
 void RevEngUtils::computeCircPosRadius(vector<Point>& points,
 				      const Point& axis, const Point& Cx, 
@@ -967,6 +1315,10 @@ void RevEngUtils::computeCircPosRadius(vector<Point>& points,
       bx[1] += sgn*Amat[0][kb]*(bvec[ka1]*Amat[2][ka2]-bvec[ka2]*Amat[2][ka1]);
       bx[2] += sgn*Amat[0][kb]*(Amat[1][ka1]*bvec[ka2]-Amat[1][ka2]*bvec[ka1]);
     }
+  if (fabs(detA) < 1.0e-12 || std::isnan(detA))
+    THROW("Circle computation fail");
+  //std::cout << "Circposradius, detA:" << detA << std::endl;
+    
   double sx = bx[0]/detA;
   double sy = bx[1]/detA;
   double r2 = bx[2]/detA;
@@ -1053,6 +1405,9 @@ void RevEngUtils::computeRadius(vector<Point>& points, Point& axis,
       bx[1] += sgn*Amat[0][kb]*(bvec[ka1]*Amat[2][ka2]-bvec[ka2]*Amat[2][ka1]);
       bx[2] += sgn*Amat[0][kb]*(Amat[1][ka1]*bvec[ka2]-Amat[1][ka2]*bvec[ka1]);
     }
+  if (fabs(detA) < 1.0e-12)
+    THROW("Circle with infinite radius");
+  
   double sx = bx[0]/detA;
   double sy = bx[1]/detA;
   double r2 = bx[2]/detA;

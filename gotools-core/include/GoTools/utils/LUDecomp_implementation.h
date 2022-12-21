@@ -137,7 +137,6 @@ void LUsolveSystem(SquareMatrix& A, int num_unknowns, T* vec)
     
     LUDecomp(A, num_unknowns, &permutation[0], parity);
 
-    // permuting b
     std::vector<T> vec_old(vec, vec + num_unknowns);
     for (int i = 0; i < num_unknowns; ++i) {
 	std::swap(vec[i], vec_old[permutation[i]]);

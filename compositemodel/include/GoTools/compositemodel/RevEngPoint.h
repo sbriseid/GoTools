@@ -273,20 +273,23 @@ namespace Go
 
     bool isEdge()
     {
-      return (edge_[0] == PCA_EDGE || edge_[1] == C1_EDGE ||
-	      edge_[2] == C2_EDGE);
+      return (edge_[1] == C1_EDGE);
+      // return (edge_[0] == PCA_EDGE || edge_[1] == C1_EDGE ||
+      // 	      edge_[2] == C2_EDGE);
     }
 
     bool closeEdge()
     {
-      return (edge_[0] >= PCA_CLOSE_EDGE || edge_[1] >= C1_CLOSE_EDGE ||
-	      edge_[2] >= C2_CLOSE_EDGE);
+      return (edge_[1] >= C1_CLOSE_EDGE);
+      // return (edge_[0] >= PCA_CLOSE_EDGE || edge_[1] >= C1_CLOSE_EDGE ||
+      // 	      edge_[2] >= C2_CLOSE_EDGE);
     }
 
     bool notEdge()
     {
-      return (edge_[0] <= PCA_NOT_EDGE && edge_[1] <= C1_NOT_EDGE &&
-	      edge_[2] <= C2_NOT_EDGE);
+      return (edge_[1] <= C1_NOT_EDGE);
+      // return (edge_[0] <= PCA_NOT_EDGE && edge_[1] <= C1_NOT_EDGE &&
+      // 	      edge_[2] <= C2_NOT_EDGE);
     }
 
     bool isolatedEdge(int nmb, bool close);
@@ -373,6 +376,11 @@ namespace Go
       sfang_ = ang;
     }
 
+    double  getSurfaceDist()
+    {
+      return sfdist_;
+    }
+    
     void getSurfaceDist(double& dist, double& ang)
     {
       dist = sfdist_;
@@ -380,6 +388,16 @@ namespace Go
     }
 
     bool isNeighbour(RevEngRegion* reg) const;
+
+    void addMove()
+    {
+      nmb_move_++;
+    }
+
+    int numMove()
+    {
+      return nmb_move_;
+    }
 
     void store(std::ostream& os) const;
     void read(std::istream& is, double eps, vector<int>& next_ix);
@@ -417,6 +435,7 @@ namespace Go
 
     double sfdist_;  // Distance beteen point and surface representation
     double sfang_;   // Angle between estimated normal and surface normal
+    int nmb_move_;
 
     mutable int visited_;
     mutable int moved_;
