@@ -145,6 +145,7 @@ namespace Go {
 		   double& maxdist, double& avdist, int& inside,
 		   std::vector<RevEngPoint*>& in,
 		   std::vector<RevEngPoint*>& out,
+		   std::vector<double>& parvals,
 		   std::vector<std::pair<double,double> >& distang,
 		   double angtol=-1.0);
     

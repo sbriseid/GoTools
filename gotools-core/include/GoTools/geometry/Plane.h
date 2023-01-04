@@ -228,7 +228,7 @@ public:
     /// \return \a true if bounded, \a false otherwise
     virtual bool isBounded() const;
 
-    /// Check if the plane is closed. Virtual function - always false.
+     /// Check if the plane is closed. Virtual function - always false.
     virtual bool isClosed(bool& closed_dir_u, bool& closed_dir_v) const;
 
     /// Return the result from intersecting the unbounded plane with a

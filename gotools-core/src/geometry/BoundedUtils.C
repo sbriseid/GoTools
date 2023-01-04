@@ -37,7 +37,7 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-//#define DEBUG1
+#define DEBUG1
 
 //#define SBR_DBG
 
@@ -60,6 +60,12 @@
 #include "GoTools/geometry/SurfaceTools.h"
 #include "GoTools/geometry/ClosestPoint.h"
 #include "GoTools/geometry/SurfaceOfLinearExtrusion.h"
+#include "GoTools/geometry/Plane.h"
+#include "GoTools/geometry/Cylinder.h"
+#include "GoTools/geometry/Cone.h"
+#include "GoTools/geometry/Sphere.h"
+#include "GoTools/geometry/Torus.h"
+#include "GoTools/geometry/ClosestPoint.h"
 #include "GoTools/creators/CoonsPatchGen.h"
 
 
@@ -715,12 +721,28 @@ BoundedUtils::getSurfaceIntersections(const shared_ptr<ParamSurface>& surf1,
     under_sf2->writeStandardHeader(debug0);
     under_sf2->write(debug0);
 #endif
-    try {
-      getIntersectionCurve(under_sf1, under_sf2, int_segments1, int_segments2, 
-			   epsge);
-    } catch (...) {
-      THROW("Failed intersecting spline surface with plane.");
-    }
+    shared_ptr<ElementarySurface> elem1 =
+      dynamic_pointer_cast<ElementarySurface,ParamSurface>(under_sf1);
+    shared_ptr<ElementarySurface> elem2 =
+      dynamic_pointer_cast<ElementarySurface,ParamSurface>(under_sf2);
+    if (elem1.get() || elem2.get())
+      {
+	try {
+	  getIntersectionCurveElem(under_sf1, under_sf2, int_segments1, int_segments2, 
+				   epsge);
+	} catch (...) {
+	  THROW("Failed intersecting surfaces where at least one is an elementary surface.");
+	}
+      }
+    else
+      {
+	try {
+	  getIntersectionCurve(under_sf1, under_sf2, int_segments1, int_segments2, 
+			       epsge);
+	} catch (...) {
+	  THROW("Failed intersecting spline surfaces.");
+	}
+      }
 
     // Ensure correct surface pointer
     for (size_t kj=0; kj<int_segments1.size(); ++kj)
@@ -2120,6 +2142,70 @@ BoundedUtils::createTrimmedSurfs(vector<vector<shared_ptr<CurveOnSurface> > >&
 
 //===========================================================================
 vector<shared_ptr<CurveOnSurface> >
+BoundedUtils::intersectWithElementarySurface(shared_ptr<ParamSurface>& surf,
+					     shared_ptr<ElementarySurface>& elem,
+					     double geom_tol)
+//===========================================================================
+{
+  if (elem->instanceType() == Class_Plane)
+    {
+      shared_ptr<Plane> plane = dynamic_pointer_cast<Plane,ElementarySurface>(elem);
+      Point pnt = plane->getPoint();
+      Point normal = plane->getNormal();
+      return intersectWithPlane(surf, pnt, normal, geom_tol);
+    }
+  else if (elem->instanceType() == Class_Cylinder)
+    {
+      shared_ptr<Cylinder> cyl = dynamic_pointer_cast<Cylinder,ElementarySurface>(elem);
+      Point loc = cyl->getLocation();
+      Point dir = cyl->getAxis();
+      double rad = cyl->getRadius();
+      return intersectWithCylinder(surf, loc, dir, rad, geom_tol);
+    }
+  else if (elem->instanceType() == Class_Cone)
+    {
+      shared_ptr<Cone> cone = dynamic_pointer_cast<Cone,ElementarySurface>(elem);
+      Point loc = cone->getLocation();
+      Point dir = cone->getAxis();
+      Point dir2 = cone->direction2();
+      double rad = cone->getRadius();
+      if (rad < 0.01)
+	{
+	  RectDomain dom = cone->getParameterBounds();
+	  double upar = 0.5*(dom.umin()+dom.umax());
+	  double vpar = 0.5*(dom.vmin()+dom.vmax());
+	  rad = cone->radius(upar, vpar);
+	}
+      Point axispt = loc + rad*dir;
+      Point sfpt = loc + rad*dir2;
+      
+      return intersectWithCone(surf, loc, axispt, sfpt, geom_tol);
+    }
+  else if (elem->instanceType() == Class_Sphere)
+    {
+      shared_ptr<Sphere> sph = dynamic_pointer_cast<Sphere,ElementarySurface>(elem);
+      Point centre = sph->getLocation();
+      double rad = sph->getRadius();
+      return intersectWithSphere(surf, centre, rad, geom_tol);
+    }
+  else if (elem->instanceType() == Class_Torus)
+    {
+      shared_ptr<Torus> tor = dynamic_pointer_cast<Torus,ElementarySurface>(elem);
+      Point centre = tor->getLocation();
+      Point dir = tor->direction();
+      double rad1 = tor->getMajorRadius();
+      double rad2 = tor->getMinorRadius();
+      return intersectWithTorus(surf, centre, dir, rad1, rad2, geom_tol);
+    }
+  else
+    {
+      vector<shared_ptr<CurveOnSurface> > dummy;
+      return dummy;
+    }
+}
+
+//===========================================================================
+vector<shared_ptr<CurveOnSurface> >
 BoundedUtils::intersectWithPlane(shared_ptr<ParamSurface>& surf,
 				   Point pnt, Point normal, double geom_tol)
 //===========================================================================
@@ -2308,7 +2394,7 @@ BoundedUtils::intersectWithCylinder(shared_ptr<ParamSurface>& surf,
 	  &numintpt, &pointpar, &numintcr, &intcurves, &stat);
     // @@sbr Not sure this is the right solution. Maybe stat!=0 because of warning.
     ALWAYS_ERROR_IF(stat!=0,
-		"s1851 returned code: " << stat);
+		"s1853 returned code: " << stat);
     // pointpar is not used any further
     free(pointpar);
     double maxstep = 0.0;
@@ -2357,6 +2443,407 @@ BoundedUtils::intersectWithCylinder(shared_ptr<ParamSurface>& surf,
     freeSurf(sislsf);
 
     return curves;
+}
+
+//===========================================================================
+vector<shared_ptr<CurveOnSurface> >
+BoundedUtils::intersectWithSphere(shared_ptr<ParamSurface>& surf,
+				  Point pnt, double radius, 
+				  double geom_tol)
+//===========================================================================
+{
+    vector<shared_ptr<CurveOnSurface> > curves;
+
+    // Convert the surface to a SISLSurf in order to use SISL functions
+    // on it. The "false" argument dictates that the SISLSurf will only
+    // copy pointers to arrays, not the arrays themselves.
+    shared_ptr<SplineSurface> tmp_sf;
+    SplineSurface *splinesf = surf->getSplineSurface();
+    if (!splinesf)
+      {
+	tmp_sf = shared_ptr<SplineSurface>(surf->asSplineSurface());
+	splinesf = tmp_sf.get();
+      }
+    ALWAYS_ERROR_IF(splinesf == 0,
+		    "Requiringsurface to be a SplineSurface.");
+    SISLSurf* sislsf = GoSurf2SISL(*splinesf, false);
+    int dim = 3;
+    double epsco = 1e-15; // Not used
+//     double epsge = 1e-6;
+    int numintpt;
+    double* pointpar = 0;
+    int numintcr;
+    SISLIntcurve** intcurves = 0;
+    int stat;
+    // Find the topology of the intersection
+    s1852(sislsf, pnt.begin(), radius, dim, epsco, geom_tol,
+	  &numintpt, &pointpar, &numintcr, &intcurves, &stat);
+    // @@sbr Not sure this is the right solution. Maybe stat!=0 because of warning.
+    ALWAYS_ERROR_IF(stat!=0,
+		"s1852 returned code: " << stat);
+    // pointpar is not used any further
+    free(pointpar);
+    double maxstep = 0.0;
+    int makecurv = 2;     // Make both geometric and parametric curves
+    int graphic = 0;      // Do not draw the curve
+//     epsge = tol_.neighbour;
+     for (int i = 0; i < numintcr; ++i) {
+	// March out the intersection curves
+       s1315(sislsf,pnt.begin(), radius, dim, epsco, geom_tol,
+	      maxstep, intcurves[i], makecurv, graphic, &stat);
+	SISLCurve* sc = intcurves[i]->pgeom;
+	if (sc == 0) {
+	    MESSAGE("s1315 returned code: " << stat << ", returning.");
+	    continue;
+	    // freeIntcrvlist(intcurves, numintcr);
+	    // freeSurf(sislsf);
+	    // return curves;
+	}
+	double* t = sc->et;
+	double* c = (sc->ikind==2 || sc->ikind==4)? sc->rcoef : sc->ecoef;
+	// Convert the geometric curve to Go format
+	shared_ptr<ParamCurve> gcv(new SplineCurve(sc->in, sc->ik, t, c, 3));
+	sc = intcurves[i]->ppar1;
+	t = sc->et;
+	c = (sc->ikind==2 || sc->ikind==4)? sc->rcoef : sc->ecoef;
+	shared_ptr<ParamCurve> pcv(new SplineCurve(sc->in, sc->ik, t, c, 2));
+	// We prefer parameter curves.
+	// curves.push_back(shared_ptr<CurveOnSurface>
+	// 		 (new CurveOnSurface(surf, pcv, gcv, true)));
+	curves.push_back(shared_ptr<CurveOnSurface>
+			 (new CurveOnSurface(surf, pcv, gcv, false)));
+
+	// // We would like the curve to have direction in consistency with trimming.
+	// vector<Point> derivs(2);
+	// gcv->point(derivs, gcv->startparam(), 1);
+	// Point par_pt = pcv->point(pcv->startparam());
+	// Point surf_normal;
+	// surf->normal(surf_normal, par_pt[0], par_pt[1]);
+	// Point dir_ind = surf_normal%derivs[1]; // Cross product.
+	// // If angle(dir_ind, normal) < 90, turn curve (should be in (90, 180).
+	// double inner_product = dir_ind*vec;
+	// if (inner_product > 0)
+	//   curves[curves.size()-1]->reverseParameterDirection();
+    }
+    freeIntcrvlist(intcurves, numintcr);
+    freeSurf(sislsf);
+
+    return curves;
+}
+
+//===========================================================================
+vector<shared_ptr<CurveOnSurface> >
+BoundedUtils::intersectWithCone(shared_ptr<ParamSurface>& surf,
+				Point pnt, Point axispt, Point sfpt,
+				double geom_tol)
+//===========================================================================
+{
+    vector<shared_ptr<CurveOnSurface> > curves;
+
+    // Convert the surface to a SISLSurf in order to use SISL functions
+    // on it. The "false" argument dictates that the SISLSurf will only
+    // copy pointers to arrays, not the arrays themselves.
+    shared_ptr<SplineSurface> tmp_sf;
+    SplineSurface *splinesf = surf->getSplineSurface();
+    if (!splinesf)
+      {
+	tmp_sf = shared_ptr<SplineSurface>(surf->asSplineSurface());
+	splinesf = tmp_sf.get();
+      }
+    ALWAYS_ERROR_IF(splinesf == 0,
+		    "Requiringsurface to be a SplineSurface.");
+    SISLSurf* sislsf = GoSurf2SISL(*splinesf, false);
+    int dim = 3;
+    double epsco = 1e-15; // Not used
+//     double epsge = 1e-6;
+    int numintpt;
+    double* pointpar = 0;
+    int numintcr;
+    SISLIntcurve** intcurves = 0;
+    int stat;
+    // Find the topology of the intersection
+    s1854(sislsf, pnt.begin(), axispt.begin(), sfpt.begin(), dim, epsco, 
+	  geom_tol, &numintpt, &pointpar, &numintcr, &intcurves, &stat);
+    // @@sbr Not sure this is the right solution. Maybe stat!=0 because of warning.
+    ALWAYS_ERROR_IF(stat!=0,
+		"s1853 returned code: " << stat);
+    // pointpar is not used any further
+    free(pointpar);
+    double maxstep = 0.0;
+    int makecurv = 2;     // Make both geometric and parametric curves
+    int graphic = 0;      // Do not draw the curve
+//     epsge = tol_.neighbour;
+     for (int i = 0; i < numintcr; ++i) {
+	// March out the intersection curves
+       s1317(sislsf, pnt.begin(), axispt.begin(), sfpt.begin(), dim, epsco, 
+	      geom_tol, maxstep, intcurves[i], makecurv, graphic, &stat);
+	SISLCurve* sc = intcurves[i]->pgeom;
+	if (sc == 0) {
+	    MESSAGE("s1317 returned code: " << stat << ", returning.");
+	    continue;
+	    // freeIntcrvlist(intcurves, numintcr);
+	    // freeSurf(sislsf);
+	    // return curves;
+	}
+	double* t = sc->et;
+	double* c = (sc->ikind==2 || sc->ikind==4)? sc->rcoef : sc->ecoef;
+	// Convert the geometric curve to Go format
+	shared_ptr<ParamCurve> gcv(new SplineCurve(sc->in, sc->ik, t, c, 3));
+	sc = intcurves[i]->ppar1;
+	t = sc->et;
+	c = (sc->ikind==2 || sc->ikind==4)? sc->rcoef : sc->ecoef;
+	shared_ptr<ParamCurve> pcv(new SplineCurve(sc->in, sc->ik, t, c, 2));
+	// We prefer parameter curves.
+	// curves.push_back(shared_ptr<CurveOnSurface>
+	// 		 (new CurveOnSurface(surf, pcv, gcv, true)));
+	curves.push_back(shared_ptr<CurveOnSurface>
+			 (new CurveOnSurface(surf, pcv, gcv, false)));
+
+	// We would like the curve to have direction in consistency with trimming.
+	vector<Point> derivs(2);
+	gcv->point(derivs, gcv->startparam(), 1);
+	Point par_pt = pcv->point(pcv->startparam());
+	Point surf_normal;
+	surf->normal(surf_normal, par_pt[0], par_pt[1]);
+	Point dir_ind = surf_normal%derivs[1]; // Cross product.
+	// If angle(dir_ind, normal) < 90, turn curve (should be in (90, 180).
+	Point vec = axispt - pnt;
+	double inner_product = dir_ind*vec;
+	if (inner_product > 0)
+	  curves[curves.size()-1]->reverseParameterDirection();
+    }
+    freeIntcrvlist(intcurves, numintcr);
+    freeSurf(sislsf);
+
+    return curves;
+}
+
+//===========================================================================
+vector<shared_ptr<CurveOnSurface> >
+BoundedUtils::intersectWithTorus(shared_ptr<ParamSurface>& surf,
+				 Point pnt, Point normal, double rad1,
+				 double rad2, double geom_tol)
+//===========================================================================
+{
+    vector<shared_ptr<CurveOnSurface> > curves;
+
+    // Convert the surface to a SISLSurf in order to use SISL functions
+    // on it. The "false" argument dictates that the SISLSurf will only
+    // copy pointers to arrays, not the arrays themselves.
+    shared_ptr<SplineSurface> tmp_sf;
+    SplineSurface *splinesf = surf->getSplineSurface();
+    if (!splinesf)
+      {
+	tmp_sf = shared_ptr<SplineSurface>(surf->asSplineSurface());
+	splinesf = tmp_sf.get();
+      }
+    ALWAYS_ERROR_IF(splinesf == 0,
+		    "Requiringsurface to be a SplineSurface.");
+    SISLSurf* sislsf = GoSurf2SISL(*splinesf, false);
+    int dim = 3;
+    double epsco = 1e-15; // Not used
+//     double epsge = 1e-6;
+    int numintpt;
+    double* pointpar = 0;
+    int numintcr;
+    SISLIntcurve** intcurves = 0;
+    int stat;
+    // Find the topology of the intersection
+    s1369(sislsf, pnt.begin(), normal.begin(), rad1, rad2, dim, epsco, 
+	  geom_tol, &numintpt, &pointpar, &numintcr, &intcurves, &stat);
+    // @@sbr Not sure this is the right solution. Maybe stat!=0 because of warning.
+    ALWAYS_ERROR_IF(stat!=0,
+		"s1853 returned code: " << stat);
+    // pointpar is not used any further
+    free(pointpar);
+    double maxstep = 0.0;
+    int makecurv = 2;     // Make both geometric and parametric curves
+    int graphic = 0;      // Do not draw the curve
+//     epsge = tol_.neighbour;
+     for (int i = 0; i < numintcr; ++i) {
+	// March out the intersection curves
+       s1318(sislsf,pnt.begin(), normal.begin(), rad1, rad2, dim, epsco, 
+	      geom_tol, maxstep, intcurves[i], makecurv, graphic, &stat);
+	SISLCurve* sc = intcurves[i]->pgeom;
+	if (sc == 0) {
+	    MESSAGE("s1318 returned code: " << stat << ", returning.");
+	    continue;
+	    // freeIntcrvlist(intcurves, numintcr);
+	    // freeSurf(sislsf);
+	    // return curves;
+	}
+	double* t = sc->et;
+	double* c = (sc->ikind==2 || sc->ikind==4)? sc->rcoef : sc->ecoef;
+	// Convert the geometric curve to Go format
+	shared_ptr<ParamCurve> gcv(new SplineCurve(sc->in, sc->ik, t, c, 3));
+	sc = intcurves[i]->ppar1;
+	t = sc->et;
+	c = (sc->ikind==2 || sc->ikind==4)? sc->rcoef : sc->ecoef;
+	shared_ptr<ParamCurve> pcv(new SplineCurve(sc->in, sc->ik, t, c, 2));
+	// We prefer parameter curves.
+	// curves.push_back(shared_ptr<CurveOnSurface>
+	// 		 (new CurveOnSurface(surf, pcv, gcv, true)));
+	curves.push_back(shared_ptr<CurveOnSurface>
+			 (new CurveOnSurface(surf, pcv, gcv, false)));
+
+	// We would like the curve to have direction in consistency with trimming.
+	vector<Point> derivs(2);
+	gcv->point(derivs, gcv->startparam(), 1);
+	Point par_pt = pcv->point(pcv->startparam());
+	Point surf_normal;
+	surf->normal(surf_normal, par_pt[0], par_pt[1]);
+	Point dir_ind = surf_normal%derivs[1]; // Cross product.
+	// If angle(dir_ind, normal) < 90, turn curve (should be in (90, 180).
+	double inner_product = dir_ind*normal;
+	if (inner_product > 0)
+	  curves[curves.size()-1]->reverseParameterDirection();
+    }
+    freeIntcrvlist(intcurves, numintcr);
+    freeSurf(sislsf);
+
+    return curves;
+}
+
+//===========================================================================
+void
+BoundedUtils::getIntersectionCurveElem(shared_ptr<ParamSurface>& sf1,
+				       shared_ptr<ParamSurface>& sf2,
+				       vector<shared_ptr<CurveOnSurface> >& int_segments1,
+				       vector<shared_ptr<CurveOnSurface> >& int_segments2,
+				       double epsgeo)
+//===========================================================================
+{
+    // @@sbr epsgeo should be close to 1e-06;
+    ALWAYS_ERROR_IF((int_segments2.size() != 0) || (int_segments2.size() != 0),
+		"Segment vectors must be empty!");
+
+    if (sf2->instanceType() == Class_SplineSurface ||
+	(sf2->instanceType() == Class_Plane &&
+	 (sf1->instanceType() != Class_SplineSurface && sf1->instanceType() != Class_Plane)))
+      {
+	getIntersectionCurveElem(sf2, sf1, int_segments2, int_segments1, epsgeo);
+	return;
+      }
+    
+    shared_ptr<SplineSurface> surf1 = dynamic_pointer_cast<SplineSurface,ParamSurface>(sf1);
+    if (!surf1.get())
+      {
+	surf1 = shared_ptr<SplineSurface>(sf1->asSplineSurface());
+      }
+    shared_ptr<ElementarySurface> elem2 =
+      dynamic_pointer_cast<ElementarySurface,ParamSurface>(sf2);
+
+    if (!(surf1 && elem2.get()))
+      THROW("Unexpected surface types in intersection");
+
+    shared_ptr<ParamSurface> surf1_2 = surf1;
+    vector<shared_ptr<CurveOnSurface> > int_seg1 =
+      intersectWithElementarySurface(surf1_2, elem2, epsgeo);
+
+    const Point sf_epspar = SurfaceTools::getParEpsilon(*elem2, epsgeo);
+    const double epspar = std::min(sf_epspar[0], sf_epspar[1]);
+    if (int_seg1.size() > 0)
+      {
+	// Check if the elementary surface is closed
+	bool close_u, close_v;
+	elem2->isClosed(close_u, close_v);
+
+	// Split intersection curve is it traverses across a seam
+	RectDomain dom = elem2->containingDomain();
+	if (close_u)
+	  {
+	    // Pick seam curve
+	    double tpar = dom.umin();
+	    vector<shared_ptr<ParamCurve> > cvs = elem2->constParamCurves(tpar, false);
+	    if (cvs.size() == 1)
+	      {
+		size_t nsegs = int_seg1.size();
+		for (size_t ki=0; ki<nsegs; ++ki)
+		  {
+		    // Compute the closest point between the two curves
+		    double start = int_seg1[ki]->startparam();
+		    double end = int_seg1[ki]->endparam();
+		    double par1, par2, dist;
+		    Point ptc1, ptc2;
+		    ClosestPoint::closestPtCurves(int_seg1[ki].get(), cvs[0].get(),
+						  par1, par2, dist, ptc1, ptc2);
+		    if (dist < epsgeo && par1-start > epspar && end-par1 > epspar)
+		      {
+			// Split intersection curve
+			vector<shared_ptr<ParamCurve> > sub_cvs = int_seg1[ki]->split(par1);
+			if (sub_cvs.size() > 1)
+			  {
+			    int_seg1[ki] = dynamic_pointer_cast<CurveOnSurface,ParamCurve>(sub_cvs[0]);
+			    for (size_t kj=1; kj<sub_cvs.size(); ++kj)
+			      int_seg1.push_back(dynamic_pointer_cast<CurveOnSurface,ParamCurve>(sub_cvs[kj]));
+			  }
+		      }
+		  }
+	      }
+	  }
+	if (close_v)
+	  {
+	    double tpar = dom.vmin();
+	    vector<shared_ptr<ParamCurve> > cvs = elem2->constParamCurves(tpar, true);
+	    if (cvs.size() == 1)
+	      {
+		size_t nsegs = int_seg1.size();
+		for (size_t ki=0; ki<nsegs; ++ki)
+		  {
+		    // Compute the closest point between the two curves
+		    double start = int_seg1[ki]->startparam();
+		    double end = int_seg1[ki]->endparam();
+		    double par1, par2, dist;
+		    Point ptc1, ptc2;
+		    ClosestPoint::closestPtCurves(int_seg1[ki].get(), cvs[0].get(),
+						  par1, par2, dist, ptc1, ptc2);
+		    if (dist < epsgeo && par1-start > epspar && end-par1 > epspar)
+		      {
+			// Split intersection curve
+			vector<shared_ptr<ParamCurve> > sub_cvs = int_seg1[ki]->split(par1);
+			if (sub_cvs.size() > 1)
+			  {
+			    int_seg1[ki] = dynamic_pointer_cast<CurveOnSurface,ParamCurve>(sub_cvs[0]);
+			    for (size_t kj=1; kj<sub_cvs.size(); ++kj)
+			      int_seg1.push_back(dynamic_pointer_cast<CurveOnSurface,ParamCurve>(sub_cvs[kj]));
+			  }
+		      }
+		  }
+	      }
+	  }
+	
+	vector<shared_ptr<CurveOnSurface> > int_seg2(int_seg1.size());
+	for (size_t ki=0; ki<int_seg1.size(); ++ki)
+	  {
+	    if (!int_seg1[ki]->hasSpaceCurve())
+	      THROW("Non-existing intersection curve in geometry space");
+
+	    // Create intersection curve for surface two
+	    int_seg2[ki] = shared_ptr<CurveOnSurface>(new CurveOnSurface(sf2,
+									 int_seg1[ki]->spaceCurve(),
+									 false));
+	    int_seg2[ki]->ensureParCrvExistence(epsgeo);
+
+	    // Ensure consistence for surface one
+	    if (surf1.get() != sf1.get())
+	      {
+		if (sf1->instanceType() == Class_Plane)
+		  int_seg1[ki] = shared_ptr<CurveOnSurface>(new CurveOnSurface(sf1,
+									       int_seg1[ki]->parameterCurve(),
+									       int_seg1[ki]->spaceCurve(),
+									       false));
+		else
+		  {
+		    int_seg1[ki] = shared_ptr<CurveOnSurface>(new CurveOnSurface(sf1,
+										 int_seg1[ki]->spaceCurve(),
+										 false));
+		    int_seg1[ki]->ensureParCrvExistence(epsgeo);
+		  }
+	      }
+	  }
+	int_segments1 = int_seg1;
+	int_segments2 = int_seg2;
+      }
 }
 
 //===========================================================================

@@ -133,6 +133,8 @@ namespace Go
     {
       return bbox_;
     }
+
+    BoundingBox getParameterBox();
     
     RevEngPoint* seedPoint();
     
@@ -275,6 +277,11 @@ namespace Go
       num_inside = num_inside_;
     }
 
+    double getMaxSfDist()
+    {
+      return maxdist_;
+    }
+
     void setVisited(bool visited)
     {
       visited_ = visited;
@@ -372,7 +379,7 @@ namespace Go
       avdist_primary = avdist_primary_;
       num_in_primary = num_in_primary_;
     }
-      
+
     
     void writeRegionInfo(std::ostream& of);
     void writeUnitSphereInfo(std::ostream& of);

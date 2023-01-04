@@ -675,6 +675,23 @@ void RevEngRegion::collect(RevEngPoint *pt)
 }
 
 //===========================================================================
+BoundingBox RevEngRegion::getParameterBox()
+//===========================================================================
+{
+  BoundingBox parbox(2);
+  if (associated_sf_.size() == 0)
+    return parbox;   // No surface means that the points are not parameterized
+
+  for (size_t ki=0; ki<group_points_.size(); ++ki)
+    {
+      Vector2D par = group_points_[ki]->getPar();
+      Point par2(par[0], par[1]);
+      parbox.addUnionWith(par2);
+    }
+  return parbox;
+}
+
+//===========================================================================
 RevEngPoint* RevEngRegion::seedPoint()
 //===========================================================================
 {
@@ -937,9 +954,10 @@ bool RevEngRegion::extractPlane(double tol, int min_pt, double angtol,
   // RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
   // 			  surf2, tol, maxdist2, avdist2, num_inside2);
   vector<pair<double, double> > dist_ang;
+  vector<double> parvals;
   RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 			  surf3, tol, maxdist3, avdist3, num_inside3, inpt,
-			  outpt, dist_ang, angtol);
+			  outpt, parvals, dist_ang, angtol);
   std::ofstream ofd("in_out_plane.g2");
   ofd << "400 1 0 4 155 50 50 255" << std::endl;
   ofd << inpt.size() << std::endl;
@@ -955,11 +973,12 @@ bool RevEngRegion::extractPlane(double tol, int min_pt, double angtol,
 shared_ptr<Plane> plane_in = computePlane(inpt);
       vector<RevEngPoint*> inpt_in, outpt_in; //, inpt2, outpt2;
       vector<pair<double, double> > dist_ang_in;
+      vector<double> parvals_in;
       double maxd_in, avd_in;
       int num2_in;
       RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 			      plane_in, tol, maxd_in, avd_in, num2_in,
-			      inpt_in, outpt_in, dist_ang_in, angtol);
+			      inpt_in, outpt_in, parvals_in, dist_ang_in, angtol);
   
       std::ofstream ofd2("in_out_plane2.g2");
       ofd2 << "400 1 0 4 155 50 50 255" << std::endl;
@@ -977,6 +996,7 @@ shared_ptr<Plane> plane_in = computePlane(inpt);
 	  std::swap(num_inside3, num2_in);
 	  std::swap(avdist3, avd_in);
 	  std::swap(maxdist3, maxd_in);
+	  std::swap(parvals, parvals_in);
 	  std::swap(dist_ang, dist_ang_in);
 	  std::cout << "Plane swap" << std::endl;
 	  std::cout << group_points_.size() << " " << num2_in << " ";
@@ -999,7 +1019,10 @@ shared_ptr<Plane> plane_in = computePlane(inpt);
       found = true;
       setAccuracy(maxdist3, avdist3, num_inside3);
       for (size_t kh=0; kh<group_points_.size(); ++kh)
-	group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+	{
+	  group_points_[kh]->setPar(Vector2D(parvals[2*kh],parvals[2*kh+1]));
+	  group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+	}
       
       std::cout << "Plane. N1: " << num << ", N2: " << num_inside3 << ", max: " << maxdist3 << ", av: " << avdist3 << std::endl;
 
@@ -1408,9 +1431,10 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt, double angtol,
   //shared_ptr<ParamSurface> surf = cyl;
   vector<RevEngPoint*> inpt, outpt; //, inpt2, outpt2;
   vector<pair<double, double> > dist_ang;
+  vector<double> parvals;
   RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
-			  cyl, tol, maxd, avd, num2, inpt, outpt, dist_ang,
-			  angtol);
+			  cyl, tol, maxd, avd, num2, inpt, outpt, 
+			  parvals, dist_ang, angtol);
   // RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
   // 			  cone, tol, maxd2, avd2, num3, inpt2, outpt2);
   //  RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
@@ -1440,11 +1464,12 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt, double angtol,
       shared_ptr<Cylinder> cyl_in = computeCylinder(inpt, tol);
       vector<RevEngPoint*> inpt_in, outpt_in; //, inpt2, outpt2;
       vector<pair<double, double> > dist_ang_in;
+      vector<double> parvals_in;
       double maxd_in, avd_in;
       int num2_in;
       RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 			      cyl_in, tol, maxd_in, avd_in, num2_in,
-			      inpt_in, outpt_in, dist_ang_in, angtol);
+			      inpt_in, outpt_in, parvals_in, dist_ang_in, angtol);
   
       std::ofstream ofd2("in_out_cyl2.g2");
       ofd2 << "400 1 0 4 155 50 50 255" << std::endl;
@@ -1462,6 +1487,7 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt, double angtol,
 	  std::swap(num2, num2_in);
 	  std::swap(avd, avd_in);
 	  std::swap(maxd, maxd_in);
+	  std::swap(parvals, parvals_in);
 	  std::swap(dist_ang, dist_ang_in);
 	  std::cout << "Cylinder swap" << std::endl;
 	  std::cout << group_points_.size() << " " << num2_in;
@@ -1488,7 +1514,10 @@ bool RevEngRegion::extractCylinder(double tol, int min_pt, double angtol,
 	  found = true;
 	  setAccuracy(maxd, avd, num2);
 	  for (size_t kh=0; kh<group_points_.size(); ++kh)
-	    group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+	    {
+	      group_points_[kh]->setPar(Vector2D(parvals[2*kh],parvals[2*kh+1]));
+	      group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+	    }
       
       // // Limit cylinder with respect to bounding box
       // double gap = 1.0e-6;
@@ -1657,7 +1686,13 @@ RevEngRegion::computeCylinder(vector<RevEngPoint*>& points, double tol)
   vector<Point> cpos;
   vector<double> crad;
   int nmb_split = 4;
+  try {
   splitCylinderRad(pnt, axis, Cx, Cy, nmb_split, cpos, crad);
+  }
+  catch (...)
+    {
+      nmb_split = 0;
+    }
   Point axis2(0.0, 0.0, 0.0);
   for (int kb=1; kb<nmb_split; ++kb)
     {
@@ -1665,11 +1700,14 @@ RevEngRegion::computeCylinder(vector<RevEngPoint*>& points, double tol)
       dir.normalize();
       axis2 += dir;
     }
-  axis2.normalize();
-  Point Cx2 = Cy.cross(axis2);
-  Cx2.normalize();
-  Point Cy2 = axis2.cross(Cx2);
-  Cy2.normalize();
+  if (axis2.length() > 0.001)
+    {
+      axis2.normalize();
+      Point Cx2 = Cy.cross(axis2);
+      Cx2.normalize();
+      Point Cy2 = axis2.cross(Cx2);
+      Cy2.normalize();
+    }
  //  if (ka == 0)
  //    {
  //      Cx = Cx2;
@@ -1704,6 +1742,8 @@ bool RevEngRegion::extractSphere(double tol, int min_pt, double angtol,
     return false;
   
   shared_ptr<Sphere> sphere = computeSphere(group_points_);
+  if (!sphere.get())
+    return false;
   std::ofstream ofs("sph.g2");
   sphere->writeStandardHeader(ofs);
   sphere->write(ofs);
@@ -1713,9 +1753,10 @@ bool RevEngRegion::extractSphere(double tol, int min_pt, double angtol,
   int num2; 
   vector<RevEngPoint*> inpt, outpt;
   vector<pair<double, double> > dist_ang;
+  vector<double> parvals;
   RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
   			  sphere, tol, maxd, avd, num2, inpt, outpt,
-			  dist_ang, angtol);
+			  parvals, dist_ang, angtol);
   std::ofstream ofd("in_out_sphere.g2");
   ofd << "400 1 0 4 155 50 50 255" << std::endl;
   ofd << inpt.size() << std::endl;
@@ -1731,11 +1772,12 @@ bool RevEngRegion::extractSphere(double tol, int min_pt, double angtol,
       shared_ptr<Sphere> sphere_in = computeSphere(inpt);
       vector<RevEngPoint*> inpt_in, outpt_in; //, inpt2, outpt2;
       vector<pair<double, double> > dist_ang_in;
+      vector<double> parvals_in;
       double maxd_in, avd_in;
       int num2_in;
       RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 			      sphere_in, tol, maxd_in, avd_in, num2_in,
-			      inpt_in, outpt_in, dist_ang_in, angtol);
+			      inpt_in, outpt_in, parvals_in, dist_ang_in, angtol);
   
       std::ofstream ofd2("in_out_sphere2.g2");
       ofd2 << "400 1 0 4 155 50 50 255" << std::endl;
@@ -1753,6 +1795,7 @@ bool RevEngRegion::extractSphere(double tol, int min_pt, double angtol,
 	  std::swap(num2, num2_in);
 	  std::swap(avd, avd_in);
 	  std::swap(maxd, maxd_in);
+	  std::swap(parvals, parvals_in);
 	  std::swap(dist_ang, dist_ang_in);
 	  std::cout << "Sphere swap" << std::endl;
 	  std::cout << group_points_.size() << " " << num2_in;
@@ -1780,7 +1823,10 @@ bool RevEngRegion::extractSphere(double tol, int min_pt, double angtol,
 	  found = true;
 	  setAccuracy(maxd, avd, num2);
 	  for (size_t kh=0; kh<group_points_.size(); ++kh)
-	    group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+	    {
+	      group_points_[kh]->setPar(Vector2D(parvals[2*kh],parvals[2*kh+1]));
+	      group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+	    }
 	  std::cout << "Sphere. N1: " << num << ", N2: " << num2 << ", max: " << maxd << ", av: " << avd << std::endl;
 	  shared_ptr<HedgeSurface> hedge(new HedgeSurface(sphere, this));
 	  for (size_t kh=0; kh<associated_sf_.size(); ++kh)
@@ -1809,7 +1855,14 @@ shared_ptr<Sphere> RevEngRegion::computeSphere(vector<RevEngPoint*>& points)
   group.push_back(std::make_pair(points.begin(), points.end()));
   Point centre;
   double radius;
-  RevEngUtils::computeSphereProp(group, centre, radius);
+  try {
+    RevEngUtils::computeSphereProp(group, centre, radius);
+  }
+  catch (...)
+    {
+      shared_ptr<Sphere> dummy;
+      return dummy;
+    }
 
   Point y_axis = normalcone_.centre();
   double lambda[3];
@@ -1854,9 +1907,10 @@ bool RevEngRegion::extractCone(double tol, int min_pt, double angtol,
   int num2; 
   vector<RevEngPoint*> inpt, outpt;
   vector<pair<double, double> > dist_ang;
+  vector<double> parvals;
   RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
   			  cone, tol, maxd, avd, num2, inpt, outpt,
-			  dist_ang, angtol);
+			  parvals, dist_ang, angtol);
   std::ofstream ofd("in_out_cone.g2");
   ofd << "400 1 0 4 155 50 50 255" << std::endl;
   ofd << inpt.size() << std::endl;
@@ -1872,11 +1926,12 @@ bool RevEngRegion::extractCone(double tol, int min_pt, double angtol,
       shared_ptr<Cone> cone_in = computeCone(inpt);
       vector<RevEngPoint*> inpt_in, outpt_in; //, inpt2, outpt2;
       vector<pair<double, double> > dist_ang_in;
+      vector<double> parvals_in;
       double maxd_in, avd_in;
       int num2_in;
       RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 			      cone_in, tol, maxd_in, avd_in, num2_in,
-			      inpt_in, outpt_in, dist_ang_in, angtol);
+			      inpt_in, outpt_in, parvals_in, dist_ang_in, angtol);
   
       std::ofstream ofd2("in_out_cone2.g2");
       ofd2 << "400 1 0 4 155 50 50 255" << std::endl;
@@ -1894,6 +1949,7 @@ bool RevEngRegion::extractCone(double tol, int min_pt, double angtol,
 	  std::swap(num2, num2_in);
 	  std::swap(avd, avd_in);
 	  std::swap(maxd, maxd_in);
+	  std::swap(parvals, parvals_in);
 	  std::swap(dist_ang, dist_ang_in);
 	  std::cout << "Cone swap" << std::endl;
 	  std::cout << group_points_.size() << " " << num2_in;
@@ -1923,7 +1979,10 @@ bool RevEngRegion::extractCone(double tol, int min_pt, double angtol,
 	  found = true;
 	  setAccuracy(maxd, avd, num2);
 	  for (size_t kh=0; kh<group_points_.size(); ++kh)
-	    group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+	    {
+	      group_points_[kh]->setPar(Vector2D(parvals[2*kh],parvals[2*kh+1]));
+	      group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+	    }
 	  std::cout << "Cone. N1: " << num << ", N2: " << num2 << ", max: " << maxd << ", av: " << avd << std::endl;
 	  shared_ptr<HedgeSurface> hedge(new HedgeSurface(cone, this));
 	  for (size_t kh=0; kh<associated_sf_.size(); ++kh)
@@ -2036,12 +2095,14 @@ bool RevEngRegion::extractTorus(double tol, int min_pt, double angtol,
   vector<RevEngPoint*> in1, out1,in2, out2;
   vector<pair<double, double> > dist_ang1;
   vector<pair<double, double> > dist_ang2;
+  vector<double> parvals1;
+  vector<double> parvals2;
   RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 			  tor1, tol, maxd1, avd1, num1, in1, out1,
-			  dist_ang1, angtol);
+			  parvals1, dist_ang1, angtol);
   RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
   			  tor2, tol, maxd2, avd2, num2, in2, out2,
-			  dist_ang2, angtol);
+			  parvals2, dist_ang2, angtol);
 
   std::ofstream ofd("in_out_tor.g2");
   ofd << "400 1 0 4 155 50 50 255" << std::endl;
@@ -2073,13 +2134,17 @@ if (tor_in1.get())
       vector<pair<double, double> > dist_ang_in1, dist_ang_in2;
       double maxd_in1, avd_in1, maxd_in2, avd_in2;
       int num1_in, num2_in;
+      vector<double> parvals_in1;
+      vector<double> parvals_in2;
       RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 			      tor_in1, tol, maxd_in1, avd_in1, num1_in,
-			      inpt_in1, outpt_in1, dist_ang_in1, angtol);
+			      inpt_in1, outpt_in1, parvals_in1, dist_ang_in1,
+			      angtol);
   
       RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 			      tor_in2, tol, maxd_in2, avd_in2, num2_in,
-			      inpt_in2, outpt_in2, dist_ang_in2, angtol);
+			      inpt_in2, outpt_in2, parvals_in2,
+			      dist_ang_in2, angtol);
   
       std::ofstream ofd2("in_out_tor2.g2");
       ofd2 << "400 1 0 4 155 50 50 255" << std::endl;
@@ -2105,6 +2170,7 @@ if (tor_in1.get())
 	  std::swap(num1, num1_in);
 	  std::swap(avd1, avd_in1);
 	  std::swap(maxd1, maxd_in1);
+	  std::swap(parvals1, parvals_in1);
 	  std::swap(dist_ang1, dist_ang_in1);
 	  std::cout << "Torus swap 1" << std::endl;
 	  std::cout << group_points_.size() << " " << num1_in << " ";
@@ -2117,6 +2183,7 @@ if (tor_in1.get())
 	  std::swap(num2, num2_in);
 	  std::swap(avd2, avd_in2);
 	  std::swap(maxd2, maxd_in2);
+	  std::swap(parvals2, parvals_in2);
 	  std::swap(dist_ang2, dist_ang_in2);
 	  std::cout << "Torus swap 2" << std::endl;
 	  std::cout << group_points_.size() << " " << num2_in << " ";
@@ -2145,7 +2212,10 @@ if (tor_in1.get())
 	  found = true;
 	  setAccuracy(maxd1, avd1, num1);      
 	  for (size_t kh=0; kh<group_points_.size(); ++kh)
-	    group_points_[kh]->setSurfaceDist(dist_ang1[kh].first, dist_ang1[kh].second);
+	    {
+	      group_points_[kh]->setPar(Vector2D(parvals1[2*kh],parvals1[2*kh+1]));
+	      group_points_[kh]->setSurfaceDist(dist_ang1[kh].first, dist_ang1[kh].second);
+	    }
       
 	  std::cout << "Torus 1. N1: " << num << ", N2: " << num1 << ", max: " << maxd1 << ", av: " << avd1 << std::endl;
 	  // associated_sf_.clear();
@@ -2179,7 +2249,10 @@ if (tor_in1.get())
 	  found = true;
 	  setAccuracy(maxd2, avd2, num2);
 	  for (size_t kh=0; kh<group_points_.size(); ++kh)
-	    group_points_[kh]->setSurfaceDist(dist_ang2[kh].first, dist_ang2[kh].second);
+	    {
+	      group_points_[kh]->setPar(Vector2D(parvals2[2*kh],parvals2[2*kh+1]));
+	      group_points_[kh]->setSurfaceDist(dist_ang2[kh].first, dist_ang2[kh].second);
+	    }
       
 	  std::cout << "Torus 2. N1: " << num << ", N2: " << num2 << ", max: " << maxd2 << ", av: " << avd2 << std::endl;
 	  // associated_sf_.clear();
@@ -2213,7 +2286,6 @@ if (tor_in1.get())
 					       shared_ptr<Torus>& torus2)
 //===========================================================================
 {
-  std::cout << "Compute torus start" << std::endl;
   std::ofstream of("torus_compute.g2");
   
   // Compute mean curvature and initial point in plane
@@ -2316,7 +2388,6 @@ catch (...)
   of3 << "1" << std::endl;
   of3 << pnt-0.5*len*Cx << " " << pnt+0.5*len*Cx << std::endl;
 
-  std::cout << "before circposradius" << std::endl;
   Point cpos;
   double crad;
   RevEngUtils::computeCircPosRadius(rotated, Cy, Cx, normal, cpos, crad);
@@ -2328,7 +2399,6 @@ catch (...)
   spl->writeStandardHeader(of3);
   spl->write(of3);
   
-  std::cout << "before projecttoplane" << std::endl;
   vector<Point> projected;
   double maxdp, avdp;
   RevEngUtils::projectToPlane(group, normal, pnt, projected, maxdp, avdp);
@@ -2349,10 +2419,9 @@ catch (...)
   shared_ptr<Torus> tor2(new Torus(R1, crad, pnt+R2*normal, normal, Cy));
   tor2->writeStandardHeader(of);
   tor2->write(of);
-  std::cout << "Torus small radius: " << fabs(rd) << ", " << crad << std::endl;
+  //std::cout << "Torus small radius: " << fabs(rd) << ", " << crad << std::endl;
 
   torus2 = tor2;
-  std::cout << "Compute torus finished" << std::endl;
   return tor1;
 }
 
@@ -2389,9 +2458,10 @@ if (!spl.get())
   int num2; 
   vector<RevEngPoint*> inpt, outpt;
   vector<pair<double, double> > dist_ang;
+  vector<double> parvals;
   RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
   			  spl, tol, maxd, avd, num2, inpt, outpt,
-			  dist_ang, angtol);
+			  parvals, dist_ang, angtol);
   std::ofstream ofd("in_out_spl.g2");
   ofd << "400 1 0 4 155 50 50 255" << std::endl;
   ofd << inpt.size() << std::endl;
@@ -2423,11 +2493,12 @@ if (!spl.get())
 
 	  num = (int)group_points_.size();
 	  dist_ang.clear();
+	  parvals.clear();
 	  inpt.clear();
 	  outpt.clear();
 	  RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 				  spl, tol, maxd, avd, num2, inpt, outpt,
-				  dist_ang, angtol);
+				  parvals, dist_ang, angtol);
 	  std::ofstream ofd2("in_out_spl2.g2");
 	  ofd2 << "400 1 0 4 155 50 50 255" << std::endl;
 	  ofd2 << inpt.size() << std::endl;
@@ -2457,7 +2528,10 @@ if (!spl.get())
 	  found = true;
 	  setAccuracy(maxd, avd, num2);
 	  for (size_t kh=0; kh<group_points_.size(); ++kh)
-	    group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+	    {
+	      group_points_[kh]->setPar(Vector2D(parvals[2*kh],parvals[2*kh+1]));
+	      group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+	    }
 	  std::cout << "Spline. N1: " << num << ", N2: " << num2 << ", max: " << maxd << ", av: " << avd << std::endl;
 	  shared_ptr<HedgeSurface> hedge(new HedgeSurface(spl, this));
 	  for (size_t kh=0; kh<associated_sf_.size(); ++kh)
@@ -3448,12 +3522,13 @@ bool RevEngRegion::integrateInAdjacent(double mean_edge_len, int min_next,
       int nmb_in1, nmb_in2;
       vector<RevEngPoint*> in1, in2, out1, out2;
       vector<pair<double,double> > dist_ang1, dist_ang2;
+      vector<double> parvals1, parvals2;
       RevEngUtils::distToSurf(nearpts.begin(), nearpts.begin()+nearnmb, surf,
 			      tol, maxd1, avd1, nmb_in1, in1, out1,
-			      dist_ang1, angtol);
+			      parvals1, dist_ang1, angtol);
       RevEngUtils::distToSurf(nearpts.begin()+nearnmb, nearpts.end(), surf,
 			      tol, maxd2, avd2, nmb_in2, in2, out2,
-			      dist_ang2, angtol);
+			      parvals2, dist_ang2, angtol);
       info[kj].setAccuracy(maxd2, avd2, nmb_in2, maxd1, avd1, nmb_in1);
     }
 
@@ -3619,9 +3694,10 @@ void RevEngRegion::growWithSurf(int max_nmb, double tol,
 	    continue;
 	  vector<RevEngPoint*> in, out;
 	  vector<pair<double, double> > dist_ang;
+	  vector<double> parvals;
 	  RevEngUtils::distToSurf((*it)->pointsBegin(),
 				  (*it)->pointsEnd(), curr_sf, tol,
-				  maxd, avd, num_inside, in, out, dist_ang);
+				  maxd, avd, num_inside, in, out, parvals, dist_ang);
 	  vector<Vector3D> better1, worse1;
 	  for (size_t kh=0; kh<dist_ang.size(); ++kh)
 	    {
@@ -3739,11 +3815,13 @@ void RevEngRegion::adjustWithSurf(double tol, double angtol)
 	      
       vector<RevEngPoint*> in, out;
       vector<pair<double, double> > dist_ang;
+      vector<double> parvals;
       double maxd, avd;
       int num_inside;
       RevEngUtils::distToSurf((*it)->pointsBegin(),
 			      (*it)->pointsEnd(), surf, tol,
-			      maxd, avd, num_inside, in, out, dist_ang);
+			      maxd, avd, num_inside, in, out,
+			      parvals, dist_ang);
       vector<RevEngPoint*> better1, worse1;
       for (size_t kh=0; kh<dist_ang.size(); ++kh)
 	{
@@ -3784,9 +3862,11 @@ void RevEngRegion::adjustWithSurf(double tol, double angtol)
 	  int num_inside2;
 	  vector<RevEngPoint*> in2, out2;
 	  vector<pair<double, double> > dist_ang2;
+	  vector<double> parvals2;
 	  RevEngUtils::distToSurf(pointsBegin(),
 				  pointsEnd(), surf2, tol,
-				  maxd2, avd2, num_inside2, in2, out2, dist_ang2);
+				  maxd2, avd2, num_inside2, in2, out2,
+				  parvals2, dist_ang2);
 	  for (size_t kh=0; kh<dist_ang2.size(); ++kh)
 	    {
 	      double ptdist, ptang;
@@ -3933,9 +4013,10 @@ void RevEngRegion::checkReplaceSurf(double tol)
 	  int num_inside;
 	  vector<RevEngPoint*> inpt, outpt;
 	  vector<pair<double, double> > dist_ang;
+	  vector<double> parvals;
 	  RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 				  updated, tol, maxd, avd, num_inside,
-				  inpt, outpt, dist_ang);
+				  inpt, outpt, parvals, dist_ang);
 
 	  if (updated2.get())
 	    {
@@ -3943,9 +4024,10 @@ void RevEngRegion::checkReplaceSurf(double tol)
 	      int num_inside2;
 	      vector<RevEngPoint*> inpt2, outpt2;
 	      vector<pair<double, double> > dist_ang2;
+	      vector<double> parvals2;
 	      RevEngUtils::distToSurf(group_points_.begin(), group_points_.end(),
 				      updated2, tol, maxd2, avd2, num_inside2,
-				      inpt2, outpt2, dist_ang2);
+				      inpt2, outpt2, parvals2, dist_ang2);
 	      if ((num_inside2 > num_inside || (num_inside2 == num_inside && avd2 < avd))
 		  && (num_inside2 > num_inside_ || (num_inside2 == num_inside_ && avd2 < avdist_))
 		  && avd2 < tol)
@@ -3953,7 +4035,10 @@ void RevEngRegion::checkReplaceSurf(double tol)
 		  replacesurf = updated2;
 		  setAccuracy(maxd2, avd2, num_inside2);
 		  for (size_t kh=0; kh<group_points_.size(); ++kh)
-		    group_points_[kh]->setSurfaceDist(dist_ang2[kh].first, dist_ang2[kh].second);
+		    {
+		      group_points_[kh]->setPar(Vector2D(parvals2[2*kh],parvals2[2*kh+1]));
+		      group_points_[kh]->setSurfaceDist(dist_ang2[kh].first, dist_ang2[kh].second);
+		    }
 		}
 	      if (ka == 0 && num_inside2 >= num_in_primary_ && avd2 < avdist_primary_)
 		{
@@ -3968,7 +4053,10 @@ void RevEngRegion::checkReplaceSurf(double tol)
 	      replacesurf = updated;
 	      setAccuracy(maxd, avd, num_inside);
 	      for (size_t kh=0; kh<group_points_.size(); ++kh)
-		group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+		{
+		  group_points_[kh]->setPar(Vector2D(parvals[2*kh],parvals[2*kh+1]));
+		  group_points_[kh]->setSurfaceDist(dist_ang[kh].first, dist_ang[kh].second);
+		}
 	    }
 	  if (ka == 0 && num_inside >= num_in_primary_ && avd < avdist_primary_)
 	    {

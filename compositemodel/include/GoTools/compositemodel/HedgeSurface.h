@@ -47,6 +47,7 @@
 namespace Go {
 
 class RevEngRegion;
+  class CurveOnSurface;
 
 class HedgeSurface : public ftSurface
 {
@@ -125,6 +126,8 @@ public:
       return regions_[ix];
   }
 
+  bool removeRegion(RevEngRegion* reg);
+  
   BoundingBox regionsBox()
   {
     return bbox_;
@@ -134,6 +137,15 @@ public:
 		    ClassType& type, double& score);
 
   bool hasPrimary();
+
+  void ensureSurfaceBounded();
+
+  bool isTangential(HedgeSurface* surf);
+
+  void doTrim(std::vector<shared_ptr<CurveOnSurface> >& int_cvs,
+	      shared_ptr<BoundedSurface>& bdsf,
+	      double tol,
+	      std::vector<shared_ptr<HedgeSurface> >& added_sfs);
 
 private:
   std::vector<RevEngRegion*> regions_;

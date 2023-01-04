@@ -134,10 +134,11 @@ public:
     virtual void setParameterBounds(double from_upar, double from_vpar,
 				    double to_upar, double to_vpar) = 0;
 
+
     /// Fetch parameter bounds. NB! Not oriented
     virtual RectDomain getParameterBounds() const = 0;
 
-    virtual void turnOrientation();
+  virtual void turnOrientation();
     virtual void reverseParameterDirection(bool direction_is_u);
     virtual void swapParameterDirection();
 

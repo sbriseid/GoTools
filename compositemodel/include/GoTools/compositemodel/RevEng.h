@@ -41,6 +41,7 @@
 #define _REVENG_H
 
 #include "GoTools/compositemodel/ftPointSet.h"
+#include "GoTools/compositemodel/SurfaceModel.h"
 #include "GoTools/utils/Point.h"
 
 namespace Go
@@ -109,14 +110,17 @@ namespace Go
     // Could be private
     void mergeCylinders(size_t first, size_t last);
 
-      void trimPrimitives();
+      void trimSurfaces();
+
+    shared_ptr<SurfaceModel> createModel();
 
     void storeClassified(std::ostream& os) const;
     void readClassified(std::istream& is);
     void storeGrownRegions(std::ostream& os) const;
     void readGrownRegions(std::istream& is);
     void curvatureFilter();
-    
+      
+
   private:
     shared_ptr<ftPointSet> tri_sf_;
     double mean_edge_len_;
@@ -126,6 +130,7 @@ namespace Go
     // The surfaces can be freeform as well as primary. The collection
     // will be build gradually. The number of surfaces will increase and
     // decrease based on recognition, merging and splitting by trimming
+    shared_ptr<SurfaceModel> sfmodel_;
     int min_next_;  // Minimum number of neighbouring points
     int max_next_;  // Estimate for maximum number of neighbouring points
     double rfac_;   // Factor for radius in which to search for neighbouring points
@@ -142,6 +147,7 @@ namespace Go
     double zero_si_; // When shape index is considered zero
     int min_point_region_;
     double approx_tol_;  // Approximation tolerance in region growing
+    double int_tol_;  // Intersection tolerance
     double anglim_;
     int max_nmb_outlier_;
 

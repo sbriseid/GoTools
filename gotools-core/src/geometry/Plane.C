@@ -980,6 +980,7 @@ bool Plane::isBounded() const
     return false;
   return true;
 }
+
 //===========================================================================
 Plane* Plane::intersect(const RotatedBox& bd_box) const
 //===========================================================================

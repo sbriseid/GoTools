@@ -1616,6 +1616,7 @@ void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
 			     shared_ptr<ParamSurface> surf, double tol,
 			     double& maxdist, double& avdist, int& num_inside,
 			     vector<RevEngPoint*>& in, vector<RevEngPoint*>& out,
+			     vector<double>& parvals,
 			     vector<pair<double,double> >& distang,
 			     double angtol)
 //===========================================================================
@@ -1633,6 +1634,8 @@ void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
       Point close;
       Point norm1, norm2;
       surf->closestPoint(pnt, upar, vpar, close, dist, eps);
+      parvals.push_back(upar);
+      parvals.push_back(vpar);
       surf->normal(norm1, upar, vpar);
       norm2 = (*it)->getPCANormal();
       maxdist = std::max(maxdist, dist);

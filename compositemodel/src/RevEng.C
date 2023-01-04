@@ -43,12 +43,14 @@
 #include "GoTools/compositemodel/RevEngUtils.h"
 #include "GoTools/compositemodel/HedgeSurface.h"
 #include "GoTools/compositemodel/ImplicitApprox.h"
+#include "GoTools/compositemodel/SurfaceModelUtils.h"
 #include "GoTools/utils/DirectionCone.h"
 #include "GoTools/utils/MatrixXD.h"
 #include "GoTools/geometry/Cylinder.h"
 #include "GoTools/geometry/Plane.h"
 #include "GoTools/geometry/Torus.h"
 #include "GoTools/geometry/BoundedSurface.h"
+#include "GoTools/geometry/BoundedUtils.h"
 #include <vector>
 #include <fstream>
 #include <iostream> // @@ debug
@@ -1125,8 +1127,8 @@ void RevEng::recognizeElementary()
   double angfac = 10.0;
   double angtol = -1; //angfac*anglim_;
   
-  min_point_region_ = 200;  // Testing
-  int min_point_in = 20;
+  min_point_region_ = 20; //200;  // Testing
+  int min_point_in = 10; //20;
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->numPoints() < min_point_region_)
@@ -1166,6 +1168,8 @@ void RevEng::recognizeElementary()
 	  }
 	if (plane_sfs.size() > 0)
 	  surfaces_.insert(surfaces_.end(), plane_sfs.begin(), plane_sfs.end());
+	if (found1 && regions_[ki]->getMaxSfDist() < 0.5*approx_tol_)
+	  continue;
       }
 
       
@@ -1197,6 +1201,8 @@ void RevEng::recognizeElementary()
 	     }
 	   if (cyl_sfs.size() > 0)
 	     surfaces_.insert(surfaces_.end(), cyl_sfs.begin(), cyl_sfs.end());
+	if (found2 && regions_[ki]->getMaxSfDist() < 0.5*approx_tol_)
+	  continue;
 	 }
 
        
@@ -1228,6 +1234,8 @@ void RevEng::recognizeElementary()
 	     }
 	   if (sph_sfs.size() > 0)
 	     surfaces_.insert(surfaces_.end(), sph_sfs.begin(), sph_sfs.end());
+	if (found3 && regions_[ki]->getMaxSfDist() < 0.5*approx_tol_)
+	  continue;
 	 }
 
        
@@ -1259,6 +1267,8 @@ void RevEng::recognizeElementary()
 	     }
 	   if (cone_sfs.size() > 0)
 	     surfaces_.insert(surfaces_.end(), cone_sfs.begin(), cone_sfs.end());
+	if (found4 && regions_[ki]->getMaxSfDist() < 0.5*approx_tol_)
+	  continue;
 	 }
 
        
@@ -1289,6 +1299,8 @@ void RevEng::recognizeElementary()
 	     }
 	   if (tor_sfs.size() > 0)
 	     surfaces_.insert(surfaces_.end(), tor_sfs.begin(), tor_sfs.end());
+	if (found5 && regions_[ki]->getMaxSfDist() < 0.5*approx_tol_)
+	  continue;
 	 }
 
        if (true)
@@ -2087,6 +2099,8 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
   int num_in_all = 0, num_all = 0, num_all2 = 0;
   vector<RevEngRegion*> regions, regions2;
   double tolfac = 2.0;
+  vector<vector<pair<double,double> > > distang;
+  vector<vector<double> > parvals;
   for (size_t kh=0; kh<init_select; ++kh)
     {
       surf = approxMergeSet(cand_ix, select_ix, type);
@@ -2103,6 +2117,8 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
       regions.clear();
       all_in2.clear();
       regions2.clear();
+      distang.clear();
+      parvals.clear();
       num_in_all = num_all = num_all2 = 0;
        vector<size_t> select_ix2;
       BoundingBox bb(3);
@@ -2112,9 +2128,10 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
 	  HedgeSurface* hsurf = surfaces_[cand_ix[ki]].get();
 	  vector<RevEngRegion*> reg = hsurf->getRegions();
 	  vector<RevEngPoint*> in, out;
-	  vector<pair<double,double> > distang;
 	  double avd_sf = 0.0, maxd_sf = 0.0;
 	  int num_in_sf = 0, num_sf = hsurf->numPoints();
+	  vector<vector<pair<double,double> > > curr_distang(reg.size());
+	  vector<vector<double> > curr_parvals(reg.size());
 	  for (kj=0; kj<reg.size(); ++kj)
 	    {
  	      double maxd, avd;
@@ -2123,7 +2140,7 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
 	      RevEngUtils::distToSurf(reg[kj]->pointsBegin(),
 				      reg[kj]->pointsEnd(),
 				      surf, approx_tol_, maxd, avd, num_in, 
-				      in, out, distang);
+				      in, out, curr_parvals[kj], curr_distang[kj]);
 	      maxd_sf = std::max(maxd_sf, maxd);
 	      avd_sf += num*avd/(double)num_sf;
 	      num_in_sf += num_in;
@@ -2147,6 +2164,8 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
 		num_in_all += num_in_sf;
 		num_all += num_sf;
 		regions.insert(regions.end(), reg.begin(), reg.end());
+		distang.insert(distang.end(), curr_distang.begin(), curr_distang.end());
+		parvals.insert(parvals.end(), curr_parvals.begin(), curr_parvals.end());
 	      }
 	    else
 	      {
@@ -2225,7 +2244,8 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
   surf2->writeStandardHeader(of3);
   surf2->write(of3);
   vector<RevEngPoint*> in2, out2;
-  vector<pair<double,double> > distang2;
+  vector<vector<pair<double,double> > > distang2(regions3.size());
+  vector<vector<double> > parvals2(regions3.size());
   double avd_all2 = 0.0, maxd_all2 = 0.0;
   int num_in_all2 = 0;
   for (size_t kj=0; kj<regions3.size(); ++kj)
@@ -2235,7 +2255,7 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
       RevEngUtils::distToSurf(regions3[kj]->pointsBegin(),
 			      regions3[kj]->pointsEnd(),
 			      surf2, approx_tol_, maxd, avd, num_in, 
-			      in2, out2, distang2);
+			      in2, out2, parvals2[kj], distang2[kj]);
       maxd_all2 = std::max(maxd_all2, maxd);
       avd_all2 += regions3[kj]->numPoints()*avd/(double)num_all2;
       num_in_all2 += num_in;
@@ -2255,14 +2275,32 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
       merged_surf =
 	shared_ptr<HedgeSurface>(new HedgeSurface(surf2, regions3));
       for (size_t kj=0; kj<regions3.size(); ++kj)
-	regions3[kj]->setHedge(merged_surf.get());
+	{
+	  regions3[kj]->setHedge(merged_surf.get());
+	  int numpt = regions3[kj]->numPoints();
+	  for (int ka=0; ka<numpt; ++ka)
+	    {
+	      RevEngPoint *pt = regions3[kj]->getPoint(ka);
+	      pt->setPar(Vector2D(parvals2[kj][2*ka],parvals2[kj][2*ka+1]));
+	      pt->setSurfaceDist(distang2[kj][ka].first, distang2[kj][ka].second);
+	    }
+	}
     }
   else if (surf.get() && num_in_all > num_all/2 && avd_all < approx_tol_)
     {
       merged_surf =
-	shared_ptr<HedgeSurface>(new HedgeSurface(surf2, regions));
+	shared_ptr<HedgeSurface>(new HedgeSurface(surf, regions));
       for (size_t kj=0; kj<regions.size(); ++kj)
-	regions[kj]->setHedge(merged_surf.get());
+	{
+	  regions[kj]->setHedge(merged_surf.get());
+	  int numpt = regions[kj]->numPoints();
+	  for (int ka=0; ka<numpt; ++ka)
+	    {
+	      RevEngPoint *pt = regions[kj]->getPoint(ka);
+	      pt->setPar(Vector2D(parvals[kj][2*ka],parvals[kj][2*ka+1]));
+	      pt->setSurfaceDist(distang[kj][ka].first, distang[kj][ka].second);
+	    }
+	}
     }
   return merged_surf;
 }
@@ -3382,9 +3420,10 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
 	  int num_in;
 	  vector<RevEngPoint*> in, out;
 	  vector<pair<double,double> > distang;
+	  vector<double> parvals;
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
 				  cyl, approx_tol_, maxd, avd, num_in, in, out,
-				  distang);
+				  parvals, distang);
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in.size() << std::endl;
 	  for (size_t kr=0; kr<in.size(); ++kr)
@@ -3398,9 +3437,10 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
 	  int num_in2;
 	  vector<RevEngPoint*> in2, out2;
 	  vector<pair<double,double> > distang2;
+	  vector<double> parvals2;
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
 				  cyl2, approx_tol_, maxd2, avd2, num_in2, in2,
-				  out2, distang2);
+				  out2, parvals2, distang2);
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in2.size() << std::endl;
 	  for (size_t kr=0; kr<in2.size(); ++kr)
@@ -3414,9 +3454,10 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
 	  int num_in3;
 	  vector<RevEngPoint*> in3, out3;
 	  vector<pair<double,double> > distang3;
+	  vector<double> parvals3;
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
 				  cyl3, approx_tol_, maxd3, avd3, num_in3, in3,
-				  out3, distang3);
+				  out3, parvals3, distang3);
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in3.size() << std::endl;
 	  for (size_t kr=0; kr<in3.size(); ++kr)
@@ -3536,24 +3577,89 @@ void RevEng::collectAxis(vector<SurfaceProperties>& sfprop)
 
 
 //===========================================================================
-void RevEng::trimPrimitives()
+void RevEng::trimSurfaces()
 //===========================================================================
 {
-  // for (size_t ki=0; ki<surfaces_.size(); ++ki)
-  //   {
-  //     if (!surfaces_[ki]->hasSurface())
-  // 	continue;
-  //     shared_ptr<ParamSurface> sf1 = surfaces_[ki]->getSurface();
-  //     for (size_t kj=0; kj<surfaces_.size(); ++kj)
-  // 	{
-  // 	  if (!surfaces_[kj]->hasSurface())
-  // 	    continue;
-  // 	  shared_ptr<ParamSurface> sf2 = surfaces_[kj]->getSurface();
+  std::ofstream of1("surfbd.g2");
+  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+    {
+      // Restrict unbounded surfaces
+      surfaces_[ki]->ensureSurfaceBounded();
+      surfaces_[ki]->surface()->writeStandardHeader(of1);
+      surfaces_[ki]->surface()->write(of1);
+    }
 
-  // 	  // Intersect sf1 and sf2
-  // 	  // Remember intersection curves
-  // 	}
-  //   }
+  vector<shared_ptr<ParamSurface> > sub_sfs;
+  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+    {
+      shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
+      vector<shared_ptr<ParamSurface> > splitsfs =
+	SurfaceModelUtils::checkClosedFaces(surf, 10.0*int_tol_);
+      sub_sfs.insert(sub_sfs.end(), splitsfs.begin(), splitsfs.end());
+    }
+  
+  vector<vector<shared_ptr<CurveOnSurface> > > all_int_cvs(surfaces_.size());
+  vector<shared_ptr<BoundedSurface> > bd_sfs(surfaces_.size());
+  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+    {
+      shared_ptr<ParamSurface> sf1 = surfaces_[ki]->surface();
+      for (size_t kj=ki+1; kj<surfaces_.size(); ++kj)
+  	{
+	  if (surfaces_[ki]->isTangential(surfaces_[kj].get()))
+	    continue;
+	  shared_ptr<ParamSurface> sf2 = surfaces_[kj]->surface();
+
+  	  // Intersect sf1 and sf2
+  	  // Remember intersection curves
+	  shared_ptr<BoundedSurface> bd1, bd2;
+	  vector<shared_ptr<CurveOnSurface> > int_cvs1, int_cvs2;
+	  BoundedUtils::getSurfaceIntersections(sf1, sf2, int_tol_,
+						int_cvs1, bd1, int_cvs2, bd2);
+	  bd_sfs[ki] = bd1;
+	  bd_sfs[kj] = bd2;
+	  if (int_cvs1.size() > 0)
+	    all_int_cvs[ki].insert(all_int_cvs[ki].end(), int_cvs1.begin(), int_cvs1.end());
+	  if (int_cvs2.size() > 0)
+	    all_int_cvs[kj].insert(all_int_cvs[kj].end(), int_cvs2.begin(), int_cvs2.end());
+  	}
+    }
+  
+  std::ofstream of2("intcvs.g2");
+  for (size_t ki=0; ki<all_int_cvs.size(); ++ki)
+    for (size_t kj=0; kj<all_int_cvs[ki].size(); ++kj)
+      {
+	shared_ptr<ParamCurve> cv = all_int_cvs[ki][kj]->spaceCurve();
+	cv->writeStandardHeader(of2);
+	cv->write(of2);
+      }
+
+  size_t nmb_sfs = surfaces_.size();
+  for (size_t ki=0; ki<nmb_sfs; ++ki)
+    {
+      vector<shared_ptr<HedgeSurface> > added_sfs;
+      surfaces_[ki]->doTrim(all_int_cvs[ki], bd_sfs[ki], int_tol_, added_sfs);
+      if (added_sfs.size() > 0)
+	surfaces_.insert(surfaces_.end(), added_sfs.begin(), added_sfs.end());
+    }
+  
+  std::ofstream of3("trimsurfs.g2");
+  for (size_t ki=0; ki<surfaces_.size(); ++ki)
+    {
+      surfaces_[ki]->surface()->writeStandardHeader(of3);
+      surfaces_[ki]->surface()->write(of3);
+    }
+  int stop_break = 1;
+}
+
+ //===========================================================================
+shared_ptr<SurfaceModel> RevEng::createModel()
+//===========================================================================
+{
+  vector<shared_ptr<ftSurface> > tmpsfs(surfaces_.begin(), surfaces_.end());
+  sfmodel_ = shared_ptr<SurfaceModel>(new SurfaceModel(approx_tol_, 10.0*int_tol_,
+						       100*int_tol_, anglim_, 10*anglim_,
+						       tmpsfs));
+  return sfmodel_;
 }
 
  //===========================================================================
@@ -3562,7 +3668,8 @@ void RevEng::initParameters()
 {
   // Set default parameters
   min_next_ = 10;  // Minimum number of neighbouring points
-  max_next_ = 80; //500;
+  max_next_ = std::min(80, tri_sf_->size()/200); //500;
+  max_next_ = std::max(2*min_next_, max_next_);
   rfac_ = 3.0;  // Factor for radius in which to search for neighbouring points
   cfac_ = 8.0;  // Edge points from curvature is given by
   // cfac_ times the average length of triangulation edges in a vertex
@@ -3577,6 +3684,7 @@ void RevEng::initParameters()
   min_point_region_ = 200; //50; //10;  // Should be updated with regard to the total
   // number of points
   approx_tol_ = 0.001;  // Very preliminary
+  int_tol_ = 1.0e-6;
   anglim_ = 0.01;
   max_nmb_outlier_ = 3;
 }

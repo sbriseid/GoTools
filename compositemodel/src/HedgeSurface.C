@@ -42,6 +42,12 @@
 #include "GoTools/geometry/ParamSurface.h"
 #include "GoTools/geometry/BoundedSurface.h"
 #include "GoTools/geometry/ElementarySurface.h"
+#include "GoTools/geometry/Plane.h"
+#include "GoTools/geometry/Cylinder.h"
+#include "GoTools/geometry/Cone.h"
+#include "GoTools/geometry/CurveOnSurface.h"
+#include "GoTools/geometry/BoundedUtils.h"
+#include <fstream>
 
 using namespace Go;
 using std::vector;
@@ -277,5 +283,130 @@ bool HedgeSurface::hasPrimary()
   for (size_t ki=0; ki<regions_.size(); ++ki)
     if (regions_[ki]->hasPrimary())
       return true;
+  return false;
+}
+
+//===========================================================================
+void HedgeSurface::ensureSurfaceBounded()
+//===========================================================================
+{
+  shared_ptr<ParamSurface> surf = surface();
+  shared_ptr<ElementarySurface> elemsf =
+    dynamic_pointer_cast<ElementarySurface,ParamSurface>(surf);
+  if (!elemsf.get())
+    return;  // Always bounded
+  if (!elemsf->isBounded())
+    {
+      double diag = bbox_.low().dist(bbox_.high());
+      if (elemsf->instanceType() == Class_Plane)
+	elemsf->setParameterBounds(-0.6*diag, -0.6*diag, 0.6*diag, 0.6*diag);
+      else if (elemsf->instanceType() == Class_Cylinder)
+	{
+	  shared_ptr<Cylinder> cyl =
+	    dynamic_pointer_cast<Cylinder,ElementarySurface>(elemsf);
+	  cyl->setParamBoundsV(-0.6*diag, 0.6*diag);
+	}
+      else if (elemsf->instanceType() == Class_Cone)
+	{
+	  shared_ptr<Cone> cone =
+	    dynamic_pointer_cast<Cone,ElementarySurface>(elemsf);
+	  cone->setParamBoundsV(-0.6*diag, 0.6*diag);
+	}
+    }
+}
+
+//===========================================================================
+bool HedgeSurface::isTangential(HedgeSurface* surf)
+//===========================================================================
+{
+  return false;  // To be implemented properly
+}
+ 
+//===========================================================================
+void HedgeSurface::doTrim(vector<shared_ptr<CurveOnSurface> >& int_cvs,
+			  shared_ptr<BoundedSurface>& bdsf,
+			  double tol,
+			  vector<shared_ptr<HedgeSurface> >& added_sfs)
+//===========================================================================
+{
+  vector<shared_ptr<BoundedSurface> > trim_sfs;
+  if (int_cvs.size() > 0)
+    {
+      trim_sfs = BoundedUtils::splitWithTrimSegments(bdsf, int_cvs, tol);
+    }
+
+  std::ofstream of1("curr_trim.g2");
+  for (size_t ki=0; ki<trim_sfs.size(); ++ki)
+    {
+      trim_sfs[ki]->writeStandardHeader(of1);
+      trim_sfs[ki]->write(of1);
+    }
+
+  if (trim_sfs.size() <= 1)
+    {
+      // Do something to complement the intersection results
+      int stop_break1 = 1;
+    }
+
+  // Assume, for the time being, that no region is split between sub surfaces
+  vector<shared_ptr<BoundedSurface> > valid_trim;
+  vector<vector<RevEngRegion*> > regs;
+  for (size_t ki=0; ki<trim_sfs.size(); ++ki)
+    {
+      vector<RevEngRegion*> curr_regs;
+      for (size_t kj=0; kj<regions_.size(); ++kj)
+	{
+	  int numpt = regions_[kj]->numPoints();
+	  int inside = 2;
+	  for (int ka=0; ka<numpt; ++ka)
+	    {
+	      RevEngPoint *pt = regions_[kj]->getPoint(ka);
+	      Vector2D parpt = pt->getPar();
+	      inside = trim_sfs[ki]->inDomain2(parpt[0], parpt[1]);
+	      if (inside != 2)
+		break;  // Not on a boundary
+	    }
+	  if (inside == 1)
+	    curr_regs.push_back(regions_[kj]);
+	}
+      if (curr_regs.size() > 0)
+	{
+	  valid_trim.push_back(trim_sfs[ki]);
+	  regs.push_back(curr_regs);
+	}
+    }
+
+  for (size_t ki=1; ki<valid_trim.size(); ++ki)
+    {
+      shared_ptr<HedgeSurface> hedge(new HedgeSurface(valid_trim[ki], regs[ki]));
+      for (size_t kj=0; kj<regs[ki].size(); ++kj)
+	{
+	  (void)removeRegion(regs[ki][kj]);
+	  regs[ki][kj]->setHedge(hedge.get());
+	}
+      added_sfs.push_back(hedge);
+    }
+  if (valid_trim.size() > 0)
+    replaceSurf(valid_trim[0]);
+  
+  
+  int stop_break = 1;
+}
+
+//===========================================================================
+bool HedgeSurface::removeRegion(RevEngRegion* reg)
+//===========================================================================
+{
+  auto it = std::find(regions_.begin(), regions_.end(), reg);
+  if (it != regions_.end())
+    {
+      regions_.erase(it);
+      if (regions_.size() > 0)
+	{
+	  bbox_ = regions_[0]->boundingBox();
+	  for (size_t ki=1; ki<regions_.size(); ++ki)
+	    bbox_.addUnionWith(regions_[ki]->boundingBox());
+	}
+    }
   return false;
 }
