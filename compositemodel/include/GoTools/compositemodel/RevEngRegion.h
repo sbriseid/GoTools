@@ -62,8 +62,32 @@ namespace Go
   
   enum
     {
-     CLASSIFICATION_UNDEF, CLASSIFICATION_CURVATURE, CLASSIFICATION_SHAPEINDEX
+     CLASSIFICATION_UNDEF, CLASSIFICATION_CURVATURE, CLASSIFICATION_SHAPEINDEX, CLASSIFICATION_POINTASSOCIATION
     };
+
+  struct SweepData
+  {
+    int type_;  // Linear = 1, rotational = 2
+    shared_ptr<SplineCurve> profile_;
+    Point location_;
+    Point added_info_;
+    double maxdist_;
+    double avdist_;
+    int num_in_;
+
+    SweepData(int type, shared_ptr<SplineCurve> profile, Point location, 
+	      Point info2, double maxdist, double avdist, int num_in)
+    {
+      type_ = type;
+      profile_ = profile;
+      location_ = location;
+      added_info_ = info2;
+      maxdist_ = maxdist;
+      avdist_ = avdist;
+      num_in_ = num_in;
+    }
+  };
+
   
   class RevEngRegion
   {
@@ -146,6 +170,10 @@ namespace Go
 		      std::vector<HedgeSurface*>& adj_surfs);
 
     void
+    splitComposedRegions(int classtype,
+			 std::vector<shared_ptr<RevEngRegion> >& added_groups);
+    
+    void
     splitFromSurfaceNormals(std::vector<RevEngPoint*>& smallrad,
 			    std::vector<std::vector<RevEngPoint*> >& separate_group);
     void splitRegion(std::vector<std::vector<RevEngPoint*> >& separate_groups);
@@ -202,6 +230,11 @@ namespace Go
 		       std::vector<HedgeSurface*>& prevsfs,
 		       std::vector<std::vector<RevEngPoint*> >& out_groups,
 		       std::ostream& fileout);
+
+    bool extractLinearSweep(double tol, int min_pt, double angtol,
+			    std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+			    std::vector<HedgeSurface*>& prevsfs,
+			    std::ostream& fileout);
 
     bool extractCone(double tol, int min_pt, double angtol,
 		     double mean_edge_len,
@@ -297,6 +330,16 @@ namespace Go
     bool possibleCone(double angtol, double inlim);
     bool possibleTorus(double angtol, double inlim);
 
+    bool hasSweepInfo()
+    {
+      return (sweep_.get() != 0);
+    }
+
+    int sweepType()
+    {
+      return (sweep_.get() ? sweep_->type_ : 0);
+    }
+
     bool hasDivideInfo()
     {
       return false;
@@ -310,11 +353,13 @@ namespace Go
 
     void addAdjacentRegion(RevEngRegion* adj_reg)
     {
+      //adj_reg->addAdjacentRegion(this);
       adjacent_regions_.insert(adj_reg);
     }
     
     void removeAdjacentRegion(RevEngRegion* adj_reg)
     {
+      //adj_reg->removeAdjacentRegion(this);
       adjacent_regions_.erase(adj_reg);
     }
     
@@ -406,6 +451,7 @@ namespace Go
     double maxdist_primary_, avdist_primary_;
     int num_in_primary_;
 
+    shared_ptr<SweepData> sweep_;
     bool visited_;
 
     const Point& pluckerAxis();
@@ -418,8 +464,9 @@ namespace Go
     void analyseCylinderProperties(Point avvec, double angtol,
 				   std::vector<RevEngPoint*>& in,
 				   std::vector<RevEngPoint*> out);
-    void  curveApprox(std::vector<Point>& points,
-		      shared_ptr<Circle> circle, shared_ptr<SplineCurve>& curve);
+    void  curveApprox(std::vector<Point>& points, double tol,
+		      shared_ptr<Circle> circle,
+		      shared_ptr<SplineCurve>& curve, Point& xpos);
     void  curveApprox(std::vector<Point>& points,
 		      shared_ptr<ParamCurve> cvin,
 		      int ik, int in, 
@@ -430,8 +477,11 @@ namespace Go
     shared_ptr<Sphere> computeSphere(std::vector<RevEngPoint*>& points);
     shared_ptr<Cone> computeCone(std::vector<RevEngPoint*>& points);
     shared_ptr<Torus> computeTorus(std::vector<RevEngPoint*>& points,
-				   shared_ptr<Torus>& torus2);
+				   double tol, shared_ptr<Torus>& torus2);
+    shared_ptr<SplineSurface> computeLinearSwept(double tol, shared_ptr<SplineCurve>& profile,
+						 Point& pt1, Point& pt2);
     shared_ptr<SplineSurface> computeFreeform(double tol);
+    shared_ptr<SplineSurface> updateFreeform(double tol);
     void getPCA(double lambda[3], Point& eigen1, Point& eigen2, Point& eigen3);
     shared_ptr<SplineSurface> surfApprox(vector<RevEngPoint*>& points,
 					 const BoundingBox& bbox);
@@ -449,7 +499,7 @@ namespace Go
     bool parameterizeOnSurf(shared_ptr<ParamSurface> surf,
 			    std::vector<double>& data,
 			    std::vector<double>& param,
-			    int& inner1, int& inner2);
+			    int& inner1, int& inner2, bool& close1, bool& close2);
     void setPrimarySf(shared_ptr<ParamSurface> surf, double maxd, double avd,
 		      int num_in)
     {
@@ -459,6 +509,18 @@ namespace Go
       num_in_primary_ = num_in;
     }
 
+    bool reparameterize(std::vector<double>& param, std::vector<double>& param2,
+			double& umin, double& umax, double& vmin, double& vmax);
+
+    void getParExtent(double curr[2], int pdir, std::vector<std::vector<int> >& raster,
+		      int& i1, int& i2);
+
+    void defineRaster(std::vector<double>& param, int nmb_div,
+		      std::vector<std::vector<int> >& raster, double& umin,
+		      double& umax, double& vmin, double& vmax);
+
+    void extendInCorner(std::vector<double>& data, std::vector<double>& param,
+			double umin, double umax, double vmin, double vmax);
   };
 }
 

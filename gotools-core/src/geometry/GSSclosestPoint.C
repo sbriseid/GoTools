@@ -1033,8 +1033,8 @@ SplineSurface::s1773_s9dir(double *cdist,double *cdiff1,double *cdiff2,
   /* register double *Suv, *Suu, *Svv; */
                                   /* Pointers to surf values      */
   register double ref, ang;       /* Referance value, angle       */
-  register double l1, l2;         /* Vector norm                  */
-  register double tcos;
+  register double l1=0.0, l2=0.0;         /* Vector norm                  */
+  register double tcos = 0.0;
   register double min_ang=10e-11; /* Min angle                    */
   register double ptol = 1.0e-12; /* Replace DEQUAL               */
   /* ____________________________________________________________ */
@@ -1055,9 +1055,16 @@ SplineSurface::s1773_s9dir(double *cdist,double *cdiff1,double *cdiff2,
   /* Degenerate if Su=0 v Sv=0 v Su||Sv */
   l1 = sqrt(Utils::inner(Su, Su+idim, Su));
   l2 = sqrt(Utils::inner(Sv, Sv+idim, Sv));
-  tcos = Utils::inner(Su, Su+idim, Sv)/(l1*l2);
-  ang = acos(tcos);
-  if (std::min(l1,l2) < aepsge || ang < min_ang) *jstat = 1;
+  ang = 0.0;
+  if (std::min(l1,l2) < aepsge)
+    {
+      tcos = Utils::inner(Su, Su+idim, Sv)/(l1*l2);
+      *jstat = 1;
+    }
+  else
+    ang = acos(tcos);
+  if (ang < min_ang)
+    *jstat = 1;
 
   /* Computing difference vector and lenght */
   for (int ki=0; ki<idim; ki++)

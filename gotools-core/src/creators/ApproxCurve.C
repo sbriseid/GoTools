@@ -548,7 +548,7 @@ int ApproxCurve::doApprox(int max_iter)
     {
       coef[ki] = points_[ki];
       coef[(in-1)*dim_+ki] = 
-	points_[(nmbpoints-1)*dim_+ki];
+  	points_[(nmbpoints-1)*dim_+ki];
     }
 
   // Approximate

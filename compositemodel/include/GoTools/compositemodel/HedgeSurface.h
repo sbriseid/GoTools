@@ -49,6 +49,11 @@ namespace Go {
 class RevEngRegion;
   class CurveOnSurface;
 
+  enum
+    {
+     SURF_TYPE_UNDEF, LINEARSWEPT_SURF, ROTATIONALSWEPT_SURF
+    };
+  
 class HedgeSurface : public ftSurface
 {
 public:
@@ -63,6 +68,24 @@ public:
   // Destructor
   ~HedgeSurface();
 
+  void setLinearSweepInfo(shared_ptr<SplineCurve> profile,
+			  Point startpt, Point endpt)
+  {
+    surf_code_ = LINEARSWEPT_SURF;
+    profile_ = profile;
+    sweep1_ = startpt;
+    sweep2_ = endpt;
+  }
+  
+  void setRotationalSweepInfo(shared_ptr<SplineCurve> profile,
+			      Point location, Point axis)
+  {
+    surf_code_ = ROTATIONALSWEPT_SURF;
+    profile = profile_;
+    sweep1_ = location;
+    sweep2_ = axis;
+  }
+  
   int dimension()
   {
     return surface()->dimension();
@@ -150,6 +173,10 @@ public:
 private:
   std::vector<RevEngRegion*> regions_;
   BoundingBox bbox_;
+  int surf_code_;
+  shared_ptr<SplineCurve> profile_;
+  Point sweep1_;
+  Point sweep2_;
 };
 }
 

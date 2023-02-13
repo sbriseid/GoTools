@@ -2470,11 +2470,11 @@ BoundedUtils::intersectWithSphere(shared_ptr<ParamSurface>& surf,
     int dim = 3;
     double epsco = 1e-15; // Not used
 //     double epsge = 1e-6;
-    int numintpt;
+    int numintpt = 0;
     double* pointpar = 0;
-    int numintcr;
+    int numintcr = 0;
     SISLIntcurve** intcurves = 0;
-    int stat;
+    int stat = 0;
     // Find the topology of the intersection
     s1852(sislsf, pnt.begin(), radius, dim, epsco, geom_tol,
 	  &numintpt, &pointpar, &numintcr, &intcurves, &stat);

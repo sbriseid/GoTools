@@ -66,6 +66,7 @@ HedgeSurface::HedgeSurface(shared_ptr<ParamSurface> sf, RevEngRegion *region)
 {
   regions_.push_back(region);
   bbox_ = region->boundingBox();
+  surf_code_ = SURF_TYPE_UNDEF;
 }
 
 //===========================================================================
@@ -80,6 +81,7 @@ HedgeSurface::HedgeSurface(shared_ptr<ParamSurface> sf,
       for (size_t ki=1; ki<region.size(); ++ki)
 	bbox_.addUnionWith(region[ki]->boundingBox());
     }
+  surf_code_ = SURF_TYPE_UNDEF;
 }
 
 //===========================================================================
@@ -102,7 +104,7 @@ int HedgeSurface::numPoints()
 ClassType HedgeSurface::instanceType(int& code)
 //===========================================================================
 {
-  code = 0;  // For later use
+  code = surf_code_;
   ClassType type = surface()->instanceType();
   if (type == Class_BoundedSurface)
     {

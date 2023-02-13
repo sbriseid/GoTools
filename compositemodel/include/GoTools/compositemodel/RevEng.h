@@ -43,6 +43,7 @@
 #include "GoTools/compositemodel/ftPointSet.h"
 #include "GoTools/compositemodel/SurfaceModel.h"
 #include "GoTools/utils/Point.h"
+#include "GoTools/utils/BoundingBox.h"
 
 namespace Go
 {
@@ -94,6 +95,7 @@ namespace Go
      // sequence without being started from outside?
       
       void enhancePoints();
+      void enhancePoints2();
 
       void classifyPoints();
       
@@ -131,6 +133,7 @@ namespace Go
     // will be build gradually. The number of surfaces will increase and
     // decrease based on recognition, merging and splitting by trimming
     shared_ptr<SurfaceModel> sfmodel_;
+    BoundingBox bbox_;
     int min_next_;  // Minimum number of neighbouring points
     int max_next_;  // Estimate for maximum number of neighbouring points
     double rfac_;   // Factor for radius in which to search for neighbouring points
@@ -150,6 +153,8 @@ namespace Go
     double int_tol_;  // Intersection tolerance
     double anglim_;
     int max_nmb_outlier_;
+    int rpix_;
+    double rpfac_, ffac_, sfac_;
 
     void initParameters();
     void setClassificationParams();
@@ -191,6 +196,12 @@ namespace Go
     double computeCylRadius(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
 				std::vector<RevEngPoint*>::iterator> >& points,
 			    Point mid, Point vec1, Point vec2);
+
+    void computeMonge(RevEngPoint* pt, std::vector<RevEngPoint*>& points,
+		      Point& vec1, Point& vec2, double radius);
+
+    void setRp(RevEngPoint* first, double rp[3]);
+    double computeRp(RevEngPoint* first, std::vector<std::vector<int> >& tri);
     
     void storeParams(std::ostream& os) const;
     void readParams(std::istream& is);

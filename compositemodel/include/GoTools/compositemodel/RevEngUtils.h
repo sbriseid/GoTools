@@ -71,12 +71,20 @@ namespace Go {
     shared_ptr<SplineSurface> surfApprox(std::vector<double>& data, int dim,
 					 std::vector<double>& param, int order1,
 					 int order2, int nmb_coef1, int nmb_coef2,
+					 bool close1, bool close2,
 					 int max_iter, double tol, double& maxd, 
 					 double& avd, int& num_out, double del=0.0);
+    
     shared_ptr<SplineSurface> surfApprox(std::vector<double>& data, int dim,
 					 std::vector<double>& param, int order1,
 					 int order2, int nmb_coef1, int nmb_coef2,
 					 double del=0.0);
+
+    shared_ptr<SplineSurface> surfApprox(std::vector<double>& data, int dim,
+					 std::vector<double>& param, int order1,
+					 int order2, int nmb_coef1, int nmb_coef2,
+					 double umin, double umax, double vmin,
+					 double vmax);
 
     void parameterizeWithPlane(std::vector<RevEngPoint*>& pnts, const BoundingBox& bbox,
 			       const Point& vec1, const Point& vec2,
@@ -85,11 +93,11 @@ namespace Go {
     void parameterizeWithPlane(std::vector<Point>& pnts, const BoundingBox& bbox,
 			       const Point& vec1, const Point& vec2,
 			       std::vector<double>& data, std::vector<double>& param);
-    void parameterizeOnPrimary(std::vector<RevEngPoint*>& points,
+    bool parameterizeOnPrimary(std::vector<RevEngPoint*>& points,
 			       shared_ptr<ParamSurface> surf,
 			       std::vector<double>& data, 
 			       std::vector<double>& param,
-			       int& inner1, int& inner2);
+			       int& inner1, int& inner2, bool& close1, bool& close2);
 
   void computeAxis(std::vector<Point>& points,
 		     Point& axis, Point& Cx, Point& Cy);

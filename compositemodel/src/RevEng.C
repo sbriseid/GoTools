@@ -51,6 +51,8 @@
 #include "GoTools/geometry/Torus.h"
 #include "GoTools/geometry/BoundedSurface.h"
 #include "GoTools/geometry/BoundedUtils.h"
+#include "GoTools/geometry/SISLconversion.h"
+#include "sislP.h"
 #include <vector>
 #include <fstream>
 #include <iostream> // @@ debug
@@ -86,6 +88,8 @@ RevEng::RevEng(shared_ptr<ftPointSet> tri_sf, double mean_edge_len)
 {
   // Set default parameters
   initParameters();
+  max_next_ = std::min(80, tri_sf_->size()/200);
+  max_next_ = std::max(2*min_next_, max_next_);
 }
 
 
@@ -102,31 +106,96 @@ RevEng::RevEng()
 RevEng::~RevEng()
 //===========================================================================
 {
-
 }
 
+
+int compare_x_par(const RevEngPoint* p1, const RevEngPoint* p2)
+{
+  return (p1->getPoint()[0] < p2->getPoint()[0]);
+  // if (p1->getPoint()[0] < p2->getPoint()[0])
+  //   return -1;
+  // else if (p1->getPoint()[0] > p2->getPoint()[0])
+  //   return 1;
+  // else
+  //   return 0;
+}
+
+int compare_y_par(const RevEngPoint* p1, const RevEngPoint* p2)
+{
+  return (p1->getPoint()[1] < p2->getPoint()[1]);
+  // if (p1->getPoint()[1] < p2->getPoint()[1])
+  //   return -1;
+  // else if (p1->getPoint()[1] > p2->getPoint()[1])
+  //   return 1;
+  // else
+  //   return 0;
+}
+
+int compare_z_par(const RevEngPoint* p1, const RevEngPoint* p2)
+{
+  return (p1->getPoint()[2] < p2->getPoint()[2]);
+  // if (p1->getPoint()[2] < p2->getPoint()[2])
+  //   return -1;
+  // else if (p1->getPoint()[2] > p2->getPoint()[2])
+  //   return 1;
+  // else
+  //   return 0;
+}
+
+//===========================================================================
+void RevEng::enhancePoints2()
+//===========================================================================
+{
+  int nmbpt = tri_sf_->size();
+  vector<RevEngPoint*> all_pts(nmbpt);
+  for (int ki=0; ki<nmbpt; ++ki)
+    {
+      RevEngPoint* pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
+      Vector3D xyz = pt->getPoint();
+      Point xyz2 = Point(xyz[0], xyz[1], xyz[2]);
+      all_pts[ki] = pt;
+      if (ki == 0)
+	bbox_ = BoundingBox(xyz2, xyz2);
+      else
+	bbox_.addUnionWith(xyz2);
+    }
+
+}
 
 //===========================================================================
 void RevEng::enhancePoints()
 //===========================================================================
 {
+  enhancePoints2();
+  
   int writepoints = 0;
   int nmbpt = tri_sf_->size();
   std::ofstream of01("minc1.g2");
-  std::ofstream of02("minc2.g2");
+  //std::ofstream of02("minc2.g2");
   std::ofstream of03("maxc1.g2");
-  std::ofstream of04("maxc2.g2");
+  //std::ofstream of04("maxc2.g2");
   of01 << "410 1 0 4 200 50 0 255" << std::endl;
   of01 << nmbpt << std::endl;
-  of02 << "410 1 0 4 200 50 0 255" << std::endl;
-  of02 << nmbpt << std::endl;
+  // of02 << "410 1 0 4 200 50 0 255" << std::endl;
+  // of02 << nmbpt << std::endl;
   of03 << "410 1 0 4 0 50 200 255" << std::endl;
   of03 << nmbpt << std::endl;
-  of04 << "410 1 0 4 0 50 200 255" << std::endl;
-  of04 << nmbpt << std::endl;
+  // of04 << "410 1 0 4 0 50 200 255" << std::endl;
+  // of04 << nmbpt << std::endl;
   for (int ki=0; ki<nmbpt; ++ki)
     {
-      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
+
+      // Compute surface normal from triangulation
+      pt->computeTriangNormal(100.0*mean_edge_len_);
+      double avlen = pt->getMeanEdgLen();
+    }
+  
+  for (int ki=0; ki<nmbpt; ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
+      if (pt->nmbMonge() > 0)
+	continue;  // Already enhanced
 
       // Compute surface normal from triangulation
       pt->computeTriangNormal(100.0*mean_edge_len_);
@@ -142,36 +211,38 @@ void RevEng::enhancePoints()
       double avlen = pt->getMeanEdgLen();
 
       //Fetch nearby points
-      vector<Point> nearpts;
+      vector<RevEngPoint*> nearpts;
       double local_len = pt->getMeanEdgLen(10.0*mean_edge_len_);
       double radius = rfac_*(local_len + mean_edge_len_);
+      double radius2 = 0.5*radius;
       radius = std::min(radius, 20.0*mean_edge_len_);
       //radius *= 1.5; // TEST 
       //double radius = 0.5*rfac_*(local_len + mean_edge_len_);
-      Point curr = pt->fetchClosePoints(radius, min_next_, max_next_, nearpts);
+      pt->fetchClosePoints2(radius, min_next_, max_next_, nearpts);
 
       Point mincvec(0.0, 0.0, 0.0), maxcvec(0.0, 0.0, 0.0);
-      Point mincvec2(0.0, 0.0, 0.0), maxcvec2(0.0, 0.0, 0.0);
+      //      Point mincvec2(0.0, 0.0, 0.0), maxcvec2(0.0, 0.0, 0.0);
 
       if (nearpts.size() >= 3)
 	{
 
-      std::ofstream of("nearpts.g2");
+	  std::ofstream of("nearpts.g2");
       if (writepoints)
 	{
 	  of << "400 1 0 4 255 0 0 255" << std::endl;
 	  of << "1" << std::endl;
-	  of << curr << std::endl << std::endl;
+	  of << pt->getPoint() << std::endl << std::endl;
 	  of << "400 1 0 4 0 255 0 255" << std::endl;
 	  of << nearpts.size() << std::endl;
 	  for (size_t kr=0; kr<nearpts.size(); ++kr)
-	    of << nearpts[kr] << std::endl;
+	    of << nearpts[kr]->getPoint() << std::endl;
 	}
       
       // Compute eigenvectors and values of covariance matrix
+      nearpts.push_back(pt);
       double lambda[3];
       double eigenvec[3][3];
-      RevEngUtils::principalAnalysis(curr, nearpts, lambda, eigenvec);
+      RevEngUtils::principalAnalysis(nearpts, lambda, eigenvec);
       Point eigen1(eigenvec[0][0], eigenvec[0][1], eigenvec[0][2]);
       Point eigen2(eigenvec[1][0], eigenvec[1][1], eigenvec[1][2]);
       Point eigen3(eigenvec[2][0], eigenvec[2][1], eigenvec[2][2]);
@@ -185,46 +256,62 @@ void RevEng::enhancePoints()
 	  eigen2 *= -1;
 	  eigen3 *= -1;
 	}
-      pt->addCovarianceEigen(eigen1, lambda[0], eigen2, lambda[1],
-			     eigen3, lambda[2]);
+
+      for (size_t kr=0; kr<nearpts.size(); ++kr)
+	{
+	  if (pt->pntDist(nearpts[kr]) <= radius2)
+	    nearpts[kr]->addCovarianceEigen(eigen1, lambda[0], eigen2, lambda[1],
+					    eigen3, lambda[2]);
+	}
       
       if (writepoints)
 	{
 	  for (int ki=0; ki<3; ++ki)
 	    {
-	      Point vec(eigenvec[ki][0], eigenvec[ki][1], eigenvec[ki][2]);
+	      Vector3D vec(eigenvec[ki][0], eigenvec[ki][1], eigenvec[ki][2]);
 	      of << "410 1 0 4 0 0 0 255" << std::endl;
 	      of << "1" << std::endl;
+	      Vector3D curr = pt->getPoint();
 	      of << curr << " " << curr+0.1*vec << std::endl;
 	    }
 	}
       // Compute normal and curvature using Monge patch
-      Point normal;//, mincvec, maxcvec;
-      double minc, maxc;
-      double currdist, avdist;
-      // RevEngUtils::computeMonge(curr, nearpts, eigen1, eigen2, normal, mincvec, minc,
+      // Point normal;//, mincvec, maxcvec;
+      // double minc, maxc;
+      // double currdist, avdist;
+      // RevEngUtils::computeMonge(curr, nearpts, eigen1, eigen3, normal, mincvec, minc,
       // 				maxcvec, maxc, currdist, avdist);
-      RevEngUtils::computeMonge(curr, nearpts, eigen1, eigen3, normal, mincvec, minc,
-				maxcvec, maxc, currdist, avdist);
+      computeMonge(pt, nearpts, eigen1, eigen3, radius2);
       // Orient vectors with respect to triangulation normal
       // The normal vectors should be OK. Curvature vectors are not necessarily
       // consistent with regard to orientation
 
-      double minc2, maxc2;
-      RevEngUtils::TaubinCurvature(curr, nearpts, eigen1, eigen3, mincvec2, minc2,
-				   maxcvec2, maxc2);
+      // double minc2, maxc2;
+      // RevEngUtils::TaubinCurvature(curr, nearpts, eigen1, eigen3, mincvec2, minc2,
+      // 				   maxcvec2, maxc2);
       
-      if (normal*tnorm < 0.0)
-	normal *= -1;
-      pt->addMongeInfo(normal, mincvec, minc, maxcvec, maxc, currdist, avdist,
-		       zero_si_);
-	}
-      of01 << curr << " " << curr+mincvec << std::endl;
-      of02 << curr << " " << curr+mincvec2 << std::endl;
-      of03 << curr << " " << curr+maxcvec << std::endl;
-      of04 << curr << " " << curr+maxcvec2 << std::endl;
+      // if (normal*tnorm < 0.0)
+      // 	normal *= -1;
+      // pt->addMongeInfo(normal, mincvec, minc, maxcvec, maxc, currdist, avdist,
+      // 		       zero_si_);
+      // 	}
+      // of01 << curr << " " << curr+mincvec << std::endl;
+      // //of02 << curr << " " << curr+mincvec2 << std::endl;
+      // of03 << curr << " " << curr+maxcvec << std::endl;
+      //of04 << curr << " " << curr+maxcvec2 << std::endl;
 
       int stop_break = 1;
+    }
+    }
+
+  for (int ki=0; ki<nmbpt; ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
+      if (pt->isOutlier())
+	continue;
+      double rp[3];
+      setRp(pt, rp);
+      pt->setRp(rp);
     }
 
   for (int ki=0; ki<nmbpt; ++ki)
@@ -266,37 +353,53 @@ void RevEng::enhancePoints()
 	}
     }
   
-  std::cout << "Start curvature filter" << std::endl;
-  
-  curvatureFilter();
-
-  std::cout << "Finish curvature filter" << std::endl;
-  
+  setClassificationParams();
   vector<Vector3D> triangcorners;
   vector<Vector3D> triangplane;
   vector<Vector3D> curvaturecorners;
+  vector<Vector3D> smoothnesscorners;
+  vector<Vector3D> PCAcorners;
+  vector<Vector3D> Rpcorners;
   std::ofstream of("triangnorm.g2");
   std::ofstream ofM("Mongenorm.g2");
+  std::ofstream ofP("PCAnorm.g2");
   of << "410 1 0 4 0 0 255 255" << std::endl;
   of << nmbpt << std::endl;
   ofM << "410 1 0 4 255 0 0 255" << std::endl;
   ofM << nmbpt << std::endl;
+  ofP << "410 1 0 4 0 200 55 255" << std::endl;
+  ofP << nmbpt << std::endl;
+  // of01 << "410 1 0 4 0 0 255 255" << std::endl;
+  // of01 << nmbpt << std::endl;
+  // of03 << "410 1 0 4 0 255 0 255" << std::endl;
+  // of03 << nmbpt << std::endl;
   for (int ki=0; ki<nmbpt; ++ki)
     {
       RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
-      if (pt->isOutlier())
-	continue;
+      Point minc = pt->minCurvatureVec();
+      Point maxc = pt->maxCurvatureVec();
       Vector3D xyz = pt->getPoint();
       Point xyz2(xyz[0], xyz[1], xyz[2]);
+      double avlen = pt->getMeanEdgLen();
+
+      double fac = (pt->nmbMonge() == 0) ? 0.0 : 5.0;
+      of01 << xyz2 << " " << xyz2+fac*avlen*minc << std::endl;
+      of03 << xyz2 << " " << xyz2+fac*avlen*maxc << std::endl;
+
       Point norm = pt->getTriangNormal();
       double ang = pt->getTriangAngle();
-      double avlen = pt->getMeanEdgLen();
-      of << xyz2 << " " << xyz2+avlen*norm << std::endl;
+      of << xyz2 << " " << xyz2+5.0*avlen*norm << std::endl;
       if (pt->getTriangAngle() > norm_ang_lim_)
 	triangcorners.push_back(xyz);
       Point Mnorm = pt->getMongeNormal();
-      ofM << xyz2 << " " << xyz2+avlen*Mnorm << std::endl;
+      ofM << xyz2 << " " << xyz2+5.0*avlen*Mnorm << std::endl;
 
+      Point Pnorm = pt->getPCANormal();
+      ofP << xyz2 << " " << xyz2+5.0*avlen*Pnorm << std::endl;
+
+      if (pt->isOutlier())
+	continue;
+      
       if (ang <= norm_plane_lim_)
 	triangplane.push_back(xyz);
       double maxpc = std::max(fabs(pt->maxPrincipalCurvature()),
@@ -304,6 +407,18 @@ void RevEng::enhancePoints()
       double crvrad = 1.0/maxpc; //fabs(maxpc);
       if (crvrad < cfac_*avlen)
 	curvaturecorners.push_back(xyz);
+
+      double curved = pt->getCurvedness();
+      if (curved > cness_lim_)
+	smoothnesscorners.push_back(xyz);
+
+      double sfvar = pt->getSurfaceVariation();
+      if (sfvar > pca_lim_)
+	PCAcorners.push_back(xyz);
+
+      double rp = pt->getRp(1);
+      if (rp > 0.03)
+	Rpcorners.push_back(xyz);
     }
 
   std::ofstream of2("triangcorners.g2");
@@ -318,11 +433,322 @@ void RevEng::enhancePoints()
   for (size_t kj=0; kj<curvaturecorners.size(); ++kj)
     of3 << curvaturecorners[kj] << std::endl;
 
+  std::ofstream of5("smoothnesscorners.g2");
+  of5 << "400 1 0 4 10 10 10 255" << std::endl;
+  of5 << smoothnesscorners.size() << std::endl;
+  for (size_t kj=0; kj<smoothnesscorners.size(); ++kj)
+    of5 << smoothnesscorners[kj] << std::endl;
+
+  std::ofstream of6("PCAcorners.g2");
+  of6 << "400 1 0 4 10 10 10 255" << std::endl;
+  of6 << PCAcorners.size() << std::endl;
+  for (size_t kj=0; kj<PCAcorners.size(); ++kj)
+    of6 << PCAcorners[kj] << std::endl;
+
+  std::ofstream of7("Rpcorners.g2");
+  of7 << "400 1 0 4 10 10 10 255" << std::endl;
+  of7 << Rpcorners.size() << std::endl;
+  for (size_t kj=0; kj<Rpcorners.size(); ++kj)
+    of7 << Rpcorners[kj] << std::endl;
+
   std::ofstream of4("triangplane.g2");
   of4 << "400 1 0 4 200 0 200 255" << std::endl;
   of4 << triangplane.size() << std::endl;
   for (size_t kj=0; kj<triangplane.size(); ++kj)
     of4 << triangplane[kj] << std::endl;
+
+ 
+  std::cout << "Start curvature filter" << std::endl;
+  curvatureFilter();
+  for (int ki=0; ki<nmbpt; ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
+      pt->resetPointAssociation();
+    }
+  
+  std::cout << "Finish curvature filter" << std::endl;
+
+}
+
+//===========================================================================
+void RevEng::computeMonge(RevEngPoint* pt, std::vector<RevEngPoint*>& points,
+			  Point& vec1, Point& vec2, double radius)
+//===========================================================================
+{
+  // Transform points to coordinate system given by vec1 (x-axis) and vec2 (y-axis)
+  Matrix3D mat1, mat2, rotmat;
+  Vector3D vec1_2(vec1[0], vec1[1], vec1[2]);
+  Vector3D vec2_2(vec2[0], vec2[1], vec2[2]);
+  Vector3D xaxis(1, 0, 0);
+  Vector3D zaxis(0, 0, 1);
+  mat1.setToRotation(vec1_2, xaxis);
+  Vector3D v1 = mat1*vec1_2;
+  Vector3D vec2_3 = mat1*vec2_2;
+  mat2.setToRotation(vec2_3, zaxis);
+  Vector3D v2 = mat2*vec2_3;
+  rotmat = mat2*mat1;
+  //rotmat.identity();
+
+  // Perform rotation and sort parameter values and z-value
+  int nmbpts = (int)points.size();
+  vector<double> par(2*nmbpts);
+  vector<double> zval(nmbpts);
+  Vector3D curr = pt->getPoint();
+  for (int ki=0; ki<nmbpts; ++ki)
+    {
+      Vector3D dv = points[ki]->getPoint() - curr;
+      Vector3D dvrot = rotmat*dv;
+      //Vector3D dvrot = mat2*dvrot0;
+      par[2*ki] = curr[0] + dvrot[0];
+      par[2*ki+1] = curr[1] + dvrot[1];
+      zval[ki] = curr[2] + dvrot[2];
+    }
+
+  // Approximate z-component by biquadratic Bezier function in x and y
+  int order = 3;
+  shared_ptr<SplineSurface> mongesf = RevEngUtils::surfApprox(zval, 1, par, order,
+							      order, order, order);
+
+  vector<double> coefs2(3*order*order);
+  std::vector<double>::iterator cf = mongesf->coefs_begin();
+  for (int ka=0; ka<order; ++ka)
+    {
+      double vpar = mongesf->basis_v().grevilleParameter(ka);
+      for (int kb=0; kb<order; ++kb, ++cf)
+	{
+	  double upar = mongesf->basis_u().grevilleParameter(kb);
+	  coefs2[(ka*order+kb)*3] = upar;
+	  coefs2[(ka*order+kb)*3+1] = vpar;
+	  coefs2[(ka*order+kb)*3+2] = *cf;
+	}
+    }
+  shared_ptr<SplineSurface> tmp(new SplineSurface(order, order, order, order, 
+						  mongesf->basis_u().begin(),
+						  mongesf->basis_v().begin(), &coefs2[0], 3));
+  int writesurface = 0;
+  if (writesurface)
+    {
+      std::ofstream of("approx_sf.g2");
+      tmp->writeStandardHeader(of);
+      tmp->write(of);
+      of << "400 1 0 4 0 255 0 255" << std::endl;
+      of << 1 << std::endl;
+      of << curr << std::endl;
+      of << "400 1 0 4 255 0 0 255" << std::endl;
+      of << nmbpts << std::endl;
+      for (int ka=0; ka<nmbpts; ++ka)
+	{
+	  Point tmppt(par[2*ka], par[2*ka+1], zval[ka]);
+	  of << tmppt << std::endl;
+	}
+    }
+  
+  // Compute surface normal 
+  double avdist = 0.0;
+  for (int ki=0; ki<nmbpts; ++ki)
+    {
+      Point pos;
+      mongesf->point(pos, par[2*ki], par[2*ki+1]);
+      avdist += fabs(zval[ki] - pos[0]);
+    }
+  avdist /= (double)nmbpts;
+
+  std::ofstream of2("Monge_curvature.g2");
+  std::ofstream of3("Monge_curvature2.g2");
+  vector<Point> monge1, monge2, monge3, monge4;
+   for (size_t kr=0; kr<points.size(); ++kr)
+    {
+      if (pt->pntDist(points[kr]) > radius)
+	continue;
+
+      Point triang_norm = points[kr]->getTriangNormal();
+      vector<Point> der(3);
+      mongesf->point(der, par[2*kr], par[2*kr+1], 1);
+      Vector3D norm(-der[1][0], -der[2][0], 1.0);
+      norm.normalize();
+
+      // Accuracy of approximation
+      double currdist = fabs(zval[kr] - der[0][0]);
+  
+      // Compute principal curvatures in curr
+      shared_ptr<SISLSurf> sislsf(GoSurf2SISL(*mongesf, false));
+      int left1 = 0, left2 = 0;
+      int stat = 0;
+      double minc, maxc;
+      double d1[2], d2[2];
+      s2542(sislsf.get(), 0, 0, 0, &par[0], &left1, &left2, &minc, &maxc, d1, d2, &stat);
+      Vector3D du(1.0, 0.0, der[1][0]);
+      Vector3D dv(0.0, 1.0, der[2][0]);
+      Vector3D cvec1 = d1[0]*du + d1[1]*dv;
+      Vector3D cvec2 = d2[0]*du + d2[1]*dv;
+
+      // Vector3D origin(par[0], par[1], zval[0]);
+      // of << "410 1 0 4 0 0 0 255" << std::endl;
+      // of << "1" << std::endl;
+      // of << origin << " " << origin+norm << std::endl;
+
+      // of << "410 1 0 4 0 55 155 255" << std::endl;
+      // of << "1" << std::endl;
+      // of << origin << " " << origin+cvec1 << std::endl;
+
+  
+      // of << "410 1 0 4 155 55 0 255" << std::endl;
+      // of << "1" << std::endl;
+      // of << origin << " " << origin+cvec2 << std::endl;
+
+  
+  
+      // Transform results to original coordinate system
+      Matrix3D mat3, mat4, rotmat2;
+      mat4.setToRotation(zaxis, vec2_3);
+      mat3.setToRotation(xaxis, vec1_2);
+      rotmat2 = mat3*mat4;
+      //rotmat2.identity();
+      //Vector3D norm0 = mat4*norm;
+      Vector3D norm2 = rotmat2*norm;
+      Point normal = Point(norm2[0], norm2[1], norm2[2]);
+      if (triang_norm.length() > 1.0e-10 && normal*triang_norm < 0.0)
+	normal *= -1;
+  
+      Vector3D cvec3 = rotmat2*cvec1;
+      Point mincvec = Point(cvec3[0], cvec3[1],cvec3[2]); 
+      Vector3D cvec4 = rotmat2*cvec2;
+      Point maxcvec = Point(cvec4[0], cvec4[1],cvec4[2]);
+      points[kr]->addMongeInfo(normal, mincvec, minc, maxcvec, maxc, currdist, avdist,
+      		       zero_si_);
+
+      Vector3D xyz = points[kr]->getPoint();
+      Point xyz2 = Point(xyz[0], xyz[1], xyz[2]);
+      Vector3D der2(der[0][0], der[0][1], der[0][2]);
+      Vector3D der3 = rotmat2*der2;
+      Point der4(der3[0], der3[1], der3[2]);
+      monge1.push_back(xyz2);
+      monge1.push_back(xyz2+mincvec);
+      monge2.push_back(xyz2);
+      monge2.push_back(xyz2+maxcvec);
+      monge3.push_back(der4);
+      monge3.push_back(der4+mincvec);
+      monge4.push_back(der4);
+      monge4.push_back(der4+maxcvec);
+    }
+
+   int writeMonge = 0;
+
+   if (writeMonge)
+     {
+       of2 << "410 1 0 4 255 0 0 255" << std::endl;
+       of2 << monge1.size()/2 << std::endl;
+       for (size_t kr=0; kr<monge1.size(); kr+=2)
+	 of2 << monge1[kr] << " " << monge1[kr+1] << std::endl;
+       of2 << "410 1 0 4 0 0 255 255" << std::endl;
+       of2 << monge2.size()/2 << std::endl;
+       for (size_t kr=0; kr<monge2.size(); kr+=2)
+	 of2 << monge2[kr] << " " << monge2[kr+1] << std::endl;
+   
+       of3 << "400 1 0 4 0 255 0 255" << std::endl;
+       of3 << monge3.size()/2 << std::endl;
+       for (size_t kr=0; kr<monge3.size(); kr+=2)
+	 of3 << monge3[kr] << std::endl;
+       of3 << "410 1 0 4 255 0 0 255" << std::endl;
+       of3 << monge3.size()/2 << std::endl;
+       for (size_t kr=0; kr<monge3.size(); kr+=2)
+	 of3 << monge3[kr] << " " << monge3[kr+1] << std::endl;
+       of3 << "410 1 0 4 0 0 255 255" << std::endl;
+       of3 << monge4.size()/2 << std::endl;
+       for (size_t kr=0; kr<monge4.size(); kr+=2)
+	 of3 << monge4[kr] << " " << monge4[kr+1] << std::endl;
+     }
+  int stop_break = 1;
+}
+ 
+//===========================================================================
+void RevEng::setRp(RevEngPoint* first, double rp[3])
+//===========================================================================
+{
+  if (first->nmbMonge() == 0)
+    return;
+
+  // Fetch associated triangles
+  vector<RevEngPoint*> next;
+  first->setVisited();
+  next.push_back(first);
+
+  vector<vector<int> > tri;
+  first->getAttachedTriangles(tri);
+  rp[0] = computeRp(first, tri);
+  size_t ki=0;
+  for (int kb=1; kb<3; ++kb)
+    {
+      size_t nn = next.size();
+      for (; ki<nn; ++ki)
+	{
+	  vector<ftSamplePoint*> curr_next = next[ki]->getNeighbours();
+	  for (size_t kj=0; kj<curr_next.size(); ++kj)
+	    {
+	      RevEngPoint *pt = dynamic_cast<RevEngPoint*>(curr_next[kj]);
+	      if (pt->visited())
+		continue;
+	      next.push_back(pt);
+	      vector<vector<int> > tri2;
+	      pt->getAttachedTriangles(tri2);
+	      for (size_t kr=0; kr<tri2.size(); ++kr)
+		{
+		  auto it = std::find(tri.begin(), tri.end(), tri2[kr]);
+		  if (it == tri.end())
+		    tri.push_back(tri2[kr]);
+		}
+	    }
+	}
+      rp[kb] = computeRp(first, tri);
+    }
+
+  for (size_t kr=0; kr<next.size(); ++kr)
+    next[kr]->unsetVisited();
+}
+
+//===========================================================================
+double RevEng::computeRp(RevEngPoint* first, vector<vector<int> >& tri)
+//===========================================================================
+{
+  double rp = 0.0;
+  Point norm = first->getMongeNormal();
+  Vector3D pnt0 = first->getPoint();
+  Point pnt(pnt0[0], pnt0[1], pnt0[2]);
+  size_t ntri = tri.size();
+  Point cvecmax = first->maxCurvatureVec();
+  double kmax = first->maxPrincipalCurvature();
+  Point cvecmin = first->minCurvatureVec();
+  double kmin = first->minPrincipalCurvature();
+  for (size_t ki=0; ki<ntri; ++ki)
+    {
+      RevEngPoint* pt1 = dynamic_cast<RevEngPoint*>((*tri_sf_)[tri[ki][0]]);
+      RevEngPoint* pt2 = dynamic_cast<RevEngPoint*>((*tri_sf_)[tri[ki][1]]);
+      RevEngPoint* pt3 = dynamic_cast<RevEngPoint*>((*tri_sf_)[tri[ki][2]]);
+      Point tnorm0 = pt1->getTriangNormal() + pt2->getTriangNormal() + pt3->getTriangNormal();
+      Vector3D xyz1 = pt1->getPoint();
+      Point pos1(xyz1[0], xyz1[1], xyz1[2]);
+      Vector3D xyz2 = pt2->getPoint();
+      Point pos2(xyz2[0], xyz2[1], xyz2[2]);
+      Vector3D xyz3 = pt3->getPoint();
+      Point pos3(xyz3[0], xyz3[1], xyz3[2]);
+      Point btri = (pos1 + pos2 + pos3)/3.0;
+      Point vec1 = pos2 - pos1;
+      Point vec2 = pos3 - pos1;
+      Point tnorm = vec1.cross(vec2);
+      if (tnorm0*tnorm < 0.0)
+	tnorm *= -1;
+      tnorm.normalize_checked();
+      Point vec3 = btri - pnt;
+      vec3.normalize_checked();
+      double fac1 = vec3*cvecmax;
+      double fac2 = vec3*cvecmin;
+      double curv = fac1*kmax + fac2*kmin;
+      double div = 1.0 - pnt.dist2(btri)*curv*curv;
+      double tmp = (div > 1.0e-12) ? 1.0 - ((tnorm*norm)/sqrt(div)) : 0.0;
+      rp += fabs(tmp);
+    }
+  rp /= (double)ntri;
+  return rp;
 }
 
 //===========================================================================
@@ -413,6 +839,16 @@ void RevEng::setClassificationParams()
     }
   pca_lim_ = varh;
   cness_lim_ = curvh;
+  std::cout << "cness_lim_: " << cness_lim_ << ", pca_lim_: " << pca_lim_ << std::endl;
+  std::cout << "Give rpix: " << std::endl;
+  std::cin >> rpix_;
+  std::cout << "Give rpfac: " << std::endl;
+  std::cin >> rpfac_;
+  std::cout << "Give ffac: " << std::endl;
+  std::cin >> ffac_;
+  std::cout << "Give sfac: " << std::endl;
+  std::cin >> sfac_;
+
 
   // // Surface variation
   // std::sort(sfvar.begin(), sfvar.end());
@@ -490,10 +926,11 @@ void RevEng::classifyPoints()
   // Fetch relevant values for all points
 
   // Update limits
-  setClassificationParams();
+  //setClassificationParams();
 
   vector<vector<Vector3D> > class_pts(9);
   vector<vector<Vector3D> > class_shape(10);
+  vector<vector<Vector3D> > class_pfs(10);
   int nmbpts = tri_sf_->size();
   for (int ki=0; ki<nmbpts; ++ki)
     {
@@ -620,6 +1057,60 @@ void RevEng::classifyPoints()
 	  class_shape[9].push_back(xyz);
 	}
 
+      int ps_type = PS_UNDEF;
+      double fpa = pt->getfpa();
+      double spa = pt->getspa();
+      if (fpa <= ffac_)
+	{
+	  ps_type = PS_PLANE;
+	  class_pfs[0].push_back(xyz);
+	}
+      else if (spa <= -1+sfac_)
+	{
+	  ps_type = PS_UC;
+	  class_pfs[1].push_back(xyz);
+	}
+      else if (spa < -0.5-sfac_)
+	{
+	  ps_type = PS_EC;
+	  class_pfs[2].push_back(xyz);
+	}
+      else if (spa <= -0.5+sfac_)
+	{
+	  ps_type = PS_PC;
+	  class_pfs[3].push_back(xyz);
+	}
+      else if (spa < -sfac_)
+	{
+	  ps_type = PS_HC;
+	  class_pfs[4].push_back(xyz);
+	}
+      else if (spa <= sfac_)
+	{
+	  ps_type = PS_HS;
+	  class_pfs[5].push_back(xyz);
+	}
+      else if (spa < 0.5-sfac_)
+	{
+	  ps_type = PS_HX; 
+	  class_pfs[6].push_back(xyz);
+	}
+      else if (spa <= 0.5+sfac_)
+	{
+	  ps_type = PS_PX;
+	  class_pfs[7].push_back(xyz);
+	}
+      else if (spa < 1-sfac_)
+	{
+	  ps_type = PS_EX;
+	  class_pfs[8].push_back(xyz);
+	}
+      else
+	{
+	  ps_type = PS_UX;
+	  class_pfs[9].push_back(xyz);
+	}
+
       // Edge classification with curvedness
       double curved = pt->getCurvedness();
       int c2_edge = (curved > cness_lim_) ? C2_EDGE : C2_NOT_EDGE;
@@ -628,8 +1119,11 @@ void RevEng::classifyPoints()
       double var = pt->getSurfaceVariation();
       int pca_edge = (var > pca_lim_) ? PCA_EDGE : PCA_NOT_EDGE;
 
+      double rp = pt->getRp(rpix_);
+      int rp_edge =  (rp >= rpfac_) ? RP_EDGE : RP_NOT_EDGE;
+
       // Store classification in point
-      pt->setClassification(ctype, c1_edge, si_type, c2_edge, pca_edge);
+      pt->setClassification(ctype, c1_edge, si_type, c2_edge, pca_edge, ps_type, rp_edge);
    }
 
   std::ofstream of("curvature_segments.g2");
@@ -657,6 +1151,19 @@ void RevEng::classifyPoints()
       of2 << class_shape[ka].size() << std::endl;
       for (size_t kr=0; kr<class_shape[ka].size(); ++kr)
 	of2 << class_shape[ka][kr] << std::endl;
+      }
+  
+   // Point classification association
+  std::ofstream of4("ptsclass_segments.g2");
+  for (int ka=0; ka<10; ++ka)
+    {
+      of4 << "400 1 0 4 ";
+      for (int kc=0; kc<3; ++kc)
+	of4 << colors[ka][kc] << " ";
+      of4 << "255" << std::endl;
+      of4 << class_pfs[ka].size() << std::endl;
+      for (size_t kr=0; kr<class_pfs[ka].size(); ++kr)
+	of4 << class_pfs[ka][kr] << std::endl;
       }
   
   // Specify/clean edge classification
@@ -741,9 +1248,38 @@ void RevEng::growRegions(int classification_type)
   std::cout << "New tolerance: " << std::endl;
   std::cin >> approx_tol_;
 
+  std::ofstream ofd("ptdist.g2");
+  double ptd1 = pointdist[0];
+  double ptd2 = pointdist[dix];
+  int nmbd = 12;
+  double pdel = (ptd2 - ptd1)/(double)nmbd;
+  vector<vector<Vector3D> > ptrs(nmbd);
+  for (int ki=0; ki<nmbpts; ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
+      Vector3D xyz = pt->getPoint();
+      double dd = pt->getPointDistance();
+      int ix = (int)((dd-ptd1)/pdel);
+      ix = std::min(ix, nmbd-1);
+      ptrs[ix].push_back(xyz);
+    }
+
+  for (int ki=0; ki<nmbd; ++ki)
+    {
+      if (ptrs[ki].size() > 0)
+	{
+	  ofd << "400 1 0 4 " << colors[ki][0] << " " << colors[ki][1] << " ";
+	  ofd << colors[ki][2] << " 255"  << std::endl;
+	  ofd << ptrs[ki].size();
+	  for (size_t kr=0; kr<ptrs[ki].size(); ++kr)
+	    ofd << ptrs[ki][kr] << std::endl;
+	}
+    }
+
   std::sort(regions_.begin(), regions_.end(), sort_region);
   if (regions_.size() > 0)
     {
+      std::cout << "Regions 1, size: " << regions_.size() << std::endl;
       std::ofstream of("regions1.g2");
       vector<Vector3D> small;
       for (size_t kr=0; kr<regions_.size(); ++kr)
@@ -774,6 +1310,128 @@ void RevEng::growRegions(int classification_type)
 	ofs << small[kr] << std::endl;
     }
 
+  bool added_phase= false;
+  // Sort regions according to number of points
+  std::sort(regions_.begin(), regions_.end(), sort_region);
+
+  if (added_phase)
+    {
+  // Identify adjacency between regions
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->setRegionAdjacency();
+    }
+
+  // Simplify regions structure
+  std::cout << "Number of regions pre integrate: " << regions_.size() << std::endl;
+  for (int ka=(int)(regions_.size()-1); ka>=0; --ka)
+    {
+      bool to_be_removed = regions_[ka]->integrateInAdjacent(mean_edge_len_,
+							     min_next_, max_next_,
+							     approx_tol_, 0.5,
+							     max_nmb_outlier_);
+      if (to_be_removed)
+	{
+	  regions_.erase(regions_.begin()+ka);
+	}
+    }
+  std::cout << "Number of regions post integrate: " << regions_.size() << std::endl;
+  
+  std::sort(regions_.begin(), regions_.end(), sort_region);
+  
+  if (regions_.size() > 0)
+    {
+      std::ofstream of1_1("regions1_1.g2");
+       vector<Vector3D> small;
+     for (size_t kr=0; kr<regions_.size(); ++kr)
+	{
+	  // BoundingBox bbox = regions_[kr]->boundingBox();
+	  // if (bbox.low().dist(bbox.high()) < 0.1)
+	  //   std::cout << "Small bounding box" << std::endl;
+	  int nmb = regions_[kr]->numPoints();
+	  if (nmb < 50)
+	    {
+	      for (int ki=0; ki<nmb; ++ki)
+		small.push_back(regions_[kr]->getPoint(ki)->getPoint());
+	    }
+	  else
+	    {
+	      of1_1 << "400 1 0 0" << std::endl;
+	      int nmb = regions_[kr]->numPoints();
+	      of1_1 << nmb << std::endl;
+	      for (int ki=0; ki<nmb; ++ki)
+		{
+		  of1_1 << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+		}
+	    }
+	}
+      std::ofstream ofs1_1("small_regions1_1.g2");
+      ofs1_1 << "400 1 0 4 0 0 0 255" << std::endl;
+      ofs1_1 << small.size() << std::endl;
+      for (size_t kr=0; kr<small.size(); ++kr)
+	ofs1_1 << small[kr] << std::endl;
+     }
+
+  std::cout << "Pre join. Number of regions: " << regions_.size() << std::endl;
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      vector<RevEngRegion*> adapted_regions;
+      regions_[ki]->joinRegions(approx_tol_, 10.0*anglim_, adapted_regions);
+      for (size_t kj=0; kj<adapted_regions.size(); ++kj)
+	{
+	  size_t kr=0;
+	  for (kr=0; kr<regions_.size(); ++kr)
+	    if (adapted_regions[kj] == regions_[kr].get())
+	      break;
+	  if (kr < regions_.size())
+	    regions_.erase(regions_.begin()+kr);
+	}
+    }
+  std::cout << "Post join. Number of regions: " << regions_.size() << std::endl;
+  
+  if (regions_.size() > 0)
+    {
+      std::ofstream of1_2("regions1_2.g2");
+       vector<Vector3D> small;
+     for (size_t kr=0; kr<regions_.size(); ++kr)
+	{
+	  // BoundingBox bbox = regions_[kr]->boundingBox();
+	  // if (bbox.low().dist(bbox.high()) < 0.1)
+	  //   std::cout << "Small bounding box" << std::endl;
+	  int nmb = regions_[kr]->numPoints();
+	  if (nmb < 50)
+	    {
+	      for (int ki=0; ki<nmb; ++ki)
+		small.push_back(regions_[kr]->getPoint(ki)->getPoint());
+	    }
+	  else
+	    {
+	      of1_2 << "400 1 0 0" << std::endl;
+	      int nmb = regions_[kr]->numPoints();
+	      of1_2 << nmb << std::endl;
+	      for (int ki=0; ki<nmb; ++ki)
+		{
+		  of1_2 << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+		}
+	    }
+	}
+      std::ofstream ofs1_2("small_regions1_2.g2");
+      ofs1_2 << "400 1 0 4 0 0 0 255" << std::endl;
+      ofs1_2 << small.size() << std::endl;
+      for (size_t kr=0; kr<small.size(); ++kr)
+	ofs1_2 << small[kr] << std::endl;
+     }
+
+  // Update adjacency between regions
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->clearRegionAdjacency();
+    }
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->setRegionAdjacency();
+    }
+    }
   bool applysecond = true; //false;
   if (applysecond)
     {
@@ -786,53 +1444,16 @@ void RevEng::growRegions(int classification_type)
 	break;
 
       int classtype = regions_[kr]->getClassification();
-      vector<RevEngPoint*> deviant;
-      vector<vector<RevEngPoint*> > connected;
-      regions_[kr]->splitFromSurfaceNormals(deviant, connected);
-      for (size_t kj=0; kj<connected.size(); ++kj)
-	{
-	  shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
-							connected[kj]));
-	  regions_.push_back(reg);
-	}
-      
-      if (deviant.size() > 0)
-	{
-	  for (size_t kh=0; kh<deviant.size(); ++kh)
-	    deviant[kh]->setGaussRad(1.0);
-	  shared_ptr<RevEngRegion> reg2(new RevEngRegion(classtype,
-							 deviant));
-	  vector<RevEngPoint*> deviant2;
-	  vector<vector<RevEngPoint*> > connected2;
-	  reg2->splitFromSurfaceNormals(deviant2, connected2);
-	  regions_.push_back(reg2);
-	  for (size_t kj=0; kj<connected2.size(); ++kj)
-	    {
-	      shared_ptr<RevEngRegion> reg3(new RevEngRegion(classtype,
-							    connected2[kj]));
-	      regions_.push_back(reg3);
-	    }
-	  if (deviant2.size() > 0)
-	    {
-	      shared_ptr<RevEngRegion> reg4(new RevEngRegion(classtype,
-							     deviant2));
-	      vector<vector<RevEngPoint*> > deviant4;
-	      reg4->splitRegion(deviant4);
-	      regions_.push_back(reg4);
-	      for (size_t kh=0; kh<deviant4.size(); ++kh)
-		{
-		  shared_ptr<RevEngRegion> reg5(new RevEngRegion(classtype,
-								 deviant4[kh]));
-		  regions_.push_back(reg5);
-		}
-	    }
-	}
+      vector<shared_ptr<RevEngRegion> > added_groups;
+      regions_[kr]->splitComposedRegions(classtype, added_groups);
+      regions_.insert(regions_.end(), added_groups.begin(), added_groups.end());
     }
   
   std::sort(regions_.begin(), regions_.end(), sort_region);
   
   if (regions_.size() > 0)
     {
+      std::cout << "Regions 2, size: " << regions_.size() << std::endl;
       std::ofstream of2("regions2.g2");
        vector<Vector3D> small;
      for (size_t kr=0; kr<regions_.size(); ++kr)
@@ -967,6 +1588,9 @@ void RevEng::growRegions(int classification_type)
 	ofs4 << small[kr] << std::endl;
      }
 
+  bool joinreg = true;
+  if (joinreg)
+    {
   std::cout << "Pre join. Number of regions: " << regions_.size() << std::endl;
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -1016,7 +1640,7 @@ void RevEng::growRegions(int classification_type)
       for (size_t kr=0; kr<small.size(); ++kr)
 	ofs3_2 << small[kr] << std::endl;
      }
-
+    }
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -1028,7 +1652,7 @@ void RevEng::growRegions(int classification_type)
     }
 
 
-bool updatereg = true; //false;
+  bool updatereg = true; //false;
   if (updatereg)
     {
   for (size_t ki=0; ki<regions_.size(); ++ki)
@@ -1123,11 +1747,12 @@ void RevEng::recognizeElementary()
   std::ofstream coneout("cone.g2");
   std::ofstream torout("torus.g2");
   std::ofstream splout("spline.g2");
+  std::ofstream linsweep_out("linearswept.g2");
   double frac = 0.75;   // Fraction of points with a certain property
   double angfac = 10.0;
   double angtol = -1; //angfac*anglim_;
   
-  min_point_region_ = 20; //200;  // Testing
+  min_point_region_ = 200;  // Testing
   int min_point_in = 10; //20;
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -1141,7 +1766,7 @@ void RevEng::recognizeElementary()
       regions_[ki]->writeUnitSphereInfo(of2);
 
       bool found1 = false, found2 = false, found3 = false, found4 = false;
-      bool found5 = false, found6 = false;
+      bool found5 = false, found6 = false, foundls = false;
       if (true) //regions_[ki]->possiblePlane(2.0*angfac*anglim_, frac))
       {
 	vector<shared_ptr<HedgeSurface> > plane_sfs;
@@ -1205,7 +1830,31 @@ void RevEng::recognizeElementary()
 	  continue;
 	 }
 
-       
+
+      if (regions_[ki]->hasSweepInfo() && regions_[ki]->sweepType() == 1)
+	{
+	  vector<shared_ptr<HedgeSurface> > linsweep_sfs;
+	  vector<HedgeSurface*> prev_surfs;
+	  foundls = regions_[ki]->extractLinearSweep(approx_tol_, min_point_in,
+						     angtol, linsweep_sfs, 
+						     prev_surfs, linsweep_out);
+	   for (size_t kr=0; kr<prev_surfs.size(); ++kr)
+	     {
+	       size_t kj;
+	       for (kj=0; kj<surfaces_.size(); ++kj)
+		 if (surfaces_[kj].get() == prev_surfs[kr])
+		   break;
+	       if (kj < surfaces_.size())
+		 surfaces_.erase(surfaces_.begin()+kj);
+	     }
+
+	   if (linsweep_sfs.size() > 0)
+	     surfaces_.insert(surfaces_.end(), linsweep_sfs.begin(), linsweep_sfs.end());
+	   
+	if (foundls && regions_[ki]->getMaxSfDist() < 0.5*approx_tol_)
+	  continue;
+	}
+      
       if (true) //regions_[ki]->possibleSphere(angfac*anglim_, frac))
 	 {
 	   vector<shared_ptr<HedgeSurface> > sph_sfs;
@@ -1333,7 +1982,7 @@ void RevEng::recognizeElementary()
 	 }
 
        if ((!found1) && (!found2) && (!found3) && (!found4) &&
-	   (!found5) && (!found6))
+	   (!found5) && (!found6) &&  (!foundls))
 	 {
 	   int stop_no_surf = 1;
 	 }
@@ -1387,6 +2036,16 @@ void RevEng::recognizeElementary()
   if (doGrow)
     {
       std::cout << "Number of regions, pre grow with surf: " << regions_.size() << std::endl;
+  // Update adjacency between regions
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->clearRegionAdjacency();
+    }
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->setRegionAdjacency();
+    }
+
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->hasSurface())
@@ -1443,6 +2102,9 @@ void RevEng::recognizeElementary()
       regions_[ki]->setRegionAdjacency();
     }
 
+  bool adjust_sf = true; //false;
+  if (adjust_sf)
+    {
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->hasSurface())
@@ -1487,6 +2149,7 @@ void RevEng::recognizeElementary()
       ofs5 << small.size() << std::endl;
       for (size_t kr=0; kr<small.size(); ++kr)
 	ofs5 << small[kr] << std::endl;
+    }
     }
       std::cout << "Number of regions, pre grow with surf: " << regions_.size() << std::endl;
   for (size_t ki=0; ki<regions_.size(); ++ki)
@@ -2203,7 +2866,7 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
 	++ki;
     }
 
-  if (all_in.size() + all_in2.size() <= 1)
+  if (cand_ix.size() <= 1 || all_in.size() + all_in2.size() <= 1)
     return merged_surf;
 
   
@@ -2464,9 +3127,10 @@ shared_ptr<HedgeSurface> RevEng::doMergeSpline(shared_ptr<HedgeSurface>& surf1,
   vector<double> data;
   vector<double> param;
   int inner_u = 0, inner_v = 0;
+  bool close1 = false, close2 = false;
   if (projectsf.get())
     RevEngUtils::parameterizeOnPrimary(all_pts, projectsf, data, param,
-				       inner_u, inner_v);
+				       inner_u, inner_v, close1, close2);
   else
     {
      double lambda[3];
@@ -2484,14 +3148,15 @@ shared_ptr<HedgeSurface> RevEng::doMergeSpline(shared_ptr<HedgeSurface>& surf1,
   int order = 4;
   int ncoef1 = order + inner_u;
   int ncoef2 = order + inner_v;
-  int max_iter = 3;
-  double belt = 0.05;
+  int max_iter = 6;
+  double belt = 0.01;
   shared_ptr<HedgeSurface> merged;
   shared_ptr<SplineSurface> surf;
   try {
     surf =
     RevEngUtils::surfApprox(data, dim, param, order, order, ncoef1, ncoef2,
-			    max_iter, approx_tol_, maxd, avd, num_out, belt);
+			    close1, close2, max_iter, approx_tol_, maxd, avd,
+			    num_out, belt);
   }
   catch (...)
     {
@@ -2992,7 +3657,7 @@ shared_ptr<ParamSurface> RevEng::doMergePlanes(vector<pair<vector<RevEngPoint*>:
 
       for (auto it=points[ki].first; it!=points[ki].second; ++it)
 	{
-	  Point curr = (*it)->getPCANormal();
+	  Point curr = (*it)->getMongeNormal();
 	  Vector3D xyz = (*it)->getPoint();
 	  pos +=  wgt*Point(xyz[0], xyz[1], xyz[2]);
 	  norm += wgt*curr;
@@ -3210,7 +3875,7 @@ shared_ptr<ParamSurface> RevEng::doMergeTorus(vector<pair<vector<RevEngPoint*>::
     {
       for (auto it=points[ki].first; it!=points[ki].second; ++it, ++kr)
 	{
-	  Point norm = (*it)->getPCANormal();
+	  Point norm = (*it)->getMongeNormal();
 	  Vector3D xyz = (*it)->getPoint();
 	  Point xyz2(xyz[0], xyz[1], xyz[2]);
 	  centr[kr] = xyz2 + rd*norm;
@@ -3668,8 +4333,7 @@ void RevEng::initParameters()
 {
   // Set default parameters
   min_next_ = 10;  // Minimum number of neighbouring points
-  max_next_ = std::min(80, tri_sf_->size()/200); //500;
-  max_next_ = std::max(2*min_next_, max_next_);
+  max_next_ = 500; //std::min(80, tri_sf_->size()/200); //500;
   rfac_ = 3.0;  // Factor for radius in which to search for neighbouring points
   cfac_ = 8.0;  // Edge points from curvature is given by
   // cfac_ times the average length of triangulation edges in a vertex
@@ -3687,6 +4351,10 @@ void RevEng::initParameters()
   int_tol_ = 1.0e-6;
   anglim_ = 0.01;
   max_nmb_outlier_ = 3;
+  rpix_ = 1;
+  rpfac_ = 0.05;
+  ffac_ = 0.01;
+  sfac_ = 0.05;
 }
 
  //===========================================================================
@@ -3731,6 +4399,13 @@ void RevEng::readClassified(istream& is)
 	}
     }
   
+  for (int ki=0; ki<nmbpts; ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
+      double rp[3];
+      setRp(pt, rp);
+      pt->setRp(rp);
+    }
 }
 
  //===========================================================================

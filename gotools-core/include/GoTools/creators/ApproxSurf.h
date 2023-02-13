@@ -203,6 +203,11 @@ class ApproxSurf
     /// Approximate C1 continuity with a given impartance 0 <= fac < 1
     void setC1Approx(double fac1, double fac2);
 
+  void setMBA(bool mba)
+  {
+    mba_ = mba;
+  }
+
     /// Fetch the approximating surface
 
     /// When everything else is set, this function can be used to run the 
@@ -264,6 +269,7 @@ class ApproxSurf
     bool close_belt_;
     bool repar_;
     bool refine_;
+  bool mba_;
 
     int dim_;
     std::vector<double> points_;
@@ -288,6 +294,9 @@ class ApproxSurf
 
     /// Generate a smoothing surface
     int makeSmoothSurf();
+
+  /// Approximate using mba method
+  void mbaApprox();
 
     /// Check the accuracy of the current surface
     int checkAccuracy(std::vector<double>& acc_outside_u,

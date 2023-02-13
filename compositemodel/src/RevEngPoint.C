@@ -61,6 +61,7 @@ RevEngPoint::RevEngPoint()
   lambda1_ = lambda2_ = lambda3_ = -1.0;
   kmin_ = kmax_ = 0.0;
   ptdist_ = avdist_ = 0.0;
+  nmb_eigen_ = nmb_monge_ = 0;
   Point dummy(0.0, 0.0, 0.0);
   // normalcone_.setFromArray(dummy.begin(), dummy.end(), 3);
   normalcone_ = DirectionCone(dummy);
@@ -72,6 +73,16 @@ RevEngPoint::RevEngPoint()
   sfdist_ = -1.0;
   sfang_ = -1.0;
   nmb_move_ = 0;
+  rp_[0] = rp_[1] = rp_[2] = 0.0;
+  fpa_ = spa_ = 0.0;
+  edge_[0] = PCA_EDGE_UNDEF;
+  edge_[1] = C1_EDGE_UNDEF;
+  edge_[2] = C2_EDGE_UNDEF;
+  edge_[3] = RP_EDGE_UNDEF;
+  surf_[0] = PCA_UNDEF;
+  surf_[1] = C1_UNDEF;
+  surf_[2] = SI_UNDEF;
+  surf_[3] = PS_UNDEF;
 }
 
 //===========================================================================
@@ -88,6 +99,8 @@ RevEngPoint::RevEngPoint(Vector3D xyz, int bnd)
   kvecmax_ = Point(dim);
   lambda1_ = lambda2_ = lambda3_ = -1.0;
   kmin_ = kmax_ = 0.0;
+  ptdist_ = avdist_ = 0.0;
+  nmb_eigen_ = nmb_monge_ = 0;
   Point dummy(0.0, 0.0, 0.0);
   // normalcone_.setFromArray(dummy.begin(), dummy.end(), 3);
   normalcone_ = DirectionCone(dummy);
@@ -98,6 +111,12 @@ RevEngPoint::RevEngPoint(Vector3D xyz, int bnd)
   sfdist_ = -1.0;
   sfang_ = -1.0;
   nmb_move_ = 0;
+  rp_[0] = rp_[1] = rp_[2] = 0.0;
+  fpa_ = spa_ = 0.0;
+  surf_[0] = PCA_UNDEF;
+  surf_[1] = C1_UNDEF;
+  surf_[2] = SI_UNDEF;
+  surf_[3] = PS_UNDEF;
 }
 
 //===========================================================================
@@ -193,6 +212,8 @@ int RevEngPoint::surfaceClassification(int classification_type)
     return surf_[1];
   else if (classification_type == CLASSIFICATION_SHAPEINDEX)
     return surf_[2];
+  else if (classification_type == CLASSIFICATION_POINTASSOCIATION)
+    return surf_[3];
   else
     return CLASSIFICATION_UNDEF;
  }
@@ -204,6 +225,8 @@ Point RevEngPoint::fetchClosePoints(double radius, int min_nmb, int max_nmb,
 {
   int nmb_iter = 0;
   int max_iter = 5;
+  // Debug
+  DirectionCone pcone = normalcone_;
   while ((int)nearpts.size() < min_nmb)
     {
       setVisited();
@@ -217,6 +240,7 @@ Point RevEngPoint::fetchClosePoints(double radius, int min_nmb, int max_nmb,
 	    {
 	      curr->setVisited();
 	      near.push_back(curr);
+	      pcone.addUnionWith(curr->normalcone_);
 	      curr->getNearby(xyz_, radius, max_nmb, near);
 	    }
 	}
@@ -227,6 +251,7 @@ Point RevEngPoint::fetchClosePoints(double radius, int min_nmb, int max_nmb,
 	  Vector3D vx = near[ki]->getPoint();
 	  nearpts.push_back(Point(vx[0], vx[1], vx[2]));
 	  near[ki]->unsetVisited();
+	  pcone.addUnionWith(near[ki]->normalcone_);
 	}
 
       if (nmb_iter > max_iter)
@@ -239,6 +264,7 @@ Point RevEngPoint::fetchClosePoints(double radius, int min_nmb, int max_nmb,
 	}
       ++nmb_iter;
     }
+
   return Point(xyz_[0], xyz_[1], xyz_[2]);
 }
 
@@ -286,6 +312,11 @@ void RevEngPoint::fetchClosePoints2(double radius, int min_nmb, int max_nmb,
 	}
       ++nmb_iter;
     }
+  // // Debug
+  // DirectionCone pcone = normalcone_;
+  // for (size_t ki=0; ki<nearpts.size(); ++ki)
+  //   pcone.addUnionWith(nearpts[ki]->normalcone_);
+  int stop_break = 1;
 }
 
 //===========================================================================
@@ -293,23 +324,42 @@ void RevEngPoint::fetchConnected(RevEngRegion *region, int max_nmb,
 				 vector<RevEngPoint*>& group)
 //===========================================================================
 {
-  double radius = std::numeric_limits<double>::max();
-
   setVisited();
-  vector<RevEngPoint*> connected;
-  for (size_t ki=0; ki<next_.size(); ++ki)
-    {
-      RevEngPoint* curr = dynamic_cast<RevEngPoint*>(next_[ki]);
-      if (curr->visited())
-	continue;
-      if (curr->region() != region)
-	continue;
-      curr->setVisited();
-      connected.push_back(curr);
-      curr->getNearby(xyz_, radius, max_nmb, connected, region);
-    }
   group.push_back(this);
-  group.insert(group.end(), connected.begin(), connected.end());
+  for (size_t ki=0; ki<group.size(); ++ki)
+    {
+      vector<ftSamplePoint*> next = group[ki]->getNeighbours();
+      for (size_t kj=0; kj<next.size(); ++kj)
+	{
+	  RevEngPoint* curr = dynamic_cast<RevEngPoint*>(next[kj]);
+	  if (curr->visited())
+	    continue;
+	  if (curr->region() != region)
+	    continue;
+	  curr->setVisited();
+	  group.push_back(curr);
+	}
+      if ((int)group.size() >= max_nmb)
+	break;
+    }
+//   double radius = std::numeric_limits<double>::max();
+
+//   setVisited();
+//   vector<RevEngPoint*> connected;
+//   for (size_t ki=0; ki<next_.size(); ++ki)
+//     {
+//       RevEngPoint* curr = dynamic_cast<RevEngPoint*>(next_[ki]);
+//       if (curr->visited())
+// 	continue;
+//       if (curr->region() != region)
+// 	continue;
+//       curr->setVisited();
+//       connected.push_back(curr);
+//       curr->getNearby(xyz_, radius, max_nmb, connected, region);
+//     }
+//   group.push_back(this);
+//   group.insert(group.end(), connected.begin(), connected.end());
+  int stop_break = 1;
 }
 
 //===========================================================================
@@ -340,12 +390,31 @@ RevEngPoint::addCovarianceEigen(Point& eigen1, double lambda1, Point& eigen2,
 				double lambda2, Point& eigen3, double lambda3)
 //===========================================================================
 {
-  eigen1_ = eigen1;
-  eigen2_ = eigen2;
-  eigen3_ = eigen3;
-  lambda1_ = lambda1;
-  lambda2_ = lambda2;
-  lambda3_ = lambda3;
+  if (nmb_eigen_ == 0)
+    {
+      eigen1_ = eigen1;
+      eigen2_ = eigen2;
+      eigen3_ = eigen3;
+      lambda1_ = lambda1;
+      lambda2_ = lambda2;
+      lambda3_ = lambda3;
+    }
+  else
+    {
+      eigen1_ = nmb_eigen_*eigen1_ + eigen1;
+      eigen2_ = nmb_eigen_*eigen2_ + eigen2;
+      eigen3_ = nmb_eigen_*eigen3_ + eigen3;
+      lambda1_ = nmb_eigen_*lambda1_ + lambda1;
+      lambda2_ = nmb_eigen_*lambda2_ + lambda2;
+      lambda3_ = nmb_eigen_*lambda3_ + lambda3;
+      eigen1_ /= (double)(nmb_eigen_+1);
+      eigen2_ /= (double)(nmb_eigen_+1);
+      eigen3_ /= (double)(nmb_eigen_+1);
+      lambda1_ /= (double)(nmb_eigen_+1);
+      lambda2_ /= (double)(nmb_eigen_+1);
+      lambda3_ /= (double)(nmb_eigen_+1);
+    }
+  nmb_eigen_++;
   sfvariation_ = lambda3_/(lambda1_ + lambda2_ + lambda3_);
 }
 
@@ -355,13 +424,34 @@ void RevEngPoint::addMongeInfo(Point& norm, Point& mincvec, double minc, Point& 
 			       double eps)
 //===========================================================================
 {
-  Mongenormal_ = norm;
-  kvecmin_ = mincvec;
-  kvecmax_ = maxcvec;
-  kmin_ = minc;
-  kmax_ = maxc;
-  ptdist_ = currdist;
-  avdist_ = avdist;
+  if (nmb_monge_ == 0)
+    {
+      Mongenormal_ = norm;
+      kvecmin_ = mincvec;
+      kvecmax_ = maxcvec;
+      kmin_ = minc;
+      kmax_ = maxc;
+      ptdist_ = currdist;
+      avdist_ = avdist;
+    }
+  else
+    {
+      Mongenormal_ = nmb_monge_*Mongenormal_ + norm;
+      kvecmin_ = nmb_monge_*kvecmin_ + mincvec;
+      kvecmax_ = nmb_monge_*kvecmax_ + maxcvec;
+      kmin_ = nmb_monge_*kmin_ + minc;
+      kmax_ = nmb_monge_*kmax_ + maxc;
+      ptdist_ = nmb_monge_*ptdist_ + currdist;
+      avdist_ = nmb_monge_*avdist_ + avdist;
+      Mongenormal_ /= (double)(nmb_monge_+1);
+      kvecmin_ /= (double)(nmb_monge_+1);
+      kvecmax_ /= (double)(nmb_monge_+1);
+      kmin_ /= (double)(nmb_monge_+1);
+      kmax_ /= (double)(nmb_monge_+1);
+      ptdist_ /= (double)(nmb_monge_+1);
+      avdist_ /= (double)(nmb_monge_+1);
+    }
+  nmb_monge_++;
 
   meancurv0_ = meancurv_ = 0.5*(kmin_ + kmax_);
   gausscurv0_ = gausscurv_ = kmin_*kmax_;
@@ -372,7 +462,41 @@ void RevEngPoint::addMongeInfo(Point& norm, Point& mincvec, double minc, Point& 
     shapeindex_ = (kmax_ + kmin_ > 0.0) ? -1.0 : 1.0;
   else
     shapeindex_ = -2.0*atan((kmax_ + kmin_)/(kmax_ - kmin_))/M_PI;
+
+  double zero = 1.0e-12;
+  double div1 = meancurv_*meancurv_ - 0.5*gausscurv_;
+  double div2 = meancurv_*meancurv_ - gausscurv_;
+  //if (div1 > zero)
+  if (div1 >= 0.0)
+    fpa_ = 2.0*atan(sqrt(div1))/M_PI;
+  //fpa_ = 2.0*atan(1.0/sqrt(div1))/M_PI;
+  else
+    std::cout << "fpa div : " << div1 << ", xyz: " << xyz_ << std::endl;
+  if (div2 > zero)
+    spa_ = -2.0*atan(1.0/sqrt(div2))/M_PI;
+  if (meancurv_ < -zero)
+    spa_ *= -1.0;
+  // else
+  //   std::cout << "spa div : " << div2 << ", xyz: " << xyz_ << ", fpa: " << fpa_ << std::endl;
+  //spa_ = shapeindex_;
+    
 }
+
+//===========================================================================
+void RevEngPoint::resetPointAssociation()
+//===========================================================================
+{
+  double zero = 1.0e-12;
+  double div1 = meancurv_*meancurv_ - 0.5*gausscurv_;
+  double div2 = meancurv_*meancurv_ - gausscurv_;
+  if (div1 >= 0.0)
+    fpa_ = 2.0*atan(sqrt(div1))/M_PI;
+  if (div2 > zero)
+    spa_ = -2.0*atan(1.0/sqrt(div2))/M_PI;
+  if (meancurv_ < -zero)
+    spa_ *= -1.0;
+}
+
 
 //===========================================================================
 bool RevEngPoint::isolatedEdge(int nmb, bool close)
@@ -437,9 +561,9 @@ void RevEngPoint::store(std::ostream& os) const
   os << " " << kmax_ << std::endl;
   os << ptdist_ << " " << avdist_ << std::endl;
   normalcone_.write(os);
-  for (int ka=0; ka<3; ++ka)
+  for (int ka=0; ka<4; ++ka)
     os << " " << edge_[ka];
-  for (int ka=0; ka<3; ++ka)
+  for (int ka=0; ka<4; ++ka)
     os << " " << surf_[ka];
   os << " " << outlier_ << std::endl;
   os << std::endl;
@@ -471,13 +595,14 @@ void RevEngPoint::read(std::istream& is, double eps, vector<int>& next_ix)
     shapeindex_ = (kmax_ + kmin_ > 0.0) ? -1.0 : 1.0;
   else
     shapeindex_ = -2.0*atan((kmax_ + kmin_)/(kmax_ - kmin_))/M_PI;
-  for (int ka=0; ka<3; ++ka)
+  for (int ka=0; ka<4; ++ka)
     is >> edge_[ka];
-  for (int ka=0; ka<3; ++ka)
+  for (int ka=0; ka<4; ++ka)
     is >> surf_[ka];
   is >> outlier_;
   sfdist_ = -1.0;
   sfang_ = -1.0;
+  resetPointAssociation();
 
 }
 

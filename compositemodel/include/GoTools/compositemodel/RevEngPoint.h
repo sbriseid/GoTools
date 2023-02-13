@@ -68,6 +68,11 @@ namespace Go
 
   enum
   {
+   RP_EDGE_UNDEF, RP_NOT_EDGE, RP_CLOSE_EDGE, RP_EDGE
+  };
+
+  enum
+  {
    PCA_UNDEF, PCA_PLANAR, PCA_LINEAR, PCA_OTHER
   };
 
@@ -81,6 +86,11 @@ namespace Go
    SI_UNDEF, SI_PLANE, SI_SCUP, SI_TRO, SI_RUT, SI_SRUT, SI_SAD, SI_SRID, SI_RID, SI_DOM, SI_SCAP
    // Plane, spherical cup, trough, rut, saddle rut, saddle, saddle ridge,
    // ridge, dome, spherical cap
+  };
+
+  enum
+  {
+   PS_UNDEF, PS_PLANE, PS_UC, PS_EC, PS_PC, PS_HC, PS_HS, PS_HX, PS_PX, PS_EX, PS_UX
   };
 
   /** Subclass of ftSamplePoint; Enhanced point for use in reverse engineering
@@ -130,6 +140,8 @@ namespace Go
 	Mongenormal_ *= -1;
       }
 
+    void resetPointAssociation();
+    
     const Point& getPCAEigen1()
     {
       return eigen1_;
@@ -189,6 +201,16 @@ namespace Go
       return (moved_ > 0);
     }
 
+    int nmbEigen()
+    {
+      return nmb_eigen_;
+    }
+    
+    int nmbMonge()
+    {
+      return nmb_monge_;
+    }
+    
     double getSurfaceVariation()
     {
       return sfvariation_;
@@ -260,15 +282,38 @@ namespace Go
       return curvedness_;
     }
 
+    void setRp(double rp[3])
+    {
+      for (int ka=0; ka<3; ++ka)
+	rp_[ka] = rp[ka];
+    }
+
+    double getRp(int ix)
+    {
+      return (ix < 0 || ix > 2) ? 0.0 : rp_[ix];
+    }
+
+    double getfpa()
+    {
+      return fpa_;
+    }
+
+    double getspa()
+    {
+      return spa_;
+    }
+    
     void setClassification(int ctype, int c1_edge, int si_type,
-			   int c2_edge, int pca_edge)
+			   int c2_edge, int pca_edge, int ps_type, int rp_edge)
     {
       edge_[0] = pca_edge;
       edge_[1] = c1_edge;
       edge_[2] = c2_edge;
+      edge_[3] = rp_edge;
       surf_[0] = PCA_UNDEF;
       surf_[1] = ctype;
       surf_[2] = si_type;
+      surf_[3] = ps_type;
     }
 
     bool isEdge()
@@ -414,6 +459,7 @@ namespace Go
     Point Mongenormal_, kvecmin_, kvecmax_;  // Normal and principal curvature vectors
     double kmin_, kmax_;  // Principal curvatures from Monge's patch
     double ptdist_, avdist_;  // Distance to Monge's patch
+    int nmb_eigen_, nmb_monge_;
     DirectionCone normalcone_;  // Span of surface normals computed from triangulation
 
     double meancurv0_, meancurv_;
@@ -421,12 +467,15 @@ namespace Go
     double sfvariation_;  // Surface variation computed from eigenvalues
     double curvedness_;   // Curvedness computed from principal curvatures
     double shapeindex_;   // Computed from principal curvatures
+    double rp_[3];        // Smoothness indicator
+    double fpa_;          // Flat point possibility association
+    double spa_;          // Non-flat point possibility association
 
     // Parameters corresponding to classification results
-    int edge_[3];   // Results of edge classification.
-    // Sequence: Surface variation (PCA), curvature (C1), curveness (C2)
-    int surf_[3];   // Results of surface classification
-    // Sequence: PCA, curvature (C1) shape index (SI)
+    int edge_[4];   // Results of edge classification.
+    // Sequence: Surface variation (PCA), curvature (C1), curveness (C2), smoothness indicator (RP)
+    int surf_[4];   // Results of surface classification
+    // Sequence: PCA, curvature (C1), shape index (SI), point possibility association (PS)
     double Grad_;
     
     // Group (segment) of classified points
