@@ -123,7 +123,7 @@ namespace Go
     void updateInfo();
 
     // Extend region with adjacent points having the same classification
-    void collect(RevEngPoint *pt);
+    void collect(RevEngPoint *pt, RevEngRegion* prev=0);
 
     int numPoints()
     {
@@ -172,6 +172,9 @@ namespace Go
     void
     splitComposedRegions(int classtype,
 			 std::vector<shared_ptr<RevEngRegion> >& added_groups);
+    
+    void
+    splitWithShapeIndex(std::vector<shared_ptr<RevEngRegion> >& updated_regions);
     
     void
     splitFromSurfaceNormals(std::vector<RevEngPoint*>& smallrad,
@@ -257,6 +260,8 @@ namespace Go
 			 std::vector<std::vector<RevEngPoint*> >& out_groups,
 			 std::ostream& fileout);
 
+    void implicitizeSplit();
+    
     void setHedge(HedgeSurface* surface)
     {
       associated_sf_.clear();
@@ -428,6 +433,8 @@ namespace Go
     
     void writeRegionInfo(std::ostream& of);
     void writeUnitSphereInfo(std::ostream& of);
+    void writeSubTriangulation(std::ostream& of);
+    void writeSurface(std::ostream& of);
 
     void store(std::ostream& os) const;
     void read(std::istream& is, shared_ptr<ftPointSet>& tri_sf);
@@ -475,7 +482,7 @@ namespace Go
     shared_ptr<Cylinder> computeCylinder(std::vector<RevEngPoint*>& points,
 					 double tol);
     shared_ptr<Sphere> computeSphere(std::vector<RevEngPoint*>& points);
-    shared_ptr<Cone> computeCone(std::vector<RevEngPoint*>& points);
+    shared_ptr<Cone> computeCone(std::vector<RevEngPoint*>& points, Point& apex);
     shared_ptr<Torus> computeTorus(std::vector<RevEngPoint*>& points,
 				   double tol, shared_ptr<Torus>& torus2);
     shared_ptr<SplineSurface> computeLinearSwept(double tol, shared_ptr<SplineCurve>& profile,

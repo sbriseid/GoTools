@@ -282,9 +282,9 @@ namespace Go
       return curvedness_;
     }
 
-    void setRp(double rp[3])
+    void setRp(double rp[2])
     {
-      for (int ka=0; ka<3; ++ka)
+      for (int ka=0; ka<2; ++ka)
 	rp_[ka] = rp[ka];
     }
 
@@ -318,21 +318,21 @@ namespace Go
 
     bool isEdge()
     {
-      return (edge_[1] == C1_EDGE);
+      return (edge_[2] == C2_EDGE);
       // return (edge_[0] == PCA_EDGE || edge_[1] == C1_EDGE ||
       // 	      edge_[2] == C2_EDGE);
     }
 
     bool closeEdge()
     {
-      return (edge_[1] >= C1_CLOSE_EDGE);
+      return (edge_[2] >= C2_CLOSE_EDGE);
       // return (edge_[0] >= PCA_CLOSE_EDGE || edge_[1] >= C1_CLOSE_EDGE ||
       // 	      edge_[2] >= C2_CLOSE_EDGE);
     }
 
     bool notEdge()
     {
-      return (edge_[1] <= C1_NOT_EDGE);
+      return (edge_[2] <= C2_NOT_EDGE);
       // return (edge_[0] <= PCA_NOT_EDGE && edge_[1] <= C1_NOT_EDGE &&
       // 	      edge_[2] <= C2_NOT_EDGE);
     }
@@ -467,7 +467,7 @@ namespace Go
     double sfvariation_;  // Surface variation computed from eigenvalues
     double curvedness_;   // Curvedness computed from principal curvatures
     double shapeindex_;   // Computed from principal curvatures
-    double rp_[3];        // Smoothness indicator
+    double rp_[2];        // Smoothness indicator
     double fpa_;          // Flat point possibility association
     double spa_;          // Non-flat point possibility association
 

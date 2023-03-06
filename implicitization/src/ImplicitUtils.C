@@ -464,8 +464,8 @@ void make_matrix(const PointCloud4D& cloud, int deg,
     vector<double> basis(numbas);
     vector<double> tmp(numbas);
     Array<double, 4> pt;
-    for (int i = 0; i < numpts; ++i) {
-	pt = cloud.point(i);
+    for (int ni = 0; ni < numpts; ++ni) {
+	pt = cloud.point(ni);
 	basis[0] = 1.0;
 	for (int r = 1; r <= deg; ++r) {
 	    int m = 0;
@@ -485,9 +485,57 @@ void make_matrix(const PointCloud4D& cloud, int deg,
 	    }
 	    basis.swap(tmp);
 	}
-	mat[i].resize(numbas);
+	mat[ni].resize(numbas);
 	for (int col = 0; col < numbas; ++col)
-	    mat[i][col] = basis[col];
+	    mat[ni][col] = basis[col];
+    }
+
+    return;
+}
+
+
+//==========================================================================
+void make_matrix(const PointCloud3D& cloud, int deg,
+		 vector<vector<double> >& mat)
+//==========================================================================
+{
+    // The matrix mat has the form mat_ij = B_{j,d}(p_i), where p_i is
+    // the i'th point and B_{j,d} is the j'th triangluar Berstein
+    // polynomial of degree d
+
+    int numpts = cloud.numPoints();
+    int numbas = (deg+1) * (deg+2) / 2;
+    mat.resize(numpts);
+
+    // For each row - i.e. point - we make the Bernstein polynomials
+    // by recursion. This we fill into mat.
+    vector<double> basis(numbas);
+    vector<double> tmp(numbas);
+    Array<double, 3> pt;
+    for (int ni = 0; ni < numpts; ++ni) {
+	pt = cloud.point(ni);
+	basis[0] = 1.0;
+	for (int r = 1; r <= deg; ++r) {
+	    int m = 0;
+	    int tmp_num = (r + 1) * (r + 2) / 2;
+	    fill(tmp.begin(), tmp.begin() + tmp_num, 0.0);
+	    for (int i = 0; i < r; ++i) {
+		int k = (i + 1) * (i + 2) / 2;
+		for (int j = 0; j <= i; ++j) {
+		    for (int l = 0; l <= j; ++l) {
+			tmp[m] += pt[0] * basis[m];
+			tmp[m + k] += pt[1] * basis[m];
+			tmp[m + 1 + j + k] += pt[2] * basis[m];
+			tmp[m + 2 + j + k] += pt[3] * basis[m];
+			++m;
+		    }
+		}
+	    }
+	    basis.swap(tmp);
+	}
+	mat[ni].resize(numbas);
+	for (int col = 0; col < numbas; ++col)
+	    mat[ni][col] = basis[col];
     }
 
     return;
@@ -534,25 +582,25 @@ void make_implicit_svd(vector<vector<double> >& mat,
 	return;
     }
 
-//     // Write out singular values.
-//     cout << "Singular values:" << endl;
-//     for (int ik = 0; ik < cols; ik++)
-//  	cout << ik << "\t" << diag.element(ik, ik) << endl;
+    // Write out singular values.
+    // cout << "Singular values:" << endl;
+    // for (int ik = 0; ik < cols; ik++)
+    // 	cout << ik << "\t" << diag.element(ik, ik) << endl;
 
-//     // Write out info about singular values
-//     double s_min = diag.element(cols-1, cols-1);
-//     double s_max = diag.element(0, 0);
-//     cout << "Implicitization:" << endl
-// 	 << "s_min = " << s_min << endl
-// 	 << "s_max = " << s_max << endl
-// 	 << "Ratio of s_min/s_max = " << s_min/s_max << endl;
+    // Write out info about singular values
+    double s_min = diag.element(cols-1, cols-1);
+    double s_max = diag.element(0, 0);
+    // cout << "Implicitization:" << endl
+    // 	 << "s_min = " << s_min << endl
+    // 	 << "s_max = " << s_max << endl
+    // 	 << "Ratio of s_min/s_max = " << s_min/s_max << endl;
 
-//     // Find square sum of singular values
-//     double sum = 0.0;
-//     for (int i = 0; i < cols; i++)
-//  	sum += diag.element(i, i) * diag.element(i, i);
-//     sum = sqrt(sum);
-//     cout << "Square sum = " << sum << endl;
+    // Find square sum of singular values
+    double sum = 0.0;
+    for (int i = 0; i < cols; i++)
+ 	sum += diag.element(i, i) * diag.element(i, i);
+    sum = sqrt(sum);
+    // cout << "Square sum = " << sum << endl;
 
     // Get the appropriate null-vector and corresponding singular value
     const double eps = 1.0e-15;
@@ -564,8 +612,8 @@ void make_implicit_svd(vector<vector<double> >& mat,
 	}
     }
     sigma_min = diag.element(nullvec, nullvec);
-//     cout << "Null-vector: " << nullvec << endl
-// 	 << "sigma_min = " << sigma_min << endl;
+    // cout << "Null-vector: " << nullvec << endl
+    // 	 << "sigma_min = " << sigma_min << endl;
 
     // Set the coefficients
     b.resize(cols);

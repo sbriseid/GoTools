@@ -37,61 +37,44 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#ifndef _IMPLICITAPPROX_H_
-#define _IMPLICITAPPROX_H_
+#include "GoTools/geometry/SplineSurface.h"
+#include "GoTools/geometry/ObjectHeader.h"
+#include <fstream>
 
-#include "GoTools/implicitization/BernsteinTetrahedralPoly.h"
-#include "GoTools/utils/BaryCoordSystem.h"
-#include "GoTools/utils/Point.h"
-
-namespace Go
+using namespace Go;
+int main(int argc, char* argv[] )
 {
-  class RevEngPoint;
+  if (argc != 3)
+    {
+      std::cout << "surface in, surface out" << std::endl;
+      exit(-1);
+    }
 
-  class ImplicitApprox
-  {
-  public:
-    ImplicitApprox();
+  std::ifstream is(argv[1]);
+  std::ofstream of(argv[2]);
 
-    ~ImplicitApprox();
+  ObjectHeader head;
+  is >> head;
+  
+  // Read surface from file
+  SplineSurface sf;
+  is >> sf;
 
-    void approx(std::vector<RevEngPoint*> points, int degree);
+  if (sf.rational())
+    {
+      int dim = sf.dimension();
+      for (std::vector<double>::iterator it=sf.rcoefs_begin();
+	   it != sf.rcoefs_end(); it+=(dim+1))
+	{
+	  for (int ki=0; ki<dim; ++ki)
+	    *(it+ki) *= *(it+dim);
+	}
+      
+    }
 
-    void approx(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
-			     std::vector<RevEngPoint*>::iterator> >& points,
-		int degree);
-
-    void approxPoints(std::vector<Point> points, int degree);
-
-    double estimateDist(RevEngPoint* pt);
-
-    void projectPoint(Point point, Point dir,
-		      Point& projpos, Point& normal);
-
-    void evaluate(Point& pt, double& val, Point& grad);
-    
-    void visualize(std::vector<RevEngPoint*> points, std::ostream& os);
-
-    void visualize(std::vector<Point> points, Point& dir, std::ostream& os);
-
-    void polynomialSurf(std::vector<Point>& pos_and_der, int degree,
-			std::vector<double>& coefs);
-
-    void polynomialSurfAccuracy(std::vector<Point>& pos_and_der, 
-				int degree, std::vector<double>& coefs,
-				double& maxfield, double& avfield,
-				double& maxdist, double& avdist,
-				int& ndiv, double& maxang,
-				double& avang);
-    
-  private:
-    int degree_;
-    BernsteinTetrahedralPoly implicit_;
-    BernsteinTetrahedralPoly deriv1_, deriv2_, deriv3_, deriv4_;
-    BaryCoordSystem3D bc_;
-    double sigma_min_;
-    double eps_;
-  };
+  sf.writeStandardHeader(of);
+  sf.write(of);
 }
 
-#endif // _IMPLICITAPPROX_H_
+
+ 

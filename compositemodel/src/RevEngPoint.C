@@ -276,6 +276,8 @@ void RevEngPoint::fetchClosePoints2(double radius, int min_nmb, int max_nmb,
 {
   int nmb_iter = 0;
   int max_iter = 5;
+  size_t prev_nmb = nearpts.size();
+  int nmb_same = 0;
   while ((int)nearpts.size() < min_nmb)
     {
       setVisited();
@@ -294,7 +296,7 @@ void RevEngPoint::fetchClosePoints2(double radius, int min_nmb, int max_nmb,
 	      curr->getNearby(xyz_, radius, max_nmb, near, region);
 	    }
 	}
-      
+
       unsetVisited();
       for (size_t ki=0; ki<near.size(); ++ki)
 	{
@@ -304,7 +306,10 @@ void RevEngPoint::fetchClosePoints2(double radius, int min_nmb, int max_nmb,
 
       if (nmb_iter > max_iter)
 	break;
-      
+
+      if (nearpts.size() == prev_nmb)
+	++nmb_same;
+      prev_nmb = nearpts.size();
       if (nearpts.size() < min_nmb)
 	{
 	  radius *= std::max(1.1, (double)min_nmb/(double)nearpts.size());
@@ -316,6 +321,12 @@ void RevEngPoint::fetchClosePoints2(double radius, int min_nmb, int max_nmb,
   // DirectionCone pcone = normalcone_;
   // for (size_t ki=0; ki<nearpts.size(); ++ki)
   //   pcone.addUnionWith(nearpts[ki]->normalcone_);
+    if (nearpts.size() < min_nmb && nmb_same > 0)
+      {
+	for (size_t ki=0; ki<nearpts.size(); ++ki)
+	  nearpts[ki]->setOutlier();
+	nearpts.clear();
+    }
   int stop_break = 1;
 }
 

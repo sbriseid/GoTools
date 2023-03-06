@@ -99,9 +99,19 @@ int main(int argc, char** argv)
   vector<double>::const_iterator dv_it = derivs_v.begin();
   vector<Point> res;
   res.resize(3);
+  std::ofstream of("grid_values.txt");
+  of << num_u*num_v << std::endl;
   for (int j = 0; j < num_v; ++j)
     for (int i = 0; i < num_u; ++i)
       {
+	for (int k=0; k<dim; ++k)
+	  of << *(pt_it+k) << " ";
+	for (int k=0; k<dim; ++k)
+	  of << *(du_it+k) << " ";
+	for (int k=0; k<dim; ++k)
+	  of << *(dv_it+k) << " ";
+	of << std::endl;
+	
 	sf.point(res, params_u[i], params_v[j], 1);
 	for (int k = 0; k < dim; ++k, ++pt_it, ++du_it, ++dv_it)
 	  {

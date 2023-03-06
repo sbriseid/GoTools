@@ -53,6 +53,8 @@
 #include "GoTools/compositemodel/ftPlane.h"
 #include "GoTools/compositemodel/ftCurve.h"
 #include "GoTools/implicitization/BernsteinPoly.h"
+#include "newmat.h"
+#include "newmatap.h"
 #include "sisl.h"
 #include <fstream>
 
@@ -603,4 +605,322 @@ void ImplicitApprox::visualize(vector<Point> points, Point& dir, std::ostream& o
 	os << "400 1 0 4 255 0 0 255" << std::endl;
 	ptcloud.write(os);
       }
+}
+
+
+double fc(int deg, int power[], double coef[], double x, double y, double z)
+{
+  int nn = (deg+1)*(deg+2)*(deg+3)/6;
+  double res = 0.0;
+  for (int ki=0; ki<nn; ++ki)
+    {
+      double tmp1 = 1;
+      for (int kj=0; kj<power[4*ki]; ++kj)
+	tmp1 *= x;
+      double tmp2 = 1;
+      for (int kj=0; kj<power[4*ki+1]; ++kj)
+	tmp2 *= y;
+      double tmp3 = 1;
+      for (int kj=0; kj<power[4*ki+2]; ++kj)
+	tmp3 *= z;
+      res += (coef[ki]*tmp1*tmp2*tmp3);
+    }
+  return res;
+}
+
+double f(int deg, int power[], int ki, double x, double y, double z)
+{
+  double tmp1 = 1;
+  for (int kj=0; kj<power[4*ki]; ++kj)
+    tmp1 *= x;
+  double tmp2 = 1;
+  for (int kj=0; kj<power[4*ki+1]; ++kj)
+    tmp2 *= y;
+  double tmp3 = 1;
+  for (int kj=0; kj<power[4*ki+2]; ++kj)
+    tmp3 *= z;
+  double res = tmp1*tmp2*tmp3;
+  return res;
+}
+
+double fx(int deg, int power[], int ki, double x, double y, double z)
+{
+  double res = 0.0;
+  if (power[4*ki] > 0)
+    {
+      double tmp = (double)power[4*ki];
+      for (int kj=0; kj<power[4*ki]-1; ++kj)
+	tmp *= x;
+      for (int kj=0; kj<power[4*ki+1]; ++kj)
+	tmp *= y;
+      for (int kj=0; kj<power[4*ki+2]; ++kj)
+	tmp *= z;
+      res = tmp;
+    }
+
+  return res;
+}
+
+double fy(int deg, int power[], int ki, double x, double y, double z)
+{
+  double res = 0.0;
+  if (power[4*ki+1] > 0)
+    {
+      double tmp = (double)power[4*ki+1];
+      for (int kj=0; kj<power[4*ki+1]-1; ++kj)
+	tmp *= y;
+      for (int kj=0; kj<power[4*ki]; ++kj)
+	tmp *= x;
+      for (int kj=0; kj<power[4*ki+2]; ++kj)
+	tmp *= z;
+      res = tmp;
+    }
+  return res;
+}
+
+double fz(int deg, int power[], int ki, double x, double y, double z)
+{
+  double res = 0.0;
+  if (power[4*ki+2] > 0)
+    {
+      double tmp = (double)power[4*ki+2];
+      for (int kj=0; kj<power[4*ki+2]-1; ++kj)
+	tmp *= z;
+      for (int kj=0; kj<power[4*ki]; ++kj)
+	tmp *= x;
+      for (int kj=0; kj<power[4*ki+1]; ++kj)
+	tmp *= y;
+      res = tmp;
+    }
+  return res;
+}
+
+
+//===========================================================================
+void ImplicitApprox::polynomialSurf(vector<Point>& pos_and_der, int degree,
+				    vector<double>& coefs)
+//===========================================================================
+{
+  // Assemble matrix
+  int nmbvar = (degree+1)*(degree+2)*(degree+3)/6;
+  size_t nmb_pts = pos_and_der.size()/3;
+  vector<vector<double> > M(nmb_pts);
+  vector<vector<double> > N1(nmb_pts);
+  vector<vector<double> > N2(nmb_pts);
+  for (size_t kr=0; kr<nmb_pts; ++kr)
+    {
+      M[kr].resize(nmbvar, 0.0);
+      N1[kr].resize(nmbvar, 0.0);
+      N2[kr].resize(nmbvar, 0.0);
+    }
+
+  vector<int> power(4*nmbvar);
+  for (int ki=0, kr=0; ki<=degree; ++ki)
+    for (int kj=0; kj<=degree-ki; ++kj)
+      for (int kh=0; kh<=degree-ki-kj; ++kh, kr+=4)
+      {
+	power[kr] = ki;
+	power[kr+1] = kj;
+	power[kr+2] = kh;
+	power[kr+3] = degree-ki-kj-kh;
+      }
+  
+  for (size_t kr=0, kh=0; kr<pos_and_der.size(); kr+=3, ++kh)
+    {
+      for (int ki=0; ki<nmbvar; ++ki)
+	{
+	  double m1 = f(degree, &power[0], ki, pos_and_der[kr][0],
+			pos_and_der[kr][1], pos_and_der[kr][2]);
+	  Point tmp1(3);
+	  tmp1[0] = fx(degree, &power[0], ki, pos_and_der[kr][0],
+		       pos_and_der[kr][1], pos_and_der[kr][2]);
+	  tmp1[1] = fy(degree, &power[0], ki, pos_and_der[kr][0],
+		       pos_and_der[kr][1], pos_and_der[kr][2]);
+	  tmp1[2] = fz(degree, &power[0], ki, pos_and_der[kr][0],
+		       pos_and_der[kr][1], pos_and_der[kr][2]);
+	  double n1 = tmp1*pos_and_der[kr+1];
+	  double n2 = tmp1*pos_and_der[kr+2];
+	  M[kh][ki] += m1;
+	  N1[kh][ki] += n1;
+	  N2[kh][ki] += n2;
+	}
+    }
+
+
+  double lambda = 0.2;
+  NEWMAT::Matrix mat;
+  mat.ReSize(nmb_pts,nmbvar);
+  for (int ki=0; ki<nmb_pts; ++ki)
+    for (int kj=0; kj<nmbvar; ++kj)
+      mat.element(ki,kj) = M[ki][kj] + lambda*(N1[ki][kj] + N2[ki][kj]);
+
+  static NEWMAT::DiagonalMatrix diag;
+  static NEWMAT::Matrix V;
+  try {
+    NEWMAT::SVD(mat, diag, mat, V);
+  } catch(...) {
+    std::cout << "Exception in SVD" << std::endl;
+    return;
+  }
+
+  int write_info = 1;
+  if (write_info)
+    {
+      std::cout << "Singular values:" << std::endl;
+      for (int ki = 0; ki < nmbvar; ++ki)
+	std::cout << ki << "\t" << diag.element(ki, ki) << std::endl;
+      
+      // Write out info about singular values
+      double s_min = diag.element(nmbvar-1,nmbvar-1);
+      double s_max = diag.element(0, 0);
+      std::cout << "Implicitization:" << std::endl
+		<< "s_min = " << s_min << std::endl
+		<< "s_max = " << s_max << std::endl
+		<< "Ratio of s_min/s_max = " << s_min/s_max << std::endl;
+      std::cout << "Ratio s_min/s_next_min = " << diag.element(nmbvar-1,nmbvar-1)/diag.element(nmbvar-2,nmbvar-2) << std::endl;
+    }
+
+   coefs.resize(nmbvar);
+  for (int ki=0; ki<nmbvar; ++ki)
+    coefs[ki] = V.element(ki, nmbvar-1);
+
+}
+
+//===========================================================================
+void ImplicitApprox::polynomialSurfAccuracy(vector<Point>& pos_and_der, 
+					    int degree, vector<double>& coefs,
+					    double& maxfield, double& avfield,
+					    double& maxdist, double& avdist,
+					    int& ndiv, double& maxang,
+					    double& avang)
+//===========================================================================
+{
+  int nmbvar = (degree+1)*(degree+2)*(degree+3)/6;
+  size_t nmb_pts = pos_and_der.size()/3;
+  double eps = 1.0e-10;
+  double min_grad = 1.0e-9;
+
+  vector<int> power(4*nmbvar);
+  for (int ki=0, kr=0; ki<=degree; ++ki)
+    for (int kj=0; kj<=degree-ki; ++kj)
+      for (int kh=0; kh<=degree-ki-kj; ++kh, kr+=4)
+      {
+	power[kr] = ki;
+	power[kr+1] = kj;
+	power[kr+2] = kh;
+	power[kr+3] = degree-ki-kj-kh;
+      }
+  
+  // Test accuracy
+  maxfield = 0.0;
+  avfield = 0.0;
+  double avgradlen = 0.0;
+  double mingradlen = 1.0e8;
+  double maxgradlen = 0.0;
+  double minang = 1.0e8;
+  maxang = 0.0;
+  avang = 0.0;
+  double mindist = 1.0e8;
+  maxdist = 0.0;
+  avdist = 0.0;
+  vector<Point> out;
+  ndiv = 0;
+  for (size_t kr=0; kr<nmb_pts; kr+=3)
+    {
+      double field = 0.0;
+      double dx=0.0, dy=0.0, dz=0.0;
+      for (int ki=0; ki<nmbvar; ++ki)
+	{
+	  field += coefs[ki]*f(degree, &power[0], ki, pos_and_der[kr][0],
+			       pos_and_der[kr][1], pos_and_der[kr][2]);
+	  dx += coefs[ki]*fx(degree, &power[0], ki, pos_and_der[kr][0],
+			     pos_and_der[kr][1], pos_and_der[kr][2]);
+	  dy += coefs[ki]*fy(degree, &power[0], ki, pos_and_der[kr][0],
+			     pos_and_der[kr][1], pos_and_der[kr][2]);
+	  dz += coefs[ki]*fz(degree, &power[0], ki, pos_and_der[kr][0],
+			     pos_and_der[kr][1], pos_and_der[kr][2]);
+	}
+      Point grad(dx, dy, dz);
+      Point normc = pos_and_der[kr+1].cross(pos_and_der[kr+2]);
+      double ang = normc.angle(grad);
+      minang = std::min(minang, ang);
+      maxang = std::max(maxang, ang);
+      avang += ang;
+      double gradlen = grad.length();
+      double edist = (gradlen < 1.0e-17) ? 0.0 : fabs(field)/gradlen;
+      maxfield = std::max(maxfield, fabs(field));
+      avfield += fabs(field);
+      mingradlen = std::min(mingradlen, gradlen);
+      maxgradlen = std::max(maxgradlen, gradlen);
+      avgradlen += gradlen;
+      if (gradlen > 1.0e-10)
+	grad.normalize();
+
+      double delta = 1.0e-9;
+      Point norm = grad; //tan1[kr].cross(tan2[kr]);
+      norm.normalize();
+      double t0 = 0.0;
+      Point pos0 = pos_and_der[kr];
+      double dt = dx*norm[0] + dy*norm[1] + dz*norm[2];
+      double tdel = -field/dt;
+      double field0;
+      for (int ka=0; ka<10; ++ka)
+	{
+	  if (fabs(tdel) < delta)
+	    break;
+	  t0 += tdel;
+	  pos0 = pos_and_der[kr] + t0*norm;
+	  double dx0 = 0.0, dy0 = 0.0, dz0 = 0.0;
+	  field0 = 0.0;
+	  for (int ki=0; ki<nmbvar; ++ki)
+	    {
+	      field0 += coefs[ki]*f(degree, &power[0], ki, pos0[0],pos0[1],pos0[2]);
+	      dx0 += coefs[ki]*fx(degree, &power[0], ki, pos0[0],pos0[1],pos0[2]);
+	      dy0 += coefs[ki]*fy(degree, &power[0], ki, pos0[0],pos0[1],pos0[2]);
+	      dz0 += coefs[ki]*fz(degree, &power[0], ki, pos0[0],pos0[1],pos0[2]);
+	    }
+	  dt = dx0*norm[0] + dy0*norm[1] + dz0*norm[2];
+	  tdel = -field0/dt;
+	  int stop_break = 1;
+	}
+
+      if (fabs(field0) > fabs(field) || fabs(field0) > eps || fabs(t0) > 1.0 ||
+	  gradlen < min_grad)
+	{
+	  out.push_back(pos_and_der[kr]);
+	  ndiv++;
+	}
+      else
+	{
+	  maxdist = std::max(maxdist, fabs(t0));
+	  mindist = std::min(mindist, fabs(t0));
+	  avdist += fabs(t0);
+	}
+   }
+  avfield /= (double)nmb_pts;
+  avang /= (double)nmb_pts;
+  avgradlen /= (double)nmb_pts;
+  avdist /= (double)(nmb_pts-ndiv);
+  
+  std::cout << "Maximum field: " << maxfield << std::endl;
+  std::cout << "Average field: " << avfield << std::endl;
+  std::cout << "Minimum distance: " << mindist << std::endl;
+  std::cout << "Maximum  distance: " << maxdist << std::endl;
+  std::cout << "Average  distance: " << avdist << std::endl;
+  std::cout << "Num divergent: " << ndiv << std::endl;
+  std::cout << "Minimum angle difference: " << minang << std::endl;
+  std::cout << "Maximum angle difference: " << maxang << std::endl;
+  std::cout << "Avarage angle difference: " << avang << std::endl;
+  std::cout << "Minimum gradient length: " << mingradlen << std::endl;
+  std::cout << "Maximum gradient length: " << maxgradlen << std::endl;
+  std::cout << "Average gradient length: " << avgradlen << std::endl;
+
+  std::ofstream ofo("out.g2");
+  ofo << "400 1 0 4 50 50 155 255" << std::endl;
+  ofo << out.size() << std::endl;
+  for (int ka=0; ka<(int)out.size(); ++ka)
+    ofo << out[ka] << std::endl;
+
+  int stop_break = 1;
+  
 }

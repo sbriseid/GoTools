@@ -209,8 +209,10 @@ bool ftSamplePoint::isNeighbour(ftSamplePoint* other) const
 	      index[1] = next_[ki]->index_;
 	      index[2] = pnt->index_;
 	      std::sort(index.begin(), index.end());
+	      auto it = std::find(triangles.begin(), triangles.end(), index);
 
-	      triangles.push_back(index);
+	      if (it == triangles.end())
+		triangles.push_back(index);
 	      break;
 	    }
 	// if (kh<pnt->next_.size())

@@ -412,3 +412,27 @@ bool HedgeSurface::removeRegion(RevEngRegion* reg)
     }
   return false;
 }
+
+//===========================================================================
+void HedgeSurface::limitSurf()
+//===========================================================================
+{
+  shared_ptr<ParamSurface> surf = surface();
+  shared_ptr<ElementarySurface> elemsf =
+    dynamic_pointer_cast<ElementarySurface,ParamSurface>(surf);
+  if (elemsf.get() && !elemsf->isBounded())
+    {
+      double diag = bbox_.low().dist(bbox_.high());
+      shared_ptr<Plane> plane = dynamic_pointer_cast<Plane,ParamSurface>(surf);
+      shared_ptr<Cylinder> cyl = dynamic_pointer_cast<Cylinder,ParamSurface>(surf);
+      shared_ptr<Cone> cone = dynamic_pointer_cast<Cone,ParamSurface>(surf);
+      if (plane.get())
+	plane->setParameterBounds(-0.5*diag, -0.5*diag, 0.5*diag, 0.5*diag);
+      else if (cyl.get())
+	cyl->setParamBoundsV(-0.5*diag, 0.5*diag);
+      else if (cone.get())
+	cone->setParamBoundsV(-0.5*diag, 0.5*diag);
+    }
+}
+
+

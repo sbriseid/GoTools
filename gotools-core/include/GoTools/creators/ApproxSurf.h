@@ -60,7 +60,10 @@
 #include "GoTools/geometry/SplineCurve.h"
 #include <vector>
 
-
+enum
+  {
+   ACCURACY_MAXDIST, ACCURACY_AVDIST_FRAC
+  };
 
 class SmoothSurf;
 
@@ -246,6 +249,13 @@ class ApproxSurf
       refine_ = refine;
     }
 
+  /// Set accuracy criterion
+  void setAccuracyCrit(int criterion, double frac)
+  {
+    acc_criter_ = (criterion == 1) ? ACCURACY_AVDIST_FRAC : ACCURACY_MAXDIST;
+    acc_frac_ = frac;
+  }
+
 
  protected:
     /// Default constructor
@@ -281,6 +291,8 @@ class ApproxSurf
     int constdir_;
     bool orig_;
     double c1fac1_, c1fac2_;
+  int acc_criter_;
+  double acc_frac_;
 
     /// Generate an initial curve representing the spline space
     int makeInitSurf(std::vector<shared_ptr<SplineCurve> > &crvs, 
@@ -316,6 +328,8 @@ class ApproxSurf
     /// Define free and fixed coefficients
     void coefKnownFromPoints();
     void setCoefKnown();
+
+  bool approxOK();
 };
 
 }  // namespace Go

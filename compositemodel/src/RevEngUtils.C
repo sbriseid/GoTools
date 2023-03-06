@@ -127,7 +127,7 @@ void RevEngUtils::principalAnalysis(Point& curr, vector<Point>& points,
   try {
     NEWMAT::SVD(nmat, diag, nmat, V);
   } catch(...) {
-    std::cout << "Exception in SVD" << std::endl;
+    //std::cout << "Exception in SVD" << std::endl;
     return;
   }
   
@@ -198,7 +198,7 @@ void RevEngUtils::TaubinCurvature(Point curr, std::vector<Point>& points,
   try {
     NEWMAT::SVD(nmat, diag, nmat, V);
   } catch(...) {
-    std::cout << "Exception in SVD" << std::endl;
+    //std::cout << "Exception in SVD" << std::endl;
     return;
   }
   
@@ -482,6 +482,8 @@ RevEngUtils::surfApprox(vector<double>& data, int dim, vector<double>& param,
   //ApproxSurf approx(surf3, data, param, dim, tol, 0, false, true, 0, true);
   approx.setMBA(true);
   approx.setFixBoundary(false);
+  double acc_frac = 0.6;
+  approx.setAccuracyCrit(1, acc_frac);
  shared_ptr<SplineSurface> surf2 = approx.getApproxSurf(maxd, avd, num_out, max_iter);
  return surf2;
 }
@@ -853,7 +855,7 @@ void RevEngUtils::computeAxis(vector<pair<vector<RevEngPoint*>::iterator,
   try {
     NEWMAT::SVD(nmat, diag, nmat, V);
   } catch(...) {
-    std::cout << "Exception in SVD" << std::endl;
+    //std::cout << "Exception in SVD" << std::endl;
     exit(-1);
   }
   Cx = Point(V.element(0,0), V.element(1,0), V.element(2,0));
@@ -893,7 +895,7 @@ void RevEngUtils::computeAxis(vector<Point>& points,
   try {
     NEWMAT::SVD(nmat, diag, nmat, V);
   } catch(...) {
-    std::cout << "Exception in SVD" << std::endl;
+    //std::cout << "Exception in SVD" << std::endl;
     exit(-1);
   }
   Cx = Point(V.element(0,0), V.element(1,0), V.element(2,0));
@@ -962,7 +964,7 @@ void RevEngUtils::coneAxis(vector<pair<vector<RevEngPoint*>::iterator,
   try {
     NEWMAT::SVD(nmat, diag, nmat, V);
   } catch(...) {
-    std::cout << "Exception in SVD" << std::endl;
+    //std::cout << "Exception in SVD" << std::endl;
     exit(-1);
   }
   Cx = Point(V.element(0,0), V.element(1,0), V.element(2,0));
@@ -1523,7 +1525,7 @@ void RevEngUtils::computePlane(vector<pair<vector<RevEngPoint*>::iterator,
   try {
     NEWMAT::SVD(nmat, diag, nmat, V);
   } catch(...) {
-    std::cout << "Exception in SVD" << std::endl;
+    //std::cout << "Exception in SVD" << std::endl;
     exit(-1);
   }
 

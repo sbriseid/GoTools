@@ -169,6 +169,7 @@ public:
 	      shared_ptr<BoundedSurface>& bdsf,
 	      double tol,
 	      std::vector<shared_ptr<HedgeSurface> >& added_sfs);
+  void limitSurf();
 
 private:
   std::vector<RevEngRegion*> regions_;

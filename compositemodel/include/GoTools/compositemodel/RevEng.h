@@ -200,8 +200,9 @@ namespace Go
     void computeMonge(RevEngPoint* pt, std::vector<RevEngPoint*>& points,
 		      Point& vec1, Point& vec2, double radius);
 
-    void setRp(RevEngPoint* first, double rp[3]);
+    void setRp(RevEngPoint* first, double rp[2]);
     double computeRp(RevEngPoint* first, std::vector<std::vector<int> >& tri);
+    int setSmallRegionNumber();
     
     void storeParams(std::ostream& os) const;
     void readParams(std::istream& is);
