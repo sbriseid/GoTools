@@ -882,13 +882,17 @@ void RevEng::setClassificationParams()
   // std::cout << "Give rpix: " << std::endl;
   // std::cin >> rpix_;
   rpix_ = 1;
+
+#if 0
   std::cout << "Give rpfac: " << std::endl;
   std::cin >> rpfac_;
   std::cout << "Give ffac: " << std::endl;
   std::cin >> ffac_;
   std::cout << "Give sfac: " << std::endl;
   std::cin >> sfac_;
-
+#else
+  std::cout << "Turned off setting rpfac_, ffac_ & sfac_ by the user (command line input)." << std::endl;
+#endif
 
   // // Surface variation
   // std::sort(sfvar.begin(), sfvar.end());
@@ -1285,8 +1289,13 @@ void RevEng::growRegions(int classification_type)
   approx_tol_ = pointdist[dix];   //  This should probably be set earlier
   // to give the user a chance to update
   std::cout << "Approx tol: " << approx_tol_ << std::endl;
+
+#if 0
   std::cout << "New tolerance: " << std::endl;
   std::cin >> approx_tol_;
+#else
+  std::cout << "Turned off setting approx_tol_ by the user (command line input)." << std::endl;
+#endif
 
   std::ofstream ofd("ptdist.g2");
   double ptd1 = pointdist[0];
