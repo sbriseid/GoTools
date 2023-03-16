@@ -725,8 +725,23 @@ Cylinder::getElementaryParamCurve(ElementaryCurve* space_crv, double tol,
   Point close1, close2;
   Point pos1 = space_crv->ParamCurve::point(t1);
   Point pos2 = space_crv->ParamCurve::point(t2);
-  closestPoint(pos1, parval1[0], parval1[1], close1, d1, tol);
-  closestPoint(pos2, parval2[0], parval2[1], close2, d2, tol);
+  double seed_buff[2];
+  double* seed = NULL;
+  if (start_par_pt)
+  {
+      seed_buff[0] = (*start_par_pt)[0];
+      seed_buff[1] = (*start_par_pt)[1];
+      seed = seed_buff;
+  }
+  closestPoint(pos1, parval1[0], parval1[1], close1, d1, tol, NULL, seed);
+  seed = NULL;
+  if (end_par_pt)
+  {
+      seed_buff[0] = (*end_par_pt)[0];
+      seed_buff[1] = (*end_par_pt)[1];
+      seed = seed_buff;
+  }
+  closestPoint(pos2, parval2[0], parval2[1], close2, d2, tol, NULL, seed);
   if (d1 > tol || d2 > tol)
     return dummy;
 
@@ -734,13 +749,13 @@ Cylinder::getElementaryParamCurve(ElementaryCurve* space_crv, double tol,
   par1[idx] = par2[idx] = 0.5*(parval1[idx] + parval2[idx]);
   par1[1-idx] = parval1[1-idx];
   par2[1-idx] = parval2[1-idx];
-  Point mid = this->ParamSurface::point(0.5*(par1[0]+par2[0]), 0.5*(par1[1]+par2[1]));
-  Point cv_mid = space_crv->ParamCurve::point(0.5*(t1+t2));
+  Point quart = this->ParamSurface::point(0.25*(3.0*par1[0]+par2[0]), 0.25*(3.0*par1[1]+par2[1]));
+  Point cv_quart = space_crv->ParamCurve::point(0.25*(3.0*t1+t2));
   double u1 = parbound_.umin() + fac*(parval1[ind1] - domain_.umin());
   double u2 = parbound_.umin() + fac*(parval2[ind1] - domain_.umin());
   double u3 = parbound_.umin() + fac*(par1[ind1] - domain_.umin());
   double u4 = parbound_.umin() + fac*(par2[ind1] - domain_.umin());
-  if (mid.dist(cv_mid) > tol)
+  if (quart.dist(cv_quart) > tol)
     {
       bool dummy_u, dummy_v;
       if (isClosed(dummy_u, dummy_v))
@@ -760,8 +775,8 @@ Cylinder::getElementaryParamCurve(ElementaryCurve* space_crv, double tol,
 	  par1[idx] = par2[idx] = 0.5*(parval1[idx] + parval2[idx]);
 	  par1[1-idx] = parval1[1-idx];
 	  par2[1-idx] = parval2[1-idx];
-	  mid = this->ParamSurface::point(0.5*(par1[0]+par2[0]), 0.5*(par1[1]+par2[1]));
-	  if (mid.dist(cv_mid) > tol) {
+	  quart = this->ParamSurface::point(0.25*(3.0*par1[0]+par2[0]), 0.25*(3.0*par1[1]+par2[1]));
+	  if (quart.dist(cv_quart) > tol) {
               // We try one more thing: Shifting the angular parameters -2pi
               double tmppar1 = u1 - 2.0 * M_PI;
               double tmppar2 = u2 - 2.0 * M_PI;
@@ -779,8 +794,8 @@ Cylinder::getElementaryParamCurve(ElementaryCurve* space_crv, double tol,
               par1[idx] = par2[idx] = 0.5*(parval1[idx] + parval2[idx]);
               par1[1-idx] = parval1[1-idx];
               par2[1-idx] = parval2[1-idx];
-              mid = this->ParamSurface::point(0.5*(par1[0]+par2[0]), 0.5*(par1[1]+par2[1]));
-              if (mid.dist(cv_mid) > tol) {
+              quart = this->ParamSurface::point(0.25*(3.0*par1[0]+par2[0]), 0.25*(3.0*par1[1]+par2[1]));
+              if (quart.dist(cv_quart) > tol) {
                   return dummy;
               }
           }

@@ -60,6 +60,14 @@ public:
         // Path relative to build/gotools-extra/step_reader
         const string datadir_priv = "../../../gotools-private-data/step_reader/data3/";
 
+        // Change2Twin models.
+        infiles.push_back(datadir_priv +
+                          "Change2Twin/Prosthesis_Optimized_Alu.step_20200819_objs_940.g2");
+        valid_model.push_back(true);
+        infiles.push_back(datadir_priv +
+                          "Change2Twin/Prosthesis_Optimized_Alu.step_20200819_objs_946.g2");
+        valid_model.push_back(true);
+
         // Ford models.
         infiles.push_back(datadir_priv + "Ford/Ford_Car_Hood_inner_001_obj_378.g2");
         valid_model.push_back(true);
@@ -73,6 +81,7 @@ public:
         infiles.push_back(datadir_priv +
                           "CaxMan/Mould_Final_Version_1/Stock_Cavity_AM_stage4_R8_8_Printing_colorised_model_2_obj_12233.g2");
         valid_model.push_back(true);
+
 #endif
 
         const string datadir_public = "data/"; // Relative to build/gotools-core
