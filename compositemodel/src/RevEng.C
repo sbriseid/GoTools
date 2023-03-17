@@ -39,7 +39,7 @@
 
 #include "GoTools/compositemodel/RevEng.h"
 #include "GoTools/compositemodel/RevEngPoint.h"
-#include "GoTools/compositemodel/RevEngRegion.h"
+//#include "GoTools/compositemodel/RevEngRegion.h"
 #include "GoTools/compositemodel/RevEngUtils.h"
 #include "GoTools/compositemodel/HedgeSurface.h"
 #include "GoTools/compositemodel/ImplicitApprox.h"
@@ -171,18 +171,6 @@ void RevEng::enhancePoints()
   
   int writepoints = 0;
   int nmbpt = tri_sf_->size();
-  std::ofstream of01("minc1.g2");
-  //std::ofstream of02("minc2.g2");
-  std::ofstream of03("maxc1.g2");
-  //std::ofstream of04("maxc2.g2");
-  of01 << "410 1 0 4 200 50 0 255" << std::endl;
-  of01 << nmbpt << std::endl;
-  // of02 << "410 1 0 4 200 50 0 255" << std::endl;
-  // of02 << nmbpt << std::endl;
-  of03 << "410 1 0 4 0 50 200 255" << std::endl;
-  of03 << nmbpt << std::endl;
-  // of04 << "410 1 0 4 0 50 200 255" << std::endl;
-  // of04 << nmbpt << std::endl;
   for (int ki=0; ki<nmbpt; ++ki)
     {
       RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
@@ -354,109 +342,11 @@ void RevEng::enhancePoints()
 	}
     }
   
-  setClassificationParams();
-  vector<Vector3D> triangcorners;
-  vector<Vector3D> triangplane;
-  vector<Vector3D> curvaturecorners;
-  vector<Vector3D> smoothnesscorners;
-  vector<Vector3D> PCAcorners;
-  vector<Vector3D> Rpcorners;
-  std::ofstream of("triangnorm.g2");
-  std::ofstream ofM("Mongenorm.g2");
-  std::ofstream ofP("PCAnorm.g2");
-  of << "410 1 0 4 0 0 255 255" << std::endl;
-  of << nmbpt << std::endl;
-  ofM << "410 1 0 4 255 0 0 255" << std::endl;
-  ofM << nmbpt << std::endl;
-  ofP << "410 1 0 4 0 200 55 255" << std::endl;
-  ofP << nmbpt << std::endl;
+  //setClassificationParams();
   // of01 << "410 1 0 4 0 0 255 255" << std::endl;
   // of01 << nmbpt << std::endl;
   // of03 << "410 1 0 4 0 255 0 255" << std::endl;
   // of03 << nmbpt << std::endl;
-  for (int ki=0; ki<nmbpt; ++ki)
-    {
-      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
-      Point minc = pt->minCurvatureVec();
-      Point maxc = pt->maxCurvatureVec();
-      Vector3D xyz = pt->getPoint();
-      Point xyz2(xyz[0], xyz[1], xyz[2]);
-      double avlen = pt->getMeanEdgLen();
-
-      double fac = (pt->nmbMonge() == 0) ? 0.0 : 5.0;
-      of01 << xyz2 << " " << xyz2+fac*avlen*minc << std::endl;
-      of03 << xyz2 << " " << xyz2+fac*avlen*maxc << std::endl;
-
-      Point norm = pt->getTriangNormal();
-      double ang = pt->getTriangAngle();
-      of << xyz2 << " " << xyz2+5.0*avlen*norm << std::endl;
-      if (pt->getTriangAngle() > norm_ang_lim_)
-	triangcorners.push_back(xyz);
-      Point Mnorm = pt->getMongeNormal();
-      ofM << xyz2 << " " << xyz2+5.0*avlen*Mnorm << std::endl;
-
-      Point Pnorm = pt->getPCANormal();
-      ofP << xyz2 << " " << xyz2+5.0*avlen*Pnorm << std::endl;
-
-      if (pt->isOutlier())
-	continue;
-      
-      if (ang <= norm_plane_lim_)
-	triangplane.push_back(xyz);
-      double maxpc = std::max(fabs(pt->maxPrincipalCurvature()),
-			      fabs(pt->minPrincipalCurvature()));
-      double crvrad = 1.0/maxpc; //fabs(maxpc);
-      if (crvrad < cfac_*avlen)
-	curvaturecorners.push_back(xyz);
-
-      double curved = pt->getCurvedness();
-      if (curved > cness_lim_)
-	smoothnesscorners.push_back(xyz);
-
-      double sfvar = pt->getSurfaceVariation();
-      if (sfvar > pca_lim_)
-	PCAcorners.push_back(xyz);
-
-      double rp = pt->getRp(1);
-      if (rp > 0.03)
-	Rpcorners.push_back(xyz);
-    }
-
-  std::ofstream of2("triangcorners.g2");
-  of2 << "400 1 0 4 0 0 0 255" << std::endl;
-  of2 << triangcorners.size() << std::endl;
-  for (size_t kj=0; kj<triangcorners.size(); ++kj)
-    of2 << triangcorners[kj] << std::endl;
-
-  std::ofstream of3("curvaturecorners.g2");
-  of3 << "400 1 0 4 10 10 10 255" << std::endl;
-  of3 << curvaturecorners.size() << std::endl;
-  for (size_t kj=0; kj<curvaturecorners.size(); ++kj)
-    of3 << curvaturecorners[kj] << std::endl;
-
-  std::ofstream of5("smoothnesscorners.g2");
-  of5 << "400 1 0 4 10 10 10 255" << std::endl;
-  of5 << smoothnesscorners.size() << std::endl;
-  for (size_t kj=0; kj<smoothnesscorners.size(); ++kj)
-    of5 << smoothnesscorners[kj] << std::endl;
-
-  std::ofstream of6("PCAcorners.g2");
-  of6 << "400 1 0 4 10 10 10 255" << std::endl;
-  of6 << PCAcorners.size() << std::endl;
-  for (size_t kj=0; kj<PCAcorners.size(); ++kj)
-    of6 << PCAcorners[kj] << std::endl;
-
-  std::ofstream of7("Rpcorners.g2");
-  of7 << "400 1 0 4 10 10 10 255" << std::endl;
-  of7 << Rpcorners.size() << std::endl;
-  for (size_t kj=0; kj<Rpcorners.size(); ++kj)
-    of7 << Rpcorners[kj] << std::endl;
-
-  std::ofstream of4("triangplane.g2");
-  of4 << "400 1 0 4 200 0 200 255" << std::endl;
-  of4 << triangplane.size() << std::endl;
-  for (size_t kj=0; kj<triangplane.size(); ++kj)
-    of4 << triangplane[kj] << std::endl;
 
   double minptdist = std::numeric_limits<double>::max();
   double maxptdist = 0.0;
@@ -859,36 +749,144 @@ void RevEng::curvatureFilter()
 void RevEng::setClassificationParams()
 //===========================================================================
 {
-  int nmbpts = tri_sf_->size();
-  
-  vector<double> sfvar(nmbpts);
-  vector<double> curvedness(nmbpts);
-  double varmean = 0.0, curvedmean = 0.0;
-  double varh = 0.0, curvh = 0.0;
-  double hfac = 14.0/(15.0*nmbpts); //6.0/(nmbpts*7.0);
-  for (int ki=0; ki<nmbpts; ++ki)
-    {
-      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
-      sfvar[ki] = pt->getSurfaceVariation();
-      curvedness[ki] = pt->getCurvedness();
-      varmean += sfvar[ki]/(double)nmbpts;
-      curvedmean += curvedness[ki]/(double)nmbpts;
-      varh += hfac*sfvar[ki];
-      curvh += hfac*curvedness[ki];
-    }
-  pca_lim_ = varh;
-  cness_lim_ = curvh;
-  std::cout << "cness_lim_: " << cness_lim_ << ", pca_lim_: " << pca_lim_ << std::endl;
-  // std::cout << "Give rpix: " << std::endl;
-  // std::cin >> rpix_;
-  rpix_ = 1;
-  std::cout << "Give rpfac: " << std::endl;
-  std::cin >> rpfac_;
-  std::cout << "Give ffac: " << std::endl;
-  std::cin >> ffac_;
-  std::cout << "Give sfac: " << std::endl;
-  std::cin >> sfac_;
+  int class_type = getClassificationType();
+  std::cout << "Classification type: " << class_type << std::endl;
+  std::cout << "New classification type: " << std::endl;
+  std::cin >> class_type;
+  if (class_type == 1 || class_type == 3)
+    setClassificationType(class_type);
 
+  if (class_type == CLASSIFICATION_CURVATURE)
+    {
+      double zero_H = getMeanCurvatureZero();
+      std::cout << "Mean curvature zero limit: " << zero_H << ", give limit: " << std::endl;
+      std::cin >> zero_H;
+      setMeanCurvatureZero(zero_H);
+      
+      double zero_K = getGaussCurvatureZero();
+      std::cout << "Gauss curvature zero limit: " << zero_K << ", give limit: " << std::endl;
+      std::cin >> zero_K;
+      setGaussCurvatureZero(zero_K);
+    }
+  else if (class_type == CLASSIFICATION_POINTASSOCIATION)
+    {
+      std::cout << "ffac = " << ffac_ << ", give ffac: " << std::endl;
+      std::cin >> ffac_;
+      std::cout << "sfac = " << sfac_ << ", give sfac: " << std::endl;
+      std::cin >> sfac_;
+    }
+
+  double zero_si = getShapeIndexZero();
+  std::cout << "Shape index zero limit: " << zero_si << ", give limit: " << std::endl;
+  std::cin >> zero_si;
+  setShapeIndexZero(zero_si);
+  
+  int nmbpt = tri_sf_->size();
+  std::ofstream of01("minc1.g2");
+  std::ofstream of03("maxc1.g2");
+  of01 << "410 1 0 4 200 50 0 255" << std::endl;
+  of01 << nmbpt << std::endl;
+  of03 << "410 1 0 4 0 50 200 255" << std::endl;
+  of03 << nmbpt << std::endl;
+
+  std::ofstream of("triangnorm.g2");
+  std::ofstream ofM("Mongenorm.g2");
+  std::ofstream ofP("PCAnorm.g2");
+  of << "410 1 0 4 0 0 255 255" << std::endl;
+  of << nmbpt << std::endl;
+  ofM << "410 1 0 4 255 0 0 255" << std::endl;
+  ofM << nmbpt << std::endl;
+  ofP << "410 1 0 4 0 200 55 255" << std::endl;
+  ofP << nmbpt << std::endl;
+  vector<Vector3D> triangcorners;
+  vector<Vector3D> triangplane;
+  vector<Vector3D> curvaturecorners;
+  vector<Vector3D> smoothnesscorners;
+  vector<Vector3D> PCAcorners;
+  vector<Vector3D> Rpcorners;
+  for (int ki=0; ki<nmbpt; ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
+      Point minc = pt->minCurvatureVec();
+      Point maxc = pt->maxCurvatureVec();
+      Vector3D xyz = pt->getPoint();
+      Point xyz2(xyz[0], xyz[1], xyz[2]);
+      double avlen = pt->getMeanEdgLen();
+
+      double fac = (pt->nmbMonge() == 0) ? 0.0 : 5.0;
+      of01 << xyz2 << " " << xyz2+fac*avlen*minc << std::endl;
+      of03 << xyz2 << " " << xyz2+fac*avlen*maxc << std::endl;
+
+      Point norm = pt->getTriangNormal();
+      double ang = pt->getTriangAngle();
+      of << xyz2 << " " << xyz2+5.0*avlen*norm << std::endl;
+      if (pt->getTriangAngle() > norm_ang_lim_)
+	triangcorners.push_back(xyz);
+      Point Mnorm = pt->getMongeNormal();
+      ofM << xyz2 << " " << xyz2+5.0*avlen*Mnorm << std::endl;
+
+      Point Pnorm = pt->getPCANormal();
+      ofP << xyz2 << " " << xyz2+5.0*avlen*Pnorm << std::endl;
+
+      if (pt->isOutlier())
+	continue;
+      
+      if (ang <= norm_plane_lim_)
+	triangplane.push_back(xyz);
+      double maxpc = std::max(fabs(pt->maxPrincipalCurvature()),
+			      fabs(pt->minPrincipalCurvature()));
+      double crvrad = 1.0/maxpc; //fabs(maxpc);
+      if (crvrad < cfac_*avlen)
+	curvaturecorners.push_back(xyz);
+
+      double curved = pt->getCurvedness();
+      if (curved > cness_lim_)
+	smoothnesscorners.push_back(xyz);
+
+      double sfvar = pt->getSurfaceVariation();
+      if (sfvar > pca_lim_)
+	PCAcorners.push_back(xyz);
+
+      double rp = pt->getRp(1);
+      if (rp > 0.03)
+	Rpcorners.push_back(xyz);
+    }
+
+  std::ofstream of2("triangcorners.g2");
+  of2 << "400 1 0 4 0 0 0 255" << std::endl;
+  of2 << triangcorners.size() << std::endl;
+  for (size_t kj=0; kj<triangcorners.size(); ++kj)
+    of2 << triangcorners[kj] << std::endl;
+
+  std::ofstream of3("curvaturecorners.g2");
+  of3 << "400 1 0 4 10 10 10 255" << std::endl;
+  of3 << curvaturecorners.size() << std::endl;
+  for (size_t kj=0; kj<curvaturecorners.size(); ++kj)
+    of3 << curvaturecorners[kj] << std::endl;
+
+  std::ofstream of5("smoothnesscorners.g2");
+  of5 << "400 1 0 4 10 10 10 255" << std::endl;
+  of5 << smoothnesscorners.size() << std::endl;
+  for (size_t kj=0; kj<smoothnesscorners.size(); ++kj)
+    of5 << smoothnesscorners[kj] << std::endl;
+
+  std::ofstream of6("PCAcorners.g2");
+  of6 << "400 1 0 4 10 10 10 255" << std::endl;
+  of6 << PCAcorners.size() << std::endl;
+  for (size_t kj=0; kj<PCAcorners.size(); ++kj)
+    of6 << PCAcorners[kj] << std::endl;
+
+  std::ofstream of7("Rpcorners.g2");
+  of7 << "400 1 0 4 10 10 10 255" << std::endl;
+  of7 << Rpcorners.size() << std::endl;
+  for (size_t kj=0; kj<Rpcorners.size(); ++kj)
+    of7 << Rpcorners[kj] << std::endl;
+
+  std::ofstream of4("triangplane.g2");
+  of4 << "400 1 0 4 200 0 200 255" << std::endl;
+  of4 << triangplane.size() << std::endl;
+  for (size_t kj=0; kj<triangplane.size(); ++kj)
+    of4 << triangplane[kj] << std::endl;
 
   // // Surface variation
   // std::sort(sfvar.begin(), sfvar.end());
@@ -929,44 +927,254 @@ void RevEng::setClassificationParams()
   // std::ofstream of2("curvedness_1.g2");
   // of2 << "400 1 0 4 0 155 100 255" << std::endl;
   // of2 << nmbpts-largecurved[0]-1 << std::endl;
-  vector<Vector3D> pts_v, pts_c;
+//   vector<Vector3D> pts_v, pts_c;
+//   for (int ka=0; ka<nmbpts; ++ka)
+//     {
+//       RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ka]);
+//       double var = pt->getSurfaceVariation();
+//       double curved = pt->getCurvedness();
+//       Vector3D xyz = pt->getPoint();
+//       // if (var > sfvar[largestep[0]])
+//       // 	of1 << xyz << std::endl;
+//       // if (curved > curvedness[largecurved[0]])
+//       // 	of2 << xyz << std::endl;
+//       if (var > varh)
+// 	pts_v.push_back(xyz);
+//       if (curved > curvh)
+// 	pts_c.push_back(xyz);
+//     }
+//   std::ofstream of3("sfvar.g2");
+//   of3 << "400 1 0 4 155 0 100 255" << std::endl;
+//   of3 << pts_v.size() << std::endl;
+//   for (size_t kr=0; kr<pts_v.size(); ++kr)
+//     of3 << pts_v[kr] << std::endl;
+//   std::ofstream of5("curvedness.g2");
+//   of5 << "400 1 0 4 0 155 100 255" << std::endl;
+//   of5 << pts_c.size() << std::endl;
+//   for (size_t kr=0; kr<pts_c.size(); ++kr)
+//     of5 << pts_c[kr] << std::endl;
+
+// int stop_break = 1;
+}
+
+//===========================================================================
+void RevEng::setEdgeClassificationParams()
+//===========================================================================
+{
+  int edge_class_type = getEdgeClassificationType();
+  std::cout << "Edge classification type: " << edge_class_type << std::endl;
+  std::cout << "New classification type: " << std::endl;
+  std::cin >> edge_class_type;
+  if (edge_class_type == CURVATURE_EDGE || edge_class_type == PCATYPE_EDGE ||
+      edge_class_type == CNESS_EDGE || edge_class_type == RPFAC_EDGE)
+    {
+      setEdgeClassificationType(edge_class_type);
+      if (edge_class_type == CURVATURE_EDGE)
+	{
+	  double cfac = getCfac();
+	  std::cout << "Edge classification factor with curvature: " << cfac << std::endl;
+	  std::cout << "New classification factor: " << std::endl;
+	  std::cin >> cfac;
+	  if (cfac >= 5.0 && cfac <= 10.0)
+	    setCfac(cfac);
+	  
+	  vector<Vector3D> curvaturecorners;
+	  int nmbpts = tri_sf_->size();
+	  for (int ka=0; ka<nmbpts; ++ka)
+	    {
+	      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ka]);
+	      double avlen = pt->getMeanEdgLen();
+	      double maxpc = std::max(fabs(pt->maxPrincipalCurvature()),
+				      fabs(pt->minPrincipalCurvature()));
+	      Vector3D xyz = pt->getPoint();
+	      double crvrad = 1.0/maxpc; //fabs(maxpc);
+	      if (crvrad < cfac_*avlen)
+		curvaturecorners.push_back(xyz);
+	    }
+	  std::ofstream of3("curvaturecorners0.g2");
+	  of3 << "400 1 0 4 10 10 10 255" << std::endl;
+	  of3 << curvaturecorners.size() << std::endl;
+	  for (size_t kj=0; kj<curvaturecorners.size(); ++kj)
+	    of3 << curvaturecorners[kj] << std::endl;
+	}
+      else if (edge_class_type == PCATYPE_EDGE)
+	{
+	  double pca_lim = getPCAlim();
+	  std::cout << "Edge classification factor with PCA: " << pca_lim << std::endl;
+	  std::cout << "New classification factor: " << std::endl;
+	  std::cin >> pca_lim;
+	  setPCAlim(pca_lim);
+	  
+	  vector<Vector3D> pts_v;
+	  int nmbpts = tri_sf_->size();
+	  for (int ka=0; ka<nmbpts; ++ka)
+	    {
+	      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ka]);
+	      double var = pt->getSurfaceVariation();
+	      Vector3D xyz = pt->getPoint();
+	      if (var > pca_lim)
+		pts_v.push_back(xyz);
+	    }
+	  std::ofstream of3("sfvar.g2");
+	  of3 << "400 1 0 4 155 0 100 255" << std::endl;
+	  of3 << pts_v.size() << std::endl;
+	  for (size_t kr=0; kr<pts_v.size(); ++kr)
+	    of3 << pts_v[kr] << std::endl;
+	}
+      else if (edge_class_type == CNESS_EDGE)
+	{
+	  double cness_lim = getCnesslim();
+	  std::cout << "Edge classification factor with cness: " << cness_lim << std::endl;
+	  std::cout << "New classification factor: " << std::endl;
+	  std::cin >> cness_lim;
+	  setCnesslim(cness_lim);
+	  
+	  vector<Vector3D> pts_c;
+	  int nmbpts = tri_sf_->size();
+	  for (int ka=0; ka<nmbpts; ++ka)
+	    {
+	      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ka]);
+	      double curved = pt->getCurvedness();
+	      Vector3D xyz = pt->getPoint();
+	      if (curved > cness_lim)
+		pts_c.push_back(xyz);
+	    }
+	  std::ofstream of5("curvedness.g2");
+	  of5 << "400 1 0 4 0 155 100 255" << std::endl;
+	  of5 << pts_c.size() << std::endl;
+	  for (size_t kr=0; kr<pts_c.size(); ++kr)
+	    of5 << pts_c[kr] << std::endl;
+	}
+      else if (edge_class_type == RPFAC_EDGE)
+	{
+	  double RP_fac = getRPfac();
+	  std::cout << "Edge classification factor with RP: " << RP_fac << std::endl;
+	  std::cout << "New classification factor: " << std::endl;
+	  std::cin >> RP_fac;
+	  setRPfac(RP_fac);
+	}
+    }
+}
+
+//===========================================================================
+double RevEng::getPCAlim()
+//===========================================================================
+{
+  if (pca_lim_ < 0.0)
+    {
+      int nmbpts = tri_sf_->size();
+      double varh = 0.0;
+      double hfac = 14.0/(15.0*nmbpts); //6.0/(nmbpts*7.0);
+      double sfvar;
+      for (int ki=0; ki<nmbpts; ++ki)
+	{
+	  RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
+	  sfvar = pt->getSurfaceVariation();
+	  varh += hfac*sfvar;
+	}
+      pca_lim_ = varh;
+     }
+
+  return pca_lim_;
+}
+
+//===========================================================================
+double RevEng::getCnesslim()
+//===========================================================================
+{
+  if (cness_lim_ < 0.0)
+    {
+      int nmbpts = tri_sf_->size();
+      double varh = 0.0;
+      double hfac = 14.0/(15.0*nmbpts); //6.0/(nmbpts*7.0);
+      double curvedness;
+      double curvh;
+      for (int ki=0; ki<nmbpts; ++ki)
+	{
+	  RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
+	  curvedness = pt->getCurvedness();
+	  curvh += hfac*curvedness;
+	}
+      cness_lim_ = curvh;
+     }
+
+  return cness_lim_;
+}
+
+//===========================================================================
+void RevEng::edgeClassification()
+//===========================================================================
+{
+  int nmbpts = tri_sf_->size();
+  for (int ki=0; ki<nmbpts; ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
+      Vector3D xyz = pt->getPoint();
+      
+      // Curvature edge classification
+      double avlen = pt->getMeanEdgLen();
+      double maxpc = std::max(fabs(pt->maxPrincipalCurvature()),
+			      fabs(pt->minPrincipalCurvature()));
+      double crvrad = 1.0/maxpc; 
+      int c1_edge = (crvrad < cfac_*avlen) ? C1_EDGE : C1_NOT_EDGE;
+
+      // Edge classification with curvedness
+      double curved = pt->getCurvedness();
+      int c2_edge = (curved > cness_lim_) ? C2_EDGE : C2_NOT_EDGE;
+
+      // Edge classification with surface variation
+      double var = pt->getSurfaceVariation();
+      int pca_edge = (var > pca_lim_) ? PCA_EDGE : PCA_NOT_EDGE;
+
+      double rp = pt->getRp(rpix_);
+      int rp_edge =  (rp >= rpfac_) ? RP_EDGE : RP_NOT_EDGE;
+
+      // Store classification in point
+      pt->setEdgeClassification(c1_edge, c2_edge, pca_edge, rp_edge);
+    }
+  
+  // Specify/clean edge classification
+  bool closeedge = false;
+  int nmbedge = 2;
   for (int ka=0; ka<nmbpts; ++ka)
     {
       RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ka]);
-      double var = pt->getSurfaceVariation();
-      double curved = pt->getCurvedness();
-      Vector3D xyz = pt->getPoint();
-      // if (var > sfvar[largestep[0]])
-      // 	of1 << xyz << std::endl;
-      // if (curved > curvedness[largecurved[0]])
-      // 	of2 << xyz << std::endl;
-      if (var > varh)
-	pts_v.push_back(xyz);
-      if (curved > curvh)
-	pts_c.push_back(xyz);
-    }
-  std::ofstream of3("sfvar.g2");
-  of3 << "400 1 0 4 155 0 100 255" << std::endl;
-  of3 << pts_v.size() << std::endl;
-  for (size_t kr=0; kr<pts_v.size(); ++kr)
-    of3 << pts_v[kr] << std::endl;
-  std::ofstream of5("curvedness.g2");
-  of5 << "400 1 0 4 0 155 100 255" << std::endl;
-  of5 << pts_c.size() << std::endl;
-  for (size_t kr=0; kr<pts_c.size(); ++kr)
-    of5 << pts_c[kr] << std::endl;
+      if (pt->isEdge(edge_class_type_))
+	{
+	  if (pt->isolatedEdge(edge_class_type_, nmbedge, closeedge))
+	    pt->setEdgeUndef();
 
-int stop_break = 1;
-}
+	  else 
+	    // If the angular difference between triangle normals is less
+	    // then the limit, classify the point as CLOSE_EDGE.
+	    pt->adjustWithTriangNorm(norm_ang_lim_);
+	}
+    }
+  
+  vector<Vector3D> edgepts;
+  for (int ka=0; ka<nmbpts; ++ka)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ka]);
+      if (pt->isEdge(edge_class_type_))
+	edgepts.push_back(pt->getPoint());
+    }
+
+  if (edgepts.size() > 0)
+    {
+      std::ofstream of3("edgepts.g2");
+      of3 << "400 1 0 4 255 0 0 255" << std::endl;
+      of3 << edgepts.size() << std::endl;
+      for (size_t kr=0; kr<edgepts.size();++kr)
+	of3 << edgepts[kr] << std::endl;
+    }
+  int stop_break = 1;
+ }
 
 //===========================================================================
 void RevEng::classifyPoints()
 //===========================================================================
 {
   // Fetch relevant values for all points
-
-  // Update limits
-  //setClassificationParams();
 
   vector<vector<Vector3D> > class_pts(9);
   vector<vector<Vector3D> > class_shape(10);
@@ -1036,14 +1244,7 @@ void RevEng::classifyPoints()
 	    }
 	}
 
-      // Curvature edge classification
-      double avlen = pt->getMeanEdgLen();
-      double maxpc = std::max(fabs(pt->maxPrincipalCurvature()),
-			      fabs(pt->minPrincipalCurvature()));
-      double crvrad = 1.0/maxpc; 
-      int c1_edge = (crvrad < cfac_*avlen) ? C1_EDGE : C1_NOT_EDGE;
-
-      // Surface classification with shape index
+     // Surface classification with shape index
       int si_type = SI_UNDEF;
       double shapeindex = pt->getShapeIndex();
       if (shapeindex < -0.875)
@@ -1151,19 +1352,8 @@ void RevEng::classifyPoints()
 	  class_pfs[9].push_back(xyz);
 	}
 
-      // Edge classification with curvedness
-      double curved = pt->getCurvedness();
-      int c2_edge = (curved > cness_lim_) ? C2_EDGE : C2_NOT_EDGE;
-
-      // Edge classification with surface variation
-      double var = pt->getSurfaceVariation();
-      int pca_edge = (var > pca_lim_) ? PCA_EDGE : PCA_NOT_EDGE;
-
-      double rp = pt->getRp(rpix_);
-      int rp_edge =  (rp >= rpfac_) ? RP_EDGE : RP_NOT_EDGE;
-
       // Store classification in point
-      pt->setClassification(ctype, c1_edge, si_type, c2_edge, pca_edge, ps_type, rp_edge);
+      pt->setClassification(ctype, si_type, ps_type);
    }
 
   std::ofstream of("curvature_segments.g2");
@@ -1206,40 +1396,6 @@ void RevEng::classifyPoints()
 	of4 << class_pfs[ka][kr] << std::endl;
       }
   
-  // Specify/clean edge classification
-  bool closeedge = false;
-  int nmbedge = 2;
-  for (int ka=0; ka<nmbpts; ++ka)
-    {
-      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ka]);
-      if (pt->isEdge())
-	{
-	  if (pt->isolatedEdge(nmbedge, closeedge))
-	    pt->setEdgeUndef();
-
-	  else 
-	    // If the angular difference between triangle normals is less
-	    // then the limit, classify the point as CLOSE_EDGE.
-	    pt->adjustWithTriangNorm(norm_ang_lim_);
-	}
-    }
-
-  vector<Vector3D> edgepts;
-  for (int ka=0; ka<nmbpts; ++ka)
-    {
-      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ka]);
-      if (pt->isEdge())
-	edgepts.push_back(pt->getPoint());
-    }
-
-  if (edgepts.size() > 0)
-    {
-      std::ofstream of3("edgepts.g2");
-      of3 << "400 1 0 4 255 0 0 255" << std::endl;
-      of3 << edgepts.size() << std::endl;
-      for (size_t kr=0; kr<edgepts.size();++kr)
-	of3 << edgepts[kr] << std::endl;
-    }
   int stop_break = 1;
 }
 
@@ -1257,37 +1413,33 @@ struct
 } sort_region;
 
 //===========================================================================
-void RevEng::growRegions(int classification_type)
+void RevEng::setApproxTolerance()
 //===========================================================================
 {
-  // First pass: Collect continous regions
-  // Prepare approximation tolerance for second pass
+  double eps = getInitApproxTol();
+  std::cout << "Approx tol: " << eps << std::endl;
+  std::cout << "New tolerance: " << std::endl;
+  std::cin >> eps;
+  setApproxTol(eps);
+}
+
+//===========================================================================
+double RevEng::getInitApproxTol()
+//===========================================================================
+{
   int nmbpts = tri_sf_->size();
   vector<double> pointdist;
   for (int ki=0; ki<nmbpts; ++ki)
     {
       RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
-      if (!pt->isEdge())
+      if (!pt->isEdge(edge_class_type_))
 	pointdist.push_back(pt->getPointDistance());
-      if (pt->hasRegion())
-	continue;
-      if (pt->closeEdge())
-	continue;
-
-      shared_ptr<RevEngRegion> region(new RevEngRegion(classification_type));
-      regions_.push_back(region);
-      pt->setRegion(region.get());
-      region->collect(pt);
     }
   std::sort(pointdist.begin(), pointdist.end());
   double dlim = 0.93; //0.75;
   int dix = (int)(dlim*pointdist.size());
-  approx_tol_ = pointdist[dix];   //  This should probably be set earlier
-  // to give the user a chance to update
-  std::cout << "Approx tol: " << approx_tol_ << std::endl;
-  std::cout << "New tolerance: " << std::endl;
-  std::cin >> approx_tol_;
-
+  double eps = pointdist[dix];
+  
   std::ofstream ofd("ptdist.g2");
   double ptd1 = pointdist[0];
   double ptd2 = pointdist[dix];
@@ -1314,6 +1466,31 @@ void RevEng::growRegions(int classification_type)
 	  for (size_t kr=0; kr<ptrs[ki].size(); ++kr)
 	    ofd << ptrs[ki][kr] << std::endl;
 	}
+    }
+
+  return eps;
+ }
+
+//===========================================================================
+void RevEng::growRegions()
+//===========================================================================
+{
+  // First pass: Collect continous regions
+  // Prepare approximation tolerance for second pass
+  int nmbpts = tri_sf_->size();
+  for (int ki=0; ki<nmbpts; ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
+      if (pt->hasRegion())
+	continue;
+      if (pt->closeEdge(edge_class_type_))
+	continue;
+
+      shared_ptr<RevEngRegion> region(new RevEngRegion(classification_type_,
+						       edge_class_type_));
+      regions_.push_back(region);
+      pt->setRegion(region.get());
+      region->collect(pt);
     }
 
   std::sort(regions_.begin(), regions_.end(), sort_region);
@@ -1822,6 +1999,7 @@ void RevEng::recognizeElementary()
 	for (size_t kr=0; kr<out_groups.size(); ++kr)
 	  {
 	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  edge_class_type_,
 							  out_groups[kr]));
 	    regions_.push_back(reg);
 	  }	  
@@ -1855,6 +2033,7 @@ void RevEng::recognizeElementary()
 	for (size_t kr=0; kr<out_groups.size(); ++kr)
 	  {
 	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  edge_class_type_,
 							  out_groups[kr]));
 	    regions_.push_back(reg);
 	  }	  
@@ -1912,6 +2091,7 @@ void RevEng::recognizeElementary()
 	for (size_t kr=0; kr<out_groups.size(); ++kr)
 	  {
 	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  edge_class_type_,
 							  out_groups[kr]));
 	    regions_.push_back(reg);
 	  }	  
@@ -1945,6 +2125,7 @@ void RevEng::recognizeElementary()
 	for (size_t kr=0; kr<out_groups.size(); ++kr)
 	  {
 	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  edge_class_type_,
 							  out_groups[kr]));
 	    regions_.push_back(reg);
 	  }	  
@@ -1977,6 +2158,7 @@ void RevEng::recognizeElementary()
 	for (size_t kr=0; kr<out_groups.size(); ++kr)
 	  {
 	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  edge_class_type_,
 							  out_groups[kr]));
 	    regions_.push_back(reg);
 	  }	  
@@ -2008,6 +2190,7 @@ void RevEng::recognizeElementary()
 	for (size_t kr=0; kr<out_groups.size(); ++kr)
 	  {
 	    shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							  edge_class_type_,
 							  out_groups[kr]));
 	    regions_.push_back(reg);
 	  }	  
@@ -4460,7 +4643,7 @@ void RevEng::initParameters()
   zero_si_ = 0.0075; //0.001; // When shape index is considered zero
   norm_ang_lim_ = 0.1*M_PI; // Limit for when the cone angle corresponding
     // to triangle normals indicate an edge
-  pca_lim_ = cness_lim_ = std::numeric_limits<double>::max();
+  pca_lim_ = cness_lim_ = -1.0;
   min_point_region_ = 200; //50; //10;  // Should be updated with regard to the total
   // number of points
   approx_tol_ = 0.001;  // Very preliminary
@@ -4468,7 +4651,7 @@ void RevEng::initParameters()
   anglim_ = 0.01;
   max_nmb_outlier_ = 3;
   rpix_ = 1;
-  rpfac_ = 0.05;
+  rpfac_ = 0.01;
   ffac_ = 0.01;
   sfac_ = 0.05;
 }
@@ -4581,7 +4764,7 @@ void RevEng::readGrownRegions(istream& is)
   regions_.resize(num_regions);
   for (int ki=0; ki<num_regions; ++ki)
     {
-      regions_[ki] = shared_ptr<RevEngRegion>(new RevEngRegion());
+      regions_[ki] = shared_ptr<RevEngRegion>(new RevEngRegion(edge_class_type_));
       regions_[ki]->read(is, tri_sf_);
     }
 
@@ -4600,7 +4783,8 @@ void RevEng::storeParams(ostream& os) const
   os << " " << pca_lim_ << " " << cness_lim_ << " " << norm_ang_lim_;
   os << " " << norm_plane_lim_ << " " << zero_H_ << " " << zero_K_;
   os << " " << zero_si_ << " " << min_point_region_ << " " << approx_tol_ ;
-  os << " " << anglim_ << " " << max_nmb_outlier_ << std::endl;
+  os << " " << anglim_ << " " << max_nmb_outlier_ << " ";
+  os << edge_class_type_ << " " << classification_type_ << std::endl;
 }
 
  //===========================================================================
@@ -4610,4 +4794,5 @@ void RevEng::readParams(istream& is)
   is >> mean_edge_len_ >> min_next_ >> rfac_ >> cfac_ >> pca_lim_ >> cness_lim_;
   is >> norm_ang_lim_ >> norm_plane_lim_ >> zero_H_ >> zero_K_ >> zero_si_;
   is >> min_point_region_ >> approx_tol_ >> anglim_ >> max_nmb_outlier_;
+  is >> edge_class_type_ >> classification_type_;
 }

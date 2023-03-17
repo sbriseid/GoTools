@@ -510,17 +510,18 @@ void RevEngPoint::resetPointAssociation()
 
 
 //===========================================================================
-bool RevEngPoint::isolatedEdge(int nmb, bool close)
+bool RevEngPoint::isolatedEdge(int edge_class_type, int nmb, bool close)
 //===========================================================================
 {
-  if (notEdge())
+  if (notEdge(edge_class_type))
     return false;
 
   int nn = 0;
   for (size_t ki=0; ki<next_.size(); ++ki)
     {
       RevEngPoint* curr = dynamic_cast<RevEngPoint*>(next_[ki]);
-      bool found = (close) ? curr->closeEdge() : curr->isEdge();
+      bool found = (close) ? curr->closeEdge(edge_class_type) :
+	curr->isEdge(edge_class_type);
       if (found)
 	++nn;
     }

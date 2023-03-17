@@ -69,10 +69,11 @@ using std::vector;
 using std::set;
 
 //===========================================================================
-RevEngRegion::RevEngRegion()
+RevEngRegion::RevEngRegion(int edge_class_type)
 //===========================================================================
-  : classification_type_(CLASSIFICATION_UNDEF), associated_sf_(0),
-    mink1_(0.0), maxk1_(0.0), mink2_(0.0), maxk2_(0.0), maxdist_(0.0), avdist_(0.0),
+  : classification_type_(CLASSIFICATION_UNDEF), edge_class_type_(edge_class_type),
+    associated_sf_(0), mink1_(0.0), maxk1_(0.0), 
+    mink2_(0.0), maxk2_(0.0), maxdist_(0.0), avdist_(0.0),
     num_inside_(0), maxdist_base_(0.0), avdist_base_(0.0), num_in_base_(0),
     maxdist_primary_(0.0), avdist_primary_(0.0), num_in_primary_(0),
     visited_(false)
@@ -81,10 +82,11 @@ RevEngRegion::RevEngRegion()
 }
 
 //===========================================================================
-RevEngRegion::RevEngRegion(int classification_type)
+RevEngRegion::RevEngRegion(int classification_type, int edge_class_type)
 //===========================================================================
-  : classification_type_(classification_type), associated_sf_(0),
-    mink1_(0.0), maxk1_(0.0), mink2_(0.0), maxk2_(0.0), maxdist_(0.0), avdist_(0.0),
+  : classification_type_(classification_type), edge_class_type_(edge_class_type),
+    associated_sf_(0), mink1_(0.0), maxk1_(0.0), 
+    mink2_(0.0), maxk2_(0.0), maxdist_(0.0), avdist_(0.0),
     num_inside_(0), maxdist_base_(0.0), avdist_base_(0.0), num_in_base_(0),
     maxdist_primary_(0.0), avdist_primary_(0.0), num_in_primary_(0),
     visited_(false)
@@ -94,10 +96,11 @@ RevEngRegion::RevEngRegion(int classification_type)
 
 //===========================================================================
 RevEngRegion::RevEngRegion(int classification_type,
+			   int edge_class_type,
 			   vector<RevEngPoint*> & points)
 //===========================================================================
   : group_points_(points), classification_type_(classification_type),
-    associated_sf_(0), maxdist_(0.0), avdist_(0.0),
+    edge_class_type_(edge_class_type), associated_sf_(0), maxdist_(0.0), avdist_(0.0),
     num_inside_(0), maxdist_base_(0.0), avdist_base_(0.0), num_in_base_(0),
     maxdist_primary_(0.0), avdist_primary_(0.0), num_in_primary_(0),
     visited_(false)
@@ -389,7 +392,7 @@ void RevEngRegion::updateRegion(double approx_tol, double anglim,
 	      RevEngPoint *curr = dynamic_cast<RevEngPoint*>(next[kj]);
 	      if (curr->moved())
 		continue;  // Already in an extended region
-	      if (curr->isEdge())
+	      if (curr->isEdge(edge_class_type_))
 		continue;  // Do not include points labelled as edge
 	      if (curr->region() == this)
 		continue;
@@ -530,6 +533,7 @@ void RevEngRegion::updateRegion(double approx_tol, double anglim,
 	  for (size_t ki=0; ki<separate_groups.size(); ++ki)
 	    {
 	      shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+							    edge_class_type_,
 							    separate_groups[ki]));
 	      outdiv_regions.push_back(reg);
 	    }
@@ -651,7 +655,7 @@ void RevEngRegion::collect(RevEngPoint *pt, RevEngRegion *prev)
 	    continue;
 	  if (curr->hasRegion() && curr->region() != prev)
 	    continue;  // Already belonging to a segment
-	  if (curr->isEdge())
+	  if (curr->isEdge(edge_class_type_))
 	    continue;  // An edge point
 	  int type2 = curr->surfaceClassification(classification_type_);
 	  if (type2 != type)
@@ -2769,7 +2773,7 @@ if (!spl.get())
 	 move.push_back(group_points_[kr]);
      }
 
-   shared_ptr<RevEngRegion> dummy_reg(new RevEngRegion());
+   shared_ptr<RevEngRegion> dummy_reg(new RevEngRegion(edge_class_type_));
       
    for (size_t kr=0; kr<move.size(); ++kr)
      move[kr]->setRegion(dummy_reg.get());  // Preliminary
@@ -3923,6 +3927,7 @@ RevEngRegion::splitComposedRegions(int classtype,
   for (size_t kj=0; kj<connected.size(); ++kj)
     {
       shared_ptr<RevEngRegion> reg(new RevEngRegion(classtype,
+						    edge_class_type_,
 						    connected[kj]));
       added_groups.push_back(reg);
     }
@@ -3932,6 +3937,7 @@ RevEngRegion::splitComposedRegions(int classtype,
       for (size_t kh=0; kh<deviant.size(); ++kh)
 	deviant[kh]->setGaussRad(1.0);
       shared_ptr<RevEngRegion> reg2(new RevEngRegion(classtype,
+						     edge_class_type_,
 						     deviant));
       vector<vector<RevEngPoint*> > connected2;
       reg2->splitRegion(connected2);
@@ -3939,7 +3945,8 @@ RevEngRegion::splitComposedRegions(int classtype,
       for (size_t kj=0; kj<connected2.size(); ++kj)
 	{
 	  shared_ptr<RevEngRegion> reg3(new RevEngRegion(classtype,
-						    connected2[kj]));
+							 edge_class_type_,
+							 connected2[kj]));
 	  added_groups.push_back(reg3);
 	}
       // vector<RevEngPoint*> deviant2;
@@ -3985,7 +3992,8 @@ RevEngRegion::splitWithShapeIndex(vector<shared_ptr<RevEngRegion> >& updated_reg
     {
       if (group_points_[ki]->region() != this)
 	continue;
-      shared_ptr<RevEngRegion> curr(new RevEngRegion(CLASSIFICATION_SHAPEINDEX));
+      shared_ptr<RevEngRegion> curr(new RevEngRegion(CLASSIFICATION_SHAPEINDEX,
+						     edge_class_type_));
       updated_regions.push_back(curr);
       group_points_[ki]->setRegion(curr.get());
       curr->collect(group_points_[ki], this);
@@ -5445,7 +5453,7 @@ bool  RevEngRegion::hasEdgeBetween(RevEngRegion* adj)
       for (size_t kj=0; kj<next.size(); ++kj)
 	{
 	  RevEngPoint *pt = dynamic_cast<RevEngPoint*>(next[kj]);
-	  if (!pt->isEdge())
+	  if (!pt->isEdge(edge_class_type_))
 	    continue;
 
 	  vector<ftSamplePoint*> next2 = pt->getNeighbours();

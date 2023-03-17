@@ -65,6 +65,12 @@ namespace Go
      CLASSIFICATION_UNDEF, CLASSIFICATION_CURVATURE, CLASSIFICATION_SHAPEINDEX, CLASSIFICATION_POINTASSOCIATION
     };
 
+  // Method used in edge classification
+  enum
+    {
+     TRIANGULATION_EDGE, PCATYPE_EDGE, CURVATURE_EDGE, CNESS_EDGE, RPFAC_EDGE
+    };
+
   struct SweepData
   {
     int type_;  // Linear = 1, rotational = 2
@@ -93,11 +99,11 @@ namespace Go
   {
   public:
     // Constructor
-    RevEngRegion();
+    RevEngRegion(int edge_class_type);
 
-    RevEngRegion(int classification_type);
+    RevEngRegion(int classification_type, int edge_class_type);
 
-    RevEngRegion(int classification_type,
+    RevEngRegion(int classification_type, int edge_class_type,
 		 std::vector<RevEngPoint*> & points);
 
     ~RevEngRegion();
@@ -442,6 +448,7 @@ namespace Go
   private:
     std::vector<RevEngPoint*> group_points_;   // Points belonging to classified segment
     int classification_type_;
+    int edge_class_type_;
     std::vector<HedgeSurface*> associated_sf_;  // Can be two due to split along
     // seam of closed surface (should be fixed)
     shared_ptr<ImplicitApprox> impl_;

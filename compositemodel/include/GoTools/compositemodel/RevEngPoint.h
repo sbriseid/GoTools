@@ -303,47 +303,78 @@ namespace Go
       return spa_;
     }
     
-    void setClassification(int ctype, int c1_edge, int si_type,
-			   int c2_edge, int pca_edge, int ps_type, int rp_edge)
+    void setEdgeClassification(int c1_edge, int c2_edge, int pca_edge, int rp_edge)
     {
       edge_[0] = pca_edge;
       edge_[1] = c1_edge;
       edge_[2] = c2_edge;
       edge_[3] = rp_edge;
+    }
+
+    void setClassification(int ctype, int si_type, int ps_type)
+    {
       surf_[0] = PCA_UNDEF;
       surf_[1] = ctype;
       surf_[2] = si_type;
       surf_[3] = ps_type;
     }
 
-    bool isEdge()
+    bool isEdge(int edge_class_type)
     {
-      return (edge_[2] == C2_EDGE);
+      if (edge_class_type == 1)
+	return (edge_[0] == PCA_EDGE);
+      else if  (edge_class_type == 2)
+	return (edge_[1] == C1_EDGE);
+      else if  (edge_class_type == 3)
+	return (edge_[2] == C2_EDGE);
+      else if  (edge_class_type == 4)
+	return (edge_[3] == RP_EDGE);
+      else
+	return false;
       // return (edge_[0] == PCA_EDGE || edge_[1] == C1_EDGE ||
       // 	      edge_[2] == C2_EDGE);
     }
 
-    bool closeEdge()
+    bool closeEdge(int edge_class_type)
     {
-      return (edge_[2] >= C2_CLOSE_EDGE);
+      if (edge_class_type == 1)
+	return (edge_[0] >= PCA_CLOSE_EDGE);
+      else if  (edge_class_type == 2)
+	return (edge_[1] >= C1_CLOSE_EDGE);
+      else if  (edge_class_type == 3)
+	return (edge_[2] >= C2_CLOSE_EDGE);
+      else if  (edge_class_type == 4)
+	return (edge_[3] >= RP_CLOSE_EDGE);
+      else
+	return false;
       // return (edge_[0] >= PCA_CLOSE_EDGE || edge_[1] >= C1_CLOSE_EDGE ||
       // 	      edge_[2] >= C2_CLOSE_EDGE);
     }
 
-    bool notEdge()
+    bool notEdge(int edge_class_type)
     {
-      return (edge_[2] <= C2_NOT_EDGE);
+      if (edge_class_type == 1)
+	return (edge_[0] <= PCA_NOT_EDGE);
+      else if  (edge_class_type == 2)
+	return (edge_[1] <= C1_NOT_EDGE);
+      else if  (edge_class_type == 3)
+	return (edge_[2] <= C2_NOT_EDGE);
+      else if  (edge_class_type == 4)
+	return (edge_[3] <= RP_NOT_EDGE);
+      else
+	return true;
       // return (edge_[0] <= PCA_NOT_EDGE && edge_[1] <= C1_NOT_EDGE &&
       // 	      edge_[2] <= C2_NOT_EDGE);
     }
 
-    bool isolatedEdge(int nmb, bool close);
+    bool isolatedEdge(int edge_class_type, int nmb, bool close);
 
     void setEdgeUndef()
     {
       edge_[0] = PCA_EDGE_UNDEF;
       edge_[1] = C1_EDGE_UNDEF;
       edge_[2] = C2_EDGE_UNDEF;
+      edge_[3] = RP_EDGE_UNDEF;
     }
 
     double getPointDistance()

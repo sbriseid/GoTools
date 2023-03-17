@@ -42,13 +42,14 @@
 
 #include "GoTools/compositemodel/ftPointSet.h"
 #include "GoTools/compositemodel/SurfaceModel.h"
+#include "GoTools/compositemodel/RevEngRegion.h"
 #include "GoTools/utils/Point.h"
 #include "GoTools/utils/BoundingBox.h"
 
 namespace Go
 {
   class RevEngPoint;
-  class RevEngRegion;
+  //class RevEngRegion;
   class HedgeSurface;
 
   // Elementary surface types to recognize (omitting currently
@@ -97,9 +98,10 @@ namespace Go
       void enhancePoints();
       void enhancePoints2();
 
+    void edgeClassification();
       void classifyPoints();
       
-      void growRegions(int classification_type);
+      void growRegions();
 
       void recognizeElementary();
       
@@ -121,7 +123,103 @@ namespace Go
     void storeGrownRegions(std::ostream& os) const;
     void readGrownRegions(std::istream& is);
     void curvatureFilter();
-      
+
+    double getInitApproxTol();
+    void setApproxTolerance();
+    void setApproxTol(double eps)
+    {
+      approx_tol_= eps;
+    }
+    
+    double getApproxTol()
+    {
+      return approx_tol_;
+    }
+
+    void setEdgeClassificationParams();
+    int getEdgeClassificationType()
+    {
+      return edge_class_type_;
+    }
+    
+    void setEdgeClassificationType(int edge_class_type)
+    {
+      edge_class_type_ = edge_class_type;
+    }
+    
+    double getCfac()
+    {
+      return cfac_;
+    }
+    void setCfac(double cfac)
+    {
+      cfac_ = cfac;
+    }
+
+    double getPCAlim();
+    void setPCAlim(double pca_lim)
+    {
+      pca_lim_ = pca_lim;
+    }
+    
+    double getCnesslim();
+    void setCnesslim(double cness_lim)
+    {
+      cness_lim_ = cness_lim;
+    }
+    
+    double getRPfac()
+    {
+      return rpfac_;
+    }
+    void setRPfac(double rpfac)
+    {
+      rpfac_ = rpfac;
+    }
+    
+    void setClassificationParams();
+    int getClassificationType()
+    {
+      return classification_type_;
+    }
+    void setClassificationType(int classification_type)
+    {
+      classification_type_ = classification_type;
+    }
+
+    double getMeanCurvatureZero()
+    {
+      return zero_H_;
+    }
+
+    void setMeanCurvatureZero(int zero_H)
+    {
+      zero_H_ = zero_H;
+    }
+
+    
+    double getGaussCurvatureZero()
+    {
+      return zero_K_;
+    }
+
+    void setGaussCurvatureZero(int zero_K)
+    {
+      zero_K_ = zero_K;
+    }
+
+    double getShapeIndexZero()
+    {
+      return zero_si_;
+    }
+
+    void setShapeIndexZero(int zero_si)
+    {
+      zero_si_ = zero_si;
+    }
+
+    
+    
 
   private:
     shared_ptr<ftPointSet> tri_sf_;
@@ -137,6 +235,8 @@ namespace Go
     int min_next_;  // Minimum number of neighbouring points
     int max_next_;  // Estimate for maximum number of neighbouring points
     double rfac_;   // Factor for radius in which to search for neighbouring points
+    int edge_class_type_ = CNESS_EDGE;
+    int classification_type_ = CLASSIFICATION_CURVATURE;
     double cfac_;   // Edge points from curvature is given by
     // cfac_ times the average length of triangulation edges in a vertex
     double pca_lim_; // Limit for edge classification from surface variation
@@ -157,7 +257,6 @@ namespace Go
     double rpfac_, ffac_, sfac_;
 
     void initParameters();
-    void setClassificationParams();
     void growSurface(size_t& ix);
     void mergeSurfaces();
     void mergeSplineSurfaces();
