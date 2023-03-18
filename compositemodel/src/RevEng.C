@@ -174,15 +174,18 @@ void RevEng::enhancePoints()
   std::ofstream of01("minc1.g2");
   //std::ofstream of02("minc2.g2");
   std::ofstream of03("maxc1.g2");
-  //std::ofstream of04("maxc2.g2");
-  of01 << "410 1 0 4 200 50 0 255" << std::endl;
-  of01 << nmbpt << std::endl;
-  // of02 << "410 1 0 4 200 50 0 255" << std::endl;
-  // of02 << nmbpt << std::endl;
-  of03 << "410 1 0 4 0 50 200 255" << std::endl;
-  of03 << nmbpt << std::endl;
-  // of04 << "410 1 0 4 0 50 200 255" << std::endl;
-  // of04 << nmbpt << std::endl;
+   if (writepoints) {
+      //std::ofstream of04("maxc2.g2");
+      of01 << "410 1 0 4 200 50 0 255" << std::endl;
+      of01 << nmbpt << std::endl;
+      // of02 << "410 1 0 4 200 50 0 255" << std::endl;
+      // of02 << nmbpt << std::endl;
+      of03 << "410 1 0 4 0 50 200 255" << std::endl;
+      of03 << nmbpt << std::endl;
+      // of04 << "410 1 0 4 0 50 200 255" << std::endl;
+      // of04 << nmbpt << std::endl;
+  }
+
   for (int ki=0; ki<nmbpt; ++ki)
     {
       RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]);
@@ -364,12 +367,15 @@ void RevEng::enhancePoints()
   std::ofstream of("triangnorm.g2");
   std::ofstream ofM("Mongenorm.g2");
   std::ofstream ofP("PCAnorm.g2");
-  of << "410 1 0 4 0 0 255 255" << std::endl;
-  of << nmbpt << std::endl;
-  ofM << "410 1 0 4 255 0 0 255" << std::endl;
-  ofM << nmbpt << std::endl;
-  ofP << "410 1 0 4 0 200 55 255" << std::endl;
-  ofP << nmbpt << std::endl;
+  int write_file = 0;
+  if (write_file) {
+      of << "410 1 0 4 0 0 255 255" << std::endl;
+      of << nmbpt << std::endl;
+      ofM << "410 1 0 4 255 0 0 255" << std::endl;
+      ofM << nmbpt << std::endl;
+      ofP << "410 1 0 4 0 200 55 255" << std::endl;
+      ofP << nmbpt << std::endl;
+  }
   // of01 << "410 1 0 4 0 0 255 255" << std::endl;
   // of01 << nmbpt << std::endl;
   // of03 << "410 1 0 4 0 255 0 255" << std::endl;
@@ -384,19 +390,27 @@ void RevEng::enhancePoints()
       double avlen = pt->getMeanEdgLen();
 
       double fac = (pt->nmbMonge() == 0) ? 0.0 : 5.0;
-      of01 << xyz2 << " " << xyz2+fac*avlen*minc << std::endl;
-      of03 << xyz2 << " " << xyz2+fac*avlen*maxc << std::endl;
+      if (writepoints) {
+          of01 << xyz2 << " " << xyz2+fac*avlen*minc << std::endl;
+          of03 << xyz2 << " " << xyz2+fac*avlen*maxc << std::endl;
+      }
 
       Point norm = pt->getTriangNormal();
       double ang = pt->getTriangAngle();
-      of << xyz2 << " " << xyz2+5.0*avlen*norm << std::endl;
+      if (write_file) {
+          of << xyz2 << " " << xyz2+5.0*avlen*norm << std::endl;
+      }
       if (pt->getTriangAngle() > norm_ang_lim_)
 	triangcorners.push_back(xyz);
       Point Mnorm = pt->getMongeNormal();
-      ofM << xyz2 << " " << xyz2+5.0*avlen*Mnorm << std::endl;
+      if (write_file) {
+          ofM << xyz2 << " " << xyz2+5.0*avlen*Mnorm << std::endl;
+      }
 
       Point Pnorm = pt->getPCANormal();
-      ofP << xyz2 << " " << xyz2+5.0*avlen*Pnorm << std::endl;
+      if (write_file) {
+          ofP << xyz2 << " " << xyz2+5.0*avlen*Pnorm << std::endl;
+      }
 
       if (pt->isOutlier())
 	continue;
@@ -422,41 +436,43 @@ void RevEng::enhancePoints()
 	Rpcorners.push_back(xyz);
     }
 
-  std::ofstream of2("triangcorners.g2");
-  of2 << "400 1 0 4 0 0 0 255" << std::endl;
-  of2 << triangcorners.size() << std::endl;
-  for (size_t kj=0; kj<triangcorners.size(); ++kj)
-    of2 << triangcorners[kj] << std::endl;
+  if (write_file) {
+      std::ofstream of2("triangcorners.g2");
+      of2 << "400 1 0 4 0 0 0 255" << std::endl;
+      of2 << triangcorners.size() << std::endl;
+      for (size_t kj=0; kj<triangcorners.size(); ++kj)
+          of2 << triangcorners[kj] << std::endl;
 
-  std::ofstream of3("curvaturecorners.g2");
-  of3 << "400 1 0 4 10 10 10 255" << std::endl;
-  of3 << curvaturecorners.size() << std::endl;
-  for (size_t kj=0; kj<curvaturecorners.size(); ++kj)
-    of3 << curvaturecorners[kj] << std::endl;
+      std::ofstream of3("curvaturecorners.g2");
+      of3 << "400 1 0 4 10 10 10 255" << std::endl;
+      of3 << curvaturecorners.size() << std::endl;
+      for (size_t kj=0; kj<curvaturecorners.size(); ++kj)
+          of3 << curvaturecorners[kj] << std::endl;
 
-  std::ofstream of5("smoothnesscorners.g2");
-  of5 << "400 1 0 4 10 10 10 255" << std::endl;
-  of5 << smoothnesscorners.size() << std::endl;
-  for (size_t kj=0; kj<smoothnesscorners.size(); ++kj)
-    of5 << smoothnesscorners[kj] << std::endl;
+      std::ofstream of5("smoothnesscorners.g2");
+      of5 << "400 1 0 4 10 10 10 255" << std::endl;
+      of5 << smoothnesscorners.size() << std::endl;
+      for (size_t kj=0; kj<smoothnesscorners.size(); ++kj)
+          of5 << smoothnesscorners[kj] << std::endl;
 
-  std::ofstream of6("PCAcorners.g2");
-  of6 << "400 1 0 4 10 10 10 255" << std::endl;
-  of6 << PCAcorners.size() << std::endl;
-  for (size_t kj=0; kj<PCAcorners.size(); ++kj)
-    of6 << PCAcorners[kj] << std::endl;
+      std::ofstream of6("PCAcorners.g2");
+      of6 << "400 1 0 4 10 10 10 255" << std::endl;
+      of6 << PCAcorners.size() << std::endl;
+      for (size_t kj=0; kj<PCAcorners.size(); ++kj)
+          of6 << PCAcorners[kj] << std::endl;
 
-  std::ofstream of7("Rpcorners.g2");
-  of7 << "400 1 0 4 10 10 10 255" << std::endl;
-  of7 << Rpcorners.size() << std::endl;
-  for (size_t kj=0; kj<Rpcorners.size(); ++kj)
-    of7 << Rpcorners[kj] << std::endl;
+      std::ofstream of7("Rpcorners.g2");
+      of7 << "400 1 0 4 10 10 10 255" << std::endl;
+      of7 << Rpcorners.size() << std::endl;
+      for (size_t kj=0; kj<Rpcorners.size(); ++kj)
+          of7 << Rpcorners[kj] << std::endl;
 
-  std::ofstream of4("triangplane.g2");
-  of4 << "400 1 0 4 200 0 200 255" << std::endl;
-  of4 << triangplane.size() << std::endl;
-  for (size_t kj=0; kj<triangplane.size(); ++kj)
-    of4 << triangplane[kj] << std::endl;
+      std::ofstream of4("triangplane.g2");
+      of4 << "400 1 0 4 200 0 200 255" << std::endl;
+      of4 << triangplane.size() << std::endl;
+      for (size_t kj=0; kj<triangplane.size(); ++kj)
+          of4 << triangplane[kj] << std::endl;
+  }
 
   double minptdist = std::numeric_limits<double>::max();
   double maxptdist = 0.0;
@@ -482,20 +498,22 @@ void RevEng::enhancePoints()
     std::cout << ptd[ka].size() << ", ";
   std::cout << std::endl;
   
-  std::ofstream ofd("ptdist.g2");
-  for (int ka=0; ka<12; ++ka)
-    {
-      if (ptd[ka].size() > 0)
-	{
-	  ofd << "400 1 0 4 ";
-	  for (int kb=0; kb<3; ++kb)
-	    ofd << colors[ka][kb] << " ";
-	  ofd << " 255" << std::endl;
-	  ofd << ptd[ka].size() << std::endl;
-	  for (size_t kh=0; kh<ptd[ka].size(); ++kh)
-	    ofd << ptd[ka][kh] << std::endl;
-	}
-    }
+  if (write_file) {
+      std::ofstream ofd("ptdist.g2");
+      for (int ka=0; ka<12; ++ka)
+      {
+          if (ptd[ka].size() > 0)
+          {
+              ofd << "400 1 0 4 ";
+              for (int kb=0; kb<3; ++kb)
+                  ofd << colors[ka][kb] << " ";
+              ofd << " 255" << std::endl;
+              ofd << ptd[ka].size() << std::endl;
+              for (size_t kh=0; kh<ptd[ka].size(); ++kh)
+                  ofd << ptd[ka][kh] << std::endl;
+          }
+      }
+  }
   
   std::cout << "Start curvature filter" << std::endl;
   curvatureFilter();
