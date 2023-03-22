@@ -65,6 +65,8 @@ using std::ostream;
 
 typedef MatrixXD<double, 3> Matrix3D;
 
+//#define use_cin;
+
 #define MAX_COLORS 12
 int colors[MAX_COLORS][3] = {
   {255, 0, 0},
@@ -751,21 +753,27 @@ void RevEng::setClassificationParams()
 {
   int class_type = getClassificationType();
   std::cout << "Classification type: " << class_type << std::endl;
+#ifdef use_cin
   std::cout << "New classification type: " << std::endl;
   std::cin >> class_type;
+#endif
   if (class_type == 1 || class_type == 3)
     setClassificationType(class_type);
 
   if (class_type == CLASSIFICATION_CURVATURE)
     {
       double zero_H = getMeanCurvatureZero();
+#ifdef use_cin
       std::cout << "Mean curvature zero limit: " << zero_H << ", give limit: " << std::endl;
       std::cin >> zero_H;
+#endif
       setMeanCurvatureZero(zero_H);
       
       double zero_K = getGaussCurvatureZero();
+#ifdef use_cin
       std::cout << "Gauss curvature zero limit: " << zero_K << ", give limit: " << std::endl;
       std::cin >> zero_K;
+#endif
       setGaussCurvatureZero(zero_K);
     }
   else if (class_type == CLASSIFICATION_POINTASSOCIATION)
@@ -777,8 +785,10 @@ void RevEng::setClassificationParams()
     }
 
   double zero_si = getShapeIndexZero();
+#ifdef use_cin
   std::cout << "Shape index zero limit: " << zero_si << ", give limit: " << std::endl;
   std::cin >> zero_si;
+#endif
   setShapeIndexZero(zero_si);
   
   int nmbpt = tri_sf_->size();
@@ -963,8 +973,10 @@ void RevEng::setEdgeClassificationParams()
 {
   int edge_class_type = getEdgeClassificationType();
   std::cout << "Edge classification type: " << edge_class_type << std::endl;
+#ifdef use_cin
   std::cout << "New classification type: " << std::endl;
   std::cin >> edge_class_type;
+#endif
   if (edge_class_type == CURVATURE_EDGE || edge_class_type == PCATYPE_EDGE ||
       edge_class_type == CNESS_EDGE || edge_class_type == RPFAC_EDGE)
     {
@@ -973,8 +985,10 @@ void RevEng::setEdgeClassificationParams()
 	{
 	  double cfac = getCfac();
 	  std::cout << "Edge classification factor with curvature: " << cfac << std::endl;
+#ifdef use_cin
 	  std::cout << "New classification factor: " << std::endl;
 	  std::cin >> cfac;
+#endif
 	  if (cfac >= 5.0 && cfac <= 10.0)
 	    setCfac(cfac);
 	  
@@ -1001,8 +1015,10 @@ void RevEng::setEdgeClassificationParams()
 	{
 	  double pca_lim = getPCAlim();
 	  std::cout << "Edge classification factor with PCA: " << pca_lim << std::endl;
+#ifdef use_cin
 	  std::cout << "New classification factor: " << std::endl;
 	  std::cin >> pca_lim;
+#endif
 	  setPCAlim(pca_lim);
 	  
 	  vector<Vector3D> pts_v;
@@ -1025,8 +1041,10 @@ void RevEng::setEdgeClassificationParams()
 	{
 	  double cness_lim = getCnesslim();
 	  std::cout << "Edge classification factor with cness: " << cness_lim << std::endl;
+#ifdef use_cin
 	  std::cout << "New classification factor: " << std::endl;
 	  std::cin >> cness_lim;
+#endif
 	  setCnesslim(cness_lim);
 	  
 	  vector<Vector3D> pts_c;
@@ -1049,8 +1067,10 @@ void RevEng::setEdgeClassificationParams()
 	{
 	  double RP_fac = getRPfac();
 	  std::cout << "Edge classification factor with RP: " << RP_fac << std::endl;
+#ifdef use_cin
 	  std::cout << "New classification factor: " << std::endl;
 	  std::cin >> RP_fac;
+#endif
 	  setRPfac(RP_fac);
 	}
     }
@@ -1088,12 +1108,19 @@ double RevEng::getCnesslim()
       double varh = 0.0;
       double hfac = 14.0/(15.0*nmbpts); //6.0/(nmbpts*7.0);
       double curvedness;
-      double curvh;
+      double curvh = 0.0;
       for (int ki=0; ki<nmbpts; ++ki)
 	{
 	  RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
 	  curvedness = pt->getCurvedness();
+          if (fabs(curvedness) > 1.0e10) {
+              std::cout << "WARNING: RevEng::getCnesslim(): Skipping large value: curvedness: " << curvedness << std::endl;
+              continue;
+          }
 	  curvh += hfac*curvedness;
+          // if (fabs(curvh) > 1.0e10) {
+          //     std::cout << "WARNING: Large curvh: hfac: " << hfac << ", curvedness: " << curvedness << std::endl;
+          // }
 	}
       cness_lim_ = curvh;
      }
@@ -1418,8 +1445,10 @@ void RevEng::setApproxTolerance()
 {
   double eps = getInitApproxTol();
   std::cout << "Approx tol: " << eps << std::endl;
+#ifdef use_cin
   std::cout << "New tolerance: " << std::endl;
   std::cin >> eps;
+#endif
   setApproxTol(eps);
 }
 
