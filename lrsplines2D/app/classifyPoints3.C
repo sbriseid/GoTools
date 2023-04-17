@@ -2,6 +2,7 @@
 #include "GoTools/geometry/PointCloud.h"
 #include "GoTools/utils/Array.h"
 #include "GoTools/geometry/ObjectHeader.h"
+#include "GoTools/geometry/FileUtils.h"
 #include "GoTools/lrsplines2D/LRSplineSurface.h"
 #include "GoTools/lrsplines2D/LRApproxApp.h"
 #include <iostream>
@@ -24,12 +25,12 @@ int colors[3][3] = {
 int main(int argc, char *argv[])
 {
   if (argc != 6 && argc != 7) {
-    std::cout << "Usage: surface in (.g2), point cloud (.g2), points_out.g2, max level, nmb _levels, (use projected distance (0/1))" << std::endl;
+    std::cout << "Usage: surface in (.g2), point cloud (.g2, .txt), points_out.g2, max level, nmb _levels, (use projected distance (0/1))" << std::endl;
     return -1;
   }
 
   std::ifstream sfin(argv[1]);
-  std::ifstream ptsin(argv[2]);
+  char* ptsin(argv[2]);
   std::ofstream fileout(argv[3]); 
   
   double max_level = atof(argv[4]);
@@ -40,15 +41,35 @@ int main(int argc, char *argv[])
   if (argc == 7)
     use_proj = atoi(argv[6]);
 
+  char keys[6][8] = {"g2", "txt", "TXT", "xyz", "XYZ", "dat"};
+  int ptstype = FileUtils::fileType(ptsin, keys, 6);
+  if (ptstype < 0)
+    {
+      std::cout << "ERROR: File type not recognized" << std::endl;
+      return 1;
+    }
+  
   ObjectHeader header1;
   header1.read(sfin);
   shared_ptr<LRSplineSurface> sf1(new LRSplineSurface());
   sf1->read(sfin);
 
-  ObjectHeader header2;
-  header2.read(ptsin);
+  std::ifstream is(ptsin);
   PointCloud3D points;
-  points.read(ptsin);
+  if (ptstype == 0)
+    {
+      ObjectHeader header2;
+      header2.read(is);
+      points.read(is);
+    }
+  else
+    {
+      vector<double> data;
+      vector<double> extent(6);   // Limits for points in all coordinates
+      int npt;
+      FileUtils::readTxtPointFile(is, 3, data, npt, extent);
+      points = PointCloud3D(&data[0], npt);
+    }
 
   int nmb_pts = points.numPoints();
   vector<double> data(points.rawData(), points.rawData()+3*nmb_pts);
