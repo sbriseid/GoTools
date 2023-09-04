@@ -192,7 +192,7 @@ namespace Go
       return zero_H_;
     }
 
-    void setMeanCurvatureZero(int zero_H)
+    void setMeanCurvatureZero(double zero_H)
     {
       zero_H_ = zero_H;
     }
@@ -203,7 +203,7 @@ namespace Go
       return zero_K_;
     }
 
-    void setGaussCurvatureZero(int zero_K)
+    void setGaussCurvatureZero(double zero_K)
     {
       zero_K_ = zero_K;
     }
@@ -213,11 +213,20 @@ namespace Go
       return zero_si_;
     }
 
-    void setShapeIndexZero(int zero_si)
+    void setShapeIndexZero(double zero_si)
     {
       zero_si_ = zero_si;
     }
 
+    int getElementaryPreferLevel()
+    {
+      return prefer_elementary_;
+    }
+
+    void setElementaryPreferLevel(int preferlevel)
+    {
+      prefer_elementary_ = preferlevel;
+    }
     
     
 
@@ -256,6 +265,10 @@ namespace Go
     int rpix_;
     double rpfac_, ffac_, sfac_;
 
+    int prefer_elementary_; // 0 = always, 1 = preferred, 2 = best accuracy
+
+    Point dirvec_[3];
+    
     void initParameters();
     void growSurface(size_t& ix);
     void mergeSurfaces();
@@ -305,6 +318,8 @@ namespace Go
     
     void storeParams(std::ostream& os) const;
     void readParams(std::istream& is);
+    
+    void writeRegionStage(std::ostream& of, std::ostream& ofs) const;
   };
 
 } // namespace Go

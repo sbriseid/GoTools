@@ -47,6 +47,8 @@
 #include "GoTools/geometry/Cone.h"
 #include "GoTools/geometry/CurveOnSurface.h"
 #include "GoTools/geometry/BoundedUtils.h"
+#include "GoTools/creators/TrimCrvUtils.h"
+#include "GoTools/creators/TrimUtils.h"
 #include <fstream>
 
 using namespace Go;
@@ -240,7 +242,8 @@ bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double appro
     return false;
   // if (fabs(rad2-rad1) > dlim && fabs(smallrad2-smallrad1) < eps)
   //   return false;
-  if (fabs(rad2-rad1) > std::min(rad1, rad2) && fabs(smallrad2-smallrad1) < eps)
+  if (rad1 >= 0.0 && rad2 >= 0.0 &&
+      fabs(rad2-rad1) > std::min(rad1, rad2) && fabs(smallrad2-smallrad1) < eps)
     return false;
   else if (smallrad1 > 0.0 &&
 	   (rad1 < rad2-smallrad2 || rad1 > rad2+smallrad2 ||
@@ -435,4 +438,160 @@ void HedgeSurface::limitSurf()
     }
 }
 
+//===========================================================================
+void HedgeSurface::trimWithPoints(double aeps)
+//===========================================================================
+{
+  // Extract data points
+  int del = 5;
+  int num_pts = numPoints();
+  vector<double> data(del*num_pts);
+  int num_reg = numRegions();
+  vector<double> extent(2*del);   // Limits for points in all coordinates
+  for (int ki=0, kj=0; ki<num_reg; ++ki)
+    {
+      RevEngRegion *reg = getRegion(ki);
+      int npts = reg->numPoints();
+      for (int kr=0; kr<npts; ++kr, ++kj)
+	{
+	  RevEngPoint *pt = reg->getPoint(kr);
+	  Vector2D uv = pt->getPar();
+	  Vector3D xyz = pt->getPoint();
+	  data[del*kj] = uv[0];
+	  data[del*kj+1] = uv[1];
+	  data[del*kj+2] = xyz[0];
+	  data[del*kj+3] = xyz[1];
+	  data[del*kj+4] = xyz[2];
+	}
+    }
+  for (int kj=0; kj<del; ++kj)
+    extent[2*kj] = extent[2*kj+1] = data[kj];
+  for (int ki=1; ki<num_pts; ++ki)
+    for (int kj=0; kj<del; ++kj)
+      {
+	extent[2*kj] = std::min(extent[2*kj],data[ki*del+kj]);
+	extent[2*kj+1] = std::max(extent[2*kj+1],data[ki*del+kj]);
+      }
+  
+
+  // Rough trimming curve
+  int max_rec = 1;
+  int nmb_div = std::min(num_pts/70, 8); //15;
+
+    // Compute trimming seqence
+  bool only_outer = true;
+  vector<vector<double> > seqs;
+  //TrimUtils trimutil(points2, 1, domain);
+  TrimUtils trimutil(&data[0], num_pts, del-2, &extent[0]);
+  trimutil.computeTrimSeqs(max_rec, nmb_div, seqs, only_outer);
+  
+  // Compute trimming loop
+  // First extract parts of the trimming sequences following iso trim curves
+  double udel, vdel;
+  trimutil.getDomainLengths(udel, vdel);
+
+  int nmb_loops = only_outer ? std::min(1,(int)seqs.size()) : (int)seqs.size();
+  vector<vector<vector<double> > >  all_seqs(nmb_loops);
+  if (nmb_loops == 0)
+    return;
+  for (int kh=0; kh<nmb_loops; ++kh)
+    all_seqs[kh].push_back(seqs[kh]);
+
+  int nmb_match = 4;
+  double tol = 1.0e-5;
+  double eps = std::max(udel, vdel);
+  vector<vector<shared_ptr<CurveOnSurface> > > loop(nmb_loops);
+  for (int kh=0; kh<nmb_loops; ++kh)
+    {
+      for (int kj=0; kj<4; ++kj)
+      	{
+      	  int ix = (kj < 2) ? 0 : 1;
+      	  for (int ki=0; ki<(int)all_seqs[kh].size();)
+      	    {
+      	      vector<vector<double> > split_seqs1 = 
+      		TrimCrvUtils::extractConstParSeqs(all_seqs[kh][ki], ix, 
+      						  extent[kj], nmb_match, 
+      						  tol, eps);
+      	      if (split_seqs1.size() > 1 || split_seqs1[0].size() == 4)
+      		{
+      		  all_seqs[kh].erase(all_seqs[kh].begin()+ki);
+      		  all_seqs[kh].insert(all_seqs[kh].begin()+ki, 
+      				      split_seqs1.begin(), split_seqs1.end());
+      		  ki += (int)split_seqs1.size();
+      		}
+      	      else
+      		++ki;
+      	    }
+      	}
+
+      // Split the remaining sequences from the outer loop in kinks
+      double kink_tol = 5e-01; // 0.1 deg => 5.7 degrees.
+      vector<vector<double> > split_seqs;
+      for (size_t ki=0; ki<all_seqs[kh].size(); ++ki)
+	{
+	  vector<vector<double> > curr_seqs = 
+	    TrimCrvUtils::splitCurvePointsInKinks(all_seqs[kh][ki], kink_tol);
+	  split_seqs.insert(split_seqs.end(), curr_seqs.begin(), curr_seqs.end());
+	}
+
+      // Ensure a closed trimming loop
+      TrimCrvUtils::makeConnectedLoop(split_seqs, tol);
+  
+      // Create trimming curves
+      const int par_dim = 2;
+      const int max_iter = 5;
+      vector<shared_ptr<SplineCurve> > par_cvs;
+      for (size_t ki = 0; ki < split_seqs.size(); ++ki)
+	{
+	  shared_ptr<SplineCurve> spline_cv_appr_2d
+	    (TrimCrvUtils::approximateTrimPts(split_seqs[ki], par_dim, eps, 
+					      max_iter));
+	  par_cvs.push_back(spline_cv_appr_2d);
+	}
+  
+      // The curve should be CCW.
+      // Assume one outer and the rest inner (this is not necessarily true)
+      const double int_tol = 1e-06;
+      vector<shared_ptr<ParamCurve> > par_cvs2(par_cvs.begin(), par_cvs.end());
+      bool loop_is_ccw = LoopUtils::loopIsCCW(par_cvs2, eps, int_tol);
+      if ((kh==0 && !loop_is_ccw) || (kh>0 && loop_is_ccw))
+	{
+	  //MESSAGE("We should change direction of the loop cv!");
+	  for (size_t ki = 0; ki < par_cvs.size(); ++ki)
+	    {
+	      par_cvs[ki]->reverseParameterDirection();
+	    }
+	  reverse(par_cvs.begin(), par_cvs.end());
+	}
+      loop[kh].resize(par_cvs.size());
+      for (size_t ki = 0; ki < par_cvs.size(); ++ki)
+	{
+	  loop[kh][ki] =
+	    shared_ptr<CurveOnSurface>(new CurveOnSurface(surface(), par_cvs[ki], true));
+	}
+    }
+
+  std::ofstream fileout("trimcrvs.g2");
+  for (size_t kh=0; kh<loop.size(); ++kh)
+    {
+      for (size_t kr=0; kr<loop[kh].size(); ++kr)
+	{
+	  loop[kh][kr]->parameterCurve()->writeStandardHeader(fileout);
+	  loop[kh][kr]->parameterCurve()->write(fileout);
+	}
+    }
+  if (del != 3)
+    {
+      fileout << "400 1 0 0" << std::endl;
+      fileout << num_pts << std::endl;
+      for (int ka=0; ka<num_pts; ++ka)
+	{
+	  fileout << data[ka*del] << " " << data[ka*del+1] << " 0.0" << std::endl;
+	}
+    }
+  shared_ptr<BoundedSurface> bdsf(new BoundedSurface(surface(), loop, aeps));
+  replaceSurf(bdsf);
+
+  int stop_break = 1;
+}
 

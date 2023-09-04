@@ -170,6 +170,7 @@ public:
 	      double tol,
 	      std::vector<shared_ptr<HedgeSurface> >& added_sfs);
   void limitSurf();
+  void trimWithPoints(double aeps);
 
 private:
   std::vector<RevEngRegion*> regions_;

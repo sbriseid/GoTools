@@ -92,6 +92,7 @@ ApproxSurf::ApproxSurf()
   mba_ = false;
   c1fac1_ = 0.0;
   c1fac2_ = 0.0;
+  acc_criter_ =  ACCURACY_MAXDIST;
 }
 
 //***************************************************************************
@@ -133,6 +134,7 @@ ApproxSurf::ApproxSurf(std::vector<shared_ptr<SplineCurve> >& crvs,
   mba_ = false;
   c1fac1_ = 0.0;
   c1fac2_ = 0.0;
+  acc_criter_ =  ACCURACY_MAXDIST;
 
 
   makeInitSurf(crvs, domain);
@@ -179,6 +181,7 @@ ApproxSurf::ApproxSurf(shared_ptr<SplineSurface>& srf,
   mba_ = false;
   c1fac1_ = 0.0;
   c1fac2_ = 0.0;
+  acc_criter_ =  ACCURACY_MAXDIST;
 
   points_ = points;
   parvals_ = parvals;

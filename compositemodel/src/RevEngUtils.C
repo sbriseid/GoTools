@@ -401,7 +401,7 @@ RevEngUtils::surfApprox(vector<double>& data, int dim, vector<double>& param,
 			int order1, int order2, int ncoef1, int ncoef2,
 			bool close1, bool close2,
 			int max_iter, double tol, double& maxd, double& avd, 
-			int& num_out, double belt_frac)
+			int& num_out, vector<double>& parvals, double belt_frac)
 //===========================================================================
 {
   // Create initial spline space
@@ -485,6 +485,8 @@ RevEngUtils::surfApprox(vector<double>& data, int dim, vector<double>& param,
   double acc_frac = 0.6;
   approx.setAccuracyCrit(1, acc_frac);
  shared_ptr<SplineSurface> surf2 = approx.getApproxSurf(maxd, avd, num_out, max_iter);
+ if (surf2.get())
+   parvals = approx.getParvals();
  return surf2;
 }
 
@@ -834,9 +836,10 @@ void RevEngUtils::computeAxis(vector<pair<vector<RevEngPoint*>::iterator,
 	      {
 		RevEngPoint *pt = *it;
 		Point norm1 = pt->getMongeNormal();
-		Point norm = pt->getMongeNormal();
 		Point norm2 = pt->getTriangNormal();
+		Point norm = 0.5*(norm1 + norm2);
 		Cmat[ka][kb] += norm[ka]*norm[kb];
+		//Cmat[ka][kb] += norm2[ka]*norm2[kb];
 	      }
 	  }
     }
@@ -1218,6 +1221,7 @@ void RevEngUtils::computeCylPosRadius(vector<pair<vector<RevEngPoint*>::iterator
     {
       numpt += (points[ki].second - points[ki].first);
     }
+  Point mid = 0.5*(low+high);
   
   vector<vector<double> > A1(numpt);
   vector<double> b1(numpt);
@@ -1240,6 +1244,7 @@ void RevEngUtils::computeCylPosRadius(vector<pair<vector<RevEngPoint*>::iterator
 	{
 	  Vector3D curr = (*it)->getPoint();
 	  Point curr2(curr[0], curr[1], curr[2]);
+	  curr2 -= mid;
 	  double pxy[3];
 	  double px = curr2*Cx;
 	  double py = curr2*Cy;
@@ -1297,10 +1302,10 @@ void RevEngUtils::computeCylPosRadius(vector<pair<vector<RevEngPoint*>::iterator
   double r2 = bx[2]/detA;
 
   Point pos2 = sx*Cx + sy*Cy;
+  pos2 += mid;
 
   radius = (r2 + sx*sx + sy*sy < 0.0) ? 0.0 : sqrt(r2 + sx*sx + sy*sy);
   double len = low.dist(high);
-  Point mid = 0.5*(low + high);
   Point vec = mid - pos2;
   Point ax = axis;
   ax.normalize();
@@ -1318,6 +1323,7 @@ void RevEngUtils::computeCircPosRadius(vector<Point>& points,
   double Amat[3][3];
   double bvec[3];
   size_t numpt = points.size();
+  double wgt = 1.0/(double)numpt;
   
   vector<vector<double> > A1(numpt);
   vector<double> b1(numpt);
@@ -1331,14 +1337,15 @@ void RevEngUtils::computeCircPosRadius(vector<Point>& points,
       bvec[ka] = 0.0;
     }
 
-  double wgt = 1.0/(double)points.size();
   Point mid(0.0, 0.0, 0.0);
   for (size_t ki=0; ki<points.size(); ++ki)
-    {
       mid += wgt*points[ki];
+  
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
       double pxy[3];
-      double px = points[ki]*Cx;
-      double py = points[ki]*Cy;
+      double px = (points[ki]-mid)*Cx;
+      double py = (points[ki]-mid)*Cy;
       pxy[0] = 2*px;
       pxy[1] = 2*py;
       pxy[2] = 1.0;
@@ -1396,6 +1403,7 @@ void RevEngUtils::computeCircPosRadius(vector<Point>& points,
   double r2 = bx[2]/detA;
 
   pos = sx*Cx + sy*Cy;
+  pos += mid;
   pos -= ((pos-mid)*axis)*axis;
 
   radius = (r2 + sx*sx + sy*sy < 0.0) ? 0.0 : sqrt(r2 + sx*sx + sy*sy);
@@ -1411,6 +1419,7 @@ void RevEngUtils::computeRadius(vector<Point>& points, Point& axis,
   double Amat[3][3];
   double bvec[3];
   size_t numpt = points.size();
+  double wgt = 1.0/numpt;
   
   vector<vector<double> > A1(numpt);
   vector<double> b1(numpt);
@@ -1424,11 +1433,15 @@ void RevEngUtils::computeRadius(vector<Point>& points, Point& axis,
       bvec[ka] = 0.0;
     }
 
+  Point mid(0.0, 0.0, 0.0);
+  for (size_t ki=0; ki<points.size(); ++ki)
+      mid += wgt*points[ki];
+  
   for (size_t ki=0; ki<points.size(); ++ki)
     {
       double pxy[3];
-      double px = points[ki]*Cx;
-      double py = points[ki]*Cy;
+      double px = (points[ki]-mid)*Cx;
+      double py = (points[ki]-mid)*Cy;
       pxy[0] = 2*px;
       pxy[1] = 2*py;
       pxy[2] = 1.0;

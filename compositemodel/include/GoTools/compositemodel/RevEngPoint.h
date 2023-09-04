@@ -387,7 +387,7 @@ namespace Go
       return avdist_;
     }
 
-    int surfaceClassification(int classification_type);
+    int surfaceClassification(int classification_type) const;
     
     void adjustWithTriangNorm(double anglim);
 
@@ -411,6 +411,8 @@ namespace Go
       region_ = 0;
     }
 
+    void adjacentRegions(std::vector<RevEngRegion*>& adj) const;
+
     int C1_surf()
     {
       return surf_[1];
@@ -419,6 +421,11 @@ namespace Go
     int SI_surf()
     {
       return surf_[2];
+    }
+
+    int RP_surf()
+    {
+      return surf_[3];
     }
 
     void setGaussRad(double rad)
@@ -445,6 +452,8 @@ namespace Go
     {
       return outlier_;
     }
+
+    int nmbSameClassification(int classification_type) const;
 
     void setSurfaceDist(double dist, double ang)
     {
@@ -475,6 +484,8 @@ namespace Go
       return nmb_move_;
     }
 
+    bool mergeWithAdjacent(double mean_edge_len);
+    
     void store(std::ostream& os) const;
     void read(std::istream& is, double eps, vector<int>& next_ix);
     

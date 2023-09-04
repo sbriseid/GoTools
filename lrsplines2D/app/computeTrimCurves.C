@@ -40,8 +40,8 @@
 #include "GoTools/geometry/PointCloud.h"
 #include "GoTools/geometry/ObjectHeader.h"
 #include "GoTools/geometry/LoopUtils.h"
-#include "GoTools/lrsplines2D/TrimCrvUtils.h"
-#include "GoTools/lrsplines2D/TrimUtils.h"
+#include "GoTools/creators/TrimCrvUtils.h"
+#include "GoTools/creators/TrimUtils.h"
 #include "GoTools/geometry/FileUtils.h"
 #include "GoTools/geometry/SplineDebugUtils.h"
 #include <iostream>
@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
 	}
     }
 
-  if (argc != 4 && argc != 5)
+  if (argc != 4 && argc != 5 && argc != 6)
     {
       std::cout << "ERROR: Number of parameters is not correct" << std::endl;
       print_help_text();
@@ -95,8 +95,11 @@ int main(int argc, char* argv[])
   int tightness = atoi(argv[2]);
   std::ofstream fileout(argv[3]);
   int nmb_div = -1;
-  if (argc == 5)
+  if (argc >= 5)
     nmb_div = atoi(argv[4]);
+  int del = 3;
+  if (argc == 6)
+    del = atoi(argv[5]);
 
 
   // Read point cloud
@@ -142,7 +145,7 @@ int main(int argc, char* argv[])
       std::cout << "Range: " << extent[4] << " - " << extent[5] << std::endl;
     }
   else
-    FileUtils::readTxtPointFile(pointsin, 3, data, nmb_pts, extent);
+    FileUtils::readTxtPointFile(pointsin, del, data, nmb_pts, extent);
 
   // Set parameters for computations of trimming sequence
   int max_rec;
@@ -170,7 +173,7 @@ int main(int argc, char* argv[])
   bool only_outer = true;
   vector<vector<double> > seqs;
   //TrimUtils trimutil(points2, 1, domain);
-  TrimUtils trimutil(&data[0], nmb_pts, 1, &extent[0]);
+  TrimUtils trimutil(&data[0], nmb_pts, del-2, &extent[0]);
   trimutil.computeTrimSeqs(max_rec, nmb_div, seqs, only_outer);
   
   double udel, vdel;
@@ -265,6 +268,15 @@ int main(int argc, char* argv[])
 	{
 	  loop[kh][kr]->writeStandardHeader(fileout);
 	  loop[kh][kr]->write(fileout);
+	}
+    }
+  if (del != 3)
+    {
+      fileout << "400 1 0 0" << std::endl;
+      fileout << nmb_pts << std::endl;
+      for (int ka=0; ka<nmb_pts; ++ka)
+	{
+	  fileout << data[ka*del] << " " << data[ka*del+1] << " 0.0" << std::endl;
 	}
     }
 

@@ -73,7 +73,9 @@ namespace Go {
 					 int order2, int nmb_coef1, int nmb_coef2,
 					 bool close1, bool close2,
 					 int max_iter, double tol, double& maxd, 
-					 double& avd, int& num_out, double del=0.0);
+					 double& avd, int& num_out,
+					 std::vector<double>& parvals,
+					 double del=0.0);
     
     shared_ptr<SplineSurface> surfApprox(std::vector<double>& data, int dim,
 					 std::vector<double>& param, int order1,

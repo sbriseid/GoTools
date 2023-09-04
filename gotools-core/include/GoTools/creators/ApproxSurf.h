@@ -235,6 +235,11 @@ class ApproxSurf
     /// match against the current surface.
     int reParam();
 
+  std::vector<double> getParvals()
+  {
+    return parvals_;
+  }
+
     /// Check whether or not the spline space will be refined during 
     /// the approximation iterations
     bool getDoRefine()

@@ -53,7 +53,7 @@
 #include <boost/timer.hpp>
 #include <time.h>
 
-//#define DEBUG
+#define DEBUG
 //#define DEBUG_EL
 //#define DEBUG2
 

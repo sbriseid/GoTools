@@ -281,7 +281,7 @@ void DirectionCone::addUnionWith(const DirectionCone& cone)
 void DirectionCone::check_angle() const
 //===========================================================================
 {
-    ALWAYS_ERROR_IF(angle_ < 0.0, "Check failed -- negative angle.");
+  //ALWAYS_ERROR_IF(angle_ < 0.0, "Check failed -- negative angle.");
 
     if (angle_ <= M_PI + zero_tol_) 
 	greater_than_pi_ = 0;

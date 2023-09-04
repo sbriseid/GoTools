@@ -71,6 +71,12 @@ namespace Go
      TRIANGULATION_EDGE, PCATYPE_EDGE, CURVATURE_EDGE, CNESS_EDGE, RPFAC_EDGE
     };
 
+  // Preference for elementary. Level
+  enum
+    {
+     ALWAYS_ELEM, PREFER_ELEM, BEST_ACCURACY
+    };
+  
   struct SweepData
   {
     int type_;  // Linear = 1, rotational = 2
@@ -108,7 +114,7 @@ namespace Go
 
     ~RevEngRegion();
     
-     int getClassification()
+     int getClassificationType()
     {
       return classification_type_;
     }
@@ -176,8 +182,14 @@ namespace Go
 		      std::vector<HedgeSurface*>& adj_surfs);
 
     void
+    peelOffRegions(double tol,
+		   std::vector<shared_ptr<RevEngRegion> >& added_groups,
+		   std::vector<RevEngPoint*>& single_pts);
+    
+    void
     splitComposedRegions(int classtype,
-			 std::vector<shared_ptr<RevEngRegion> >& added_groups);
+			 std::vector<shared_ptr<RevEngRegion> >& added_groups,
+			 std::vector<RevEngPoint*>& single_pts);
     
     void
     splitWithShapeIndex(std::vector<shared_ptr<RevEngRegion> >& updated_regions);
@@ -197,6 +209,26 @@ namespace Go
     void extractOutPoints(std::vector<std::pair<double, double> >& dist_ang,
 			  double tol,
 			  std::vector<std::vector<RevEngPoint*> >& out_groups);
+
+     void extractAngPoints(std::vector<std::pair<double, double> >& dist_ang,
+			  double tol,
+			  std::vector<std::vector<RevEngPoint*> >& out_groups);
+
+   void extractSpesPoints(std::vector<RevEngPoint*>& move,
+			   std::vector<std::vector<RevEngPoint*> >& out_groups,
+			   bool outer=false);
+    
+    int getClassification()
+    {
+      if (classification_type_ == CLASSIFICATION_CURVATURE)
+	return group_points_[0]->C1_surf();
+      else if (classification_type_ == CLASSIFICATION_SHAPEINDEX)
+	return group_points_[0]->SI_surf();
+      else if (classification_type_ == CLASSIFICATION_POINTASSOCIATION)
+	return group_points_[0]->RP_surf();
+      else
+	return -1;
+    }
     
    bool cylindertype()
     {
@@ -221,6 +253,7 @@ namespace Go
     }
     
     bool extractPlane(double tol, int min_pt, double angtol,
+		      int prefer_elementary_,
 		      std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		      std::vector<HedgeSurface*>& prevsfs,
 		      std::vector<std::vector<RevEngPoint*> >& out_groups,
@@ -228,25 +261,30 @@ namespace Go
 
     bool extractCylinder(double tol, int min_pt, double angtol,
 			 double mean_edge_len,
+			 int prefer_elementary_,
 			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 			 std::vector<HedgeSurface*>& prevsfs,
 			 std::vector<std::vector<RevEngPoint*> >& out_groups,
+			 bool& repeat,
 			 std::ostream& fileout);
 
     bool extractSphere(double tol, int min_pt, double angtol,
 		       double mean_edge_len,
+		       int prefer_elementary_,
 		       std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		       std::vector<HedgeSurface*>& prevsfs,
 		       std::vector<std::vector<RevEngPoint*> >& out_groups,
 		       std::ostream& fileout);
 
     bool extractLinearSweep(double tol, int min_pt, double angtol,
+			    int prefer_elementary_,
 			    std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 			    std::vector<HedgeSurface*>& prevsfs,
 			    std::ostream& fileout);
 
     bool extractCone(double tol, int min_pt, double angtol,
 		     double mean_edge_len,
+		     int prefer_elementary_,
 		     std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		     std::vector<HedgeSurface*>& prevsfs,
 		     std::vector<std::vector<RevEngPoint*> >& out_groups,
@@ -254,13 +292,17 @@ namespace Go
 
     bool extractTorus(double tol, int min_pt, double angtol,
 		      double mean_edge_len,
+		      int prefer_elementary_,
 		      std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		      std::vector<HedgeSurface*>& prevsfs,
 		      std::vector<std::vector<RevEngPoint*> >& out_groups,
 		      std::ostream& fileout);
 
+    bool tryOtherSurf(int prefer_elementary_);
+    
     bool extractFreeform(double tol, int min_pt, double angtol,
 			 double mean_edge_len,
+			 int prefer_elementary_,
 			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 			 std::vector<HedgeSurface*>& prevsfs,
 			 std::vector<std::vector<RevEngPoint*> >& out_groups,
@@ -306,19 +348,27 @@ namespace Go
       mink2 = mink2_;
       maxk2 = maxk2_;
     }
-    
-    void setAccuracy(double maxdist, double avdist, int num_inside)
+
+    void getAvCurvatureInfo(double& avH, double& avK, double& MAH, double& MAK)
     {
-      maxdist_ = maxdist;
-      avdist_ = avdist;
-      num_inside_ = num_inside;
+      avH = avH_;
+      avK = avK_;
+      MAH = MAH_;
+      MAK = MAK_;
     }
+    
+    void setAccuracy(double maxdist, double avdist, int num_inside);
 
     void getAccuracy(double& maxdist, double& avdist, int& num_inside)
     {
       maxdist = maxdist_;
       avdist = avdist_;
       num_inside = num_inside_;
+    }
+
+    double getVariance()
+    {
+      return variance_;
     }
 
     double getMaxSfDist()
@@ -360,8 +410,13 @@ namespace Go
 
     bool integrateInAdjacent(double mean_edge_len, int min_next,
 			     int max_next, double tol, double angtol,
-			     int max_nmb_outlier);
+			     int max_nmb_outlier, RevEngRegion* taboo=0);
 
+    bool adjustWithCylinder(double tol, double angtol,
+			    std::vector<std::vector<RevEngPoint*> >& out_groups,
+			    std::vector<RevEngRegion*>& grown_regions,
+			    std::vector<HedgeSurface*>& adj_surfs);
+    
     void addAdjacentRegion(RevEngRegion* adj_reg)
     {
       //adj_reg->addAdjacentRegion(this);
@@ -371,7 +426,10 @@ namespace Go
     void removeAdjacentRegion(RevEngRegion* adj_reg)
     {
       //adj_reg->removeAdjacentRegion(this);
-      adjacent_regions_.erase(adj_reg);
+      if (std::find(adjacent_regions_.begin(), adjacent_regions_.end(), adj_reg) != adjacent_regions_.end())
+	adjacent_regions_.erase(adj_reg);
+      else
+	std::cout <<"Something wrong in adjacent regions" << std::endl;
     }
     
     void clearRegionAdjacency()
@@ -382,6 +440,11 @@ namespace Go
     bool hasAdjacentRegion(RevEngRegion* adj_reg)
     {
       return (adjacent_regions_.find(adj_reg) != adjacent_regions_.end());
+    }
+
+    void setPreviousReg(RevEngRegion *prev)
+    {
+      prev_region_ = prev;
     }
     
     void adjustWithSurf(double tol, double angtol);
@@ -453,11 +516,13 @@ namespace Go
     // seam of closed surface (should be fixed)
     shared_ptr<ImplicitApprox> impl_;
     double mink1_, maxk1_, mink2_, maxk2_;
+    double avH_, avK_, MAH_, MAK_;
     BoundingBox bbox_;
     DirectionCone normalcone_;
-    double maxdist_, avdist_;
+    double maxdist_, avdist_, variance_;
     int num_inside_;
     std::set<RevEngRegion*> adjacent_regions_;
+    RevEngRegion* prev_region_;
     shared_ptr<ParamSurface> basesf_;
     double maxdist_base_, avdist_base_;
     int num_in_base_;
@@ -480,14 +545,21 @@ namespace Go
 				   std::vector<RevEngPoint*> out);
     void  curveApprox(std::vector<Point>& points, double tol,
 		      shared_ptr<Circle> circle,
+		      std::vector<double>& param,
 		      shared_ptr<SplineCurve>& curve, Point& xpos);
     void  curveApprox(std::vector<Point>& points,
 		      shared_ptr<ParamCurve> cvin,
 		      int ik, int in, 
 		      shared_ptr<SplineCurve>& curve);
+    void configSplit(std::vector<RevEngPoint*>& points,
+		     std::vector<double>& param,
+		     shared_ptr<Cylinder> cyl,
+		     shared_ptr<SplineCurve> spl, double tol,
+		     std::vector<std::vector<RevEngPoint*> >& configs);
     shared_ptr<Plane> computePlane(std::vector<RevEngPoint*>& points);
-    shared_ptr<Cylinder> computeCylinder(std::vector<RevEngPoint*>& points,
-					 double tol);
+    shared_ptr<Cylinder>
+    computeCylinder(std::vector<RevEngPoint*>& points, double tol,
+		    std::vector<std::vector<RevEngPoint*> >& configs);
     shared_ptr<Sphere> computeSphere(std::vector<RevEngPoint*>& points);
     shared_ptr<Cone> computeCone(std::vector<RevEngPoint*>& points, Point& apex);
     shared_ptr<Torus> computeTorus(std::vector<RevEngPoint*>& points,

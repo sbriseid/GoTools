@@ -205,7 +205,7 @@ void RevEngPoint::computeTriangNormal(double lim)
 }
 
 //===========================================================================
-int RevEngPoint::surfaceClassification(int classification_type)
+int RevEngPoint::surfaceClassification(int classification_type) const
 //===========================================================================
 {
   if (classification_type == CLASSIFICATION_CURVATURE)
@@ -310,7 +310,7 @@ void RevEngPoint::fetchClosePoints2(double radius, int min_nmb, int max_nmb,
       if (nearpts.size() == prev_nmb)
 	++nmb_same;
       prev_nmb = nearpts.size();
-      if (nearpts.size() < min_nmb)
+      if (nearpts.size() < min_nmb && nmb_iter < max_iter)
 	{
 	  radius *= std::max(1.1, (double)min_nmb/(double)nearpts.size());
 	  nearpts.clear();
@@ -546,6 +546,40 @@ void RevEngPoint::adjustWithTriangNorm(double anglim)
 }
 
 //===========================================================================
+void RevEngPoint::adjacentRegions(vector<RevEngRegion*>& adj) const
+//===========================================================================
+{
+  for (size_t ki=0; ki<next_.size(); ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>(next_[ki]);
+      if (pt->region_ && pt->region_ != region_)
+	{
+	  size_t kj;
+	  for (kj=0; kj<adj.size(); ++kj)
+	    if (pt->region_ == adj[kj])
+	      break;
+	  if (kj == adj.size())
+	    adj.push_back(pt->region_);
+	}
+    }
+}
+
+//===========================================================================
+int RevEngPoint::nmbSameClassification(int classification_type) const
+//===========================================================================
+{
+  int same = 0;
+  int type = surfaceClassification(classification_type);
+  for (size_t ki=0; ki<next_.size(); ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>(next_[ki]);
+      if (pt->surfaceClassification(classification_type) == type)
+	same++;
+    }
+  return same;
+ }
+
+//===========================================================================
 bool RevEngPoint::isNeighbour(RevEngRegion* reg) const
 //===========================================================================
 {
@@ -555,6 +589,77 @@ bool RevEngPoint::isNeighbour(RevEngRegion* reg) const
       if (pt->region() == reg)
 	return true;
     }
+  return false;
+}
+
+//===========================================================================
+bool RevEngPoint::mergeWithAdjacent(double mean_edge_len)
+//===========================================================================
+{
+  double fac = 10.0;
+  vector<RevEngRegion*> adj_reg;
+  vector<RevEngPoint*> adj_pt;
+  for (size_t ki=0; ki<next_.size(); ++ki)
+    {
+      if (pntDist(next_[ki]) > fac*mean_edge_len)
+	  continue;
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>(next_[ki]);
+      RevEngRegion *curr = pt->region();
+      if (curr)
+	{
+	  size_t kj;
+	  for (kj=0; kj<adj_reg.size(); ++kj)
+	    {
+	      if (adj_reg[kj] == curr)
+		{
+		  if (pntDist(pt) < pntDist(adj_pt[kj]))
+		    adj_pt[kj] = pt;
+		  break;
+		}
+	    }
+	  if (kj == adj_reg.size())
+	    {
+	      adj_reg.push_back(curr);
+	      adj_pt.push_back(pt);
+	    }
+	}
+    }
+
+  if (adj_reg.size() == 0)
+    return false;
+
+  double lentol = 2.0*mean_edge_len;
+  double angtol = 0.1*M_PI;
+  int minlen = std::numeric_limits<double>::max();
+  int minix = -1;
+  for (size_t ki=0; ki<adj_pt.size(); ++ki)
+    {
+      double len = pntDist(adj_pt[ki]);
+      if (len > lentol)
+	continue;
+      Point monge = adj_pt[ki]->getMongeNormal();
+      if (Mongenormal_*monge < 0.0 || Mongenormal_.angle(monge) > angtol)
+	continue;
+      int ka;
+      for (ka=1; ka<4; ++ka)
+	if (surf_[ka] == adj_pt[ki]->surf_[ka])
+	  break;
+      if (ka == 4)
+	continue;
+      if (len < minlen)
+	{
+	  minlen = len;
+	  minix = (int)ki;
+	}
+    }
+
+  if (minix >= 0)
+    {
+      adj_reg[minix]->addPoint(this);
+      return true;
+    }
+  
+  int stop_break = 1;
   return false;
 }
 

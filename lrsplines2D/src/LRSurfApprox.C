@@ -63,7 +63,7 @@
 //#define DEBUG
 //#define DEBUG1
 //#define DEBUG2
-//#define DEBUG_SURF
+#define DEBUG_SURF
 //#define DEBUG_DIST
 //#define DEBUG_REFINE
 
