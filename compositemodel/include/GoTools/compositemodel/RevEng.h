@@ -45,6 +45,7 @@
 #include "GoTools/compositemodel/RevEngRegion.h"
 #include "GoTools/utils/Point.h"
 #include "GoTools/utils/BoundingBox.h"
+#include <string.h>
 
 namespace Go
 {
@@ -59,6 +60,12 @@ namespace Go
    PLANE, CYLINDER, SPHERE, CONE, TORUS
   };
 
+  // Characterization of model surface
+  enum
+  {
+   SMOOTH=0, MEDIUM_ROUGH, ROUGH
+  };
+  
   struct SurfaceProperties
   {
     int sfix_;
@@ -90,37 +97,36 @@ namespace Go
     
     RevEng(shared_ptr<ftPointSet> tri_sf, double mean_edge_len);
 
-     ~RevEng();
+    ~RevEng();
 
     // Should this class have an option to run all operations in one
-     // sequence without being started from outside?
+    // sequence without being started from outside?
       
-      void enhancePoints();
-      void enhancePoints2();
+    void enhancePoints();
 
     void edgeClassification();
-      void classifyPoints();
+    void classifyPoints();
       
-      void growRegions();
+    void growRegions();
 
-      void recognizeElementary();
+    void buildSurfaces();
       
-      // void recognizePlanes();
+    // void recognizePlanes();
       
-      // void recognizeCylinders();
+    // void recognizeCylinders();
       
-       void mergePlanes(size_t first, size_t last);
+    void mergePlanes(size_t first, size_t last);
 
     // Could be private
     void mergeCylinders(size_t first, size_t last);
 
-      void trimSurfaces();
+    void trimSurfaces();
 
     shared_ptr<SurfaceModel> createModel();
 
     void storeClassified(std::ostream& os) const;
     void readClassified(std::istream& is);
-    void storeGrownRegions(std::ostream& os) const;
+    void storeGrownRegions(std::ostream& os);
     void readGrownRegions(std::istream& is);
     void curvatureFilter();
 
@@ -228,9 +234,19 @@ namespace Go
       prefer_elementary_ = preferlevel;
     }
     
-    
+    int getModelCharacterization()
+    {
+      return model_character_;
+    }
+
+    void setModelCharacterization(int character)
+    {
+      //model_character_ = std::min(ROUGH, std::max(SMOOTH, character));
+      model_character_ = std::min(2, std::max(0, character));
+    }
 
   private:
+    int model_character_;
     shared_ptr<ftPointSet> tri_sf_;
     double mean_edge_len_;
     std::vector<shared_ptr<RevEngRegion> > regions_;
@@ -244,7 +260,7 @@ namespace Go
     int min_next_;  // Minimum number of neighbouring points
     int max_next_;  // Estimate for maximum number of neighbouring points
     double rfac_;   // Factor for radius in which to search for neighbouring points
-    int edge_class_type_ = CNESS_EDGE;
+    int edge_class_type_ = CURVATURE_EDGE; //CNESS_EDGE;
     int classification_type_ = CLASSIFICATION_CURVATURE;
     double cfac_;   // Edge points from curvature is given by
     // cfac_ times the average length of triangulation edges in a vertex
@@ -270,6 +286,20 @@ namespace Go
     Point dirvec_[3];
     
     void initParameters();
+    void updateParameters();
+    bool recognizeOneSurface(int& ix, int min_point_in, double angtol,
+			     Point mainaxis[3], bool firstpass);
+    void recognizeSurfaces(int min_point_in, bool firstpass);
+    void defineAxis(Point axis[3], bool only_surf=false, int min_num=-1);
+    
+    void surfaceExtractOutput(int idx,
+			      std::vector<std::vector<RevEngPoint*> > out_groups,
+			      std::vector<HedgeSurface*> prev_surfs);
+    void updateRegionsAndSurfaces(size_t& ix, std::vector<RevEngRegion*>& grown_regions,
+				  std::vector<HedgeSurface*>& adj_surfs);
+
+    bool segmentByPlaneGrow(int ix, int min_point_in);
+    bool segmentByContext(int ix, int min_point_in);
     void growSurface(size_t& ix);
     void mergeSurfaces();
     void mergeSplineSurfaces();
@@ -280,23 +310,12 @@ namespace Go
 					    std::vector<size_t>& select_ix,
 					    ClassType type);
     
-    shared_ptr<ParamSurface> doMergePlanes(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
-					   std::vector<RevEngPoint*>::iterator> > points,
-					   const BoundingBox& bbox,
-					   std::vector<int>& nmbpts,
-					   bool set_bound = true);
-    shared_ptr<ParamSurface> doMergeCylinders(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
-					      std::vector<RevEngPoint*>::iterator> > points,
-					      const BoundingBox& bbox,
-					      std::vector<int>& nmbpts,
-					      bool set_bound = true);
-    shared_ptr<ParamSurface> doMergeTorus(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
-					  std::vector<RevEngPoint*>::iterator> > points,
-					  const BoundingBox& bbox,
-					  std::vector<int>& nmbpts);
 
     void adaptToMainAxis();
+    void adaptToMainAxis(Point mainaxis[3]);
+    
     void cylinderFit(std::vector<int>& sf_ix, Point normal);
+    void cylinderFit(std::vector<size_t>& sf_ix, Point mainaxis[3], int ix);
     
     void collectAxis(std::vector<SurfaceProperties>& sfprop);
 
@@ -318,8 +337,10 @@ namespace Go
     
     void storeParams(std::ostream& os) const;
     void readParams(std::istream& is);
+    void setBoundingBox();
     
     void writeRegionStage(std::ostream& of, std::ostream& ofs) const;
+    void checkConsistence(std::string text) const;
   };
 
 } // namespace Go

@@ -38,17 +38,23 @@
  */
 
 #include "GoTools/compositemodel/RevEngUtils.h"
+#include "GoTools/compositemodel/ImplicitApprox.h"
 #include "GoTools/utils/MatrixXD.h"
 #include "GoTools/utils/LUDecomp.h"
 #include "GoTools/creators/SmoothSurf.h"
 #include "GoTools/creators/ApproxSurf.h"
+#include "GoTools/creators/SmoothCurve.h"
+#include "GoTools/creators/ApproxCurve.h"
 #include "GoTools/geometry/SplineSurface.h"
+#include "GoTools/geometry/SplineCurve.h"
 #include "GoTools/geometry/Cylinder.h"
 #include "GoTools/geometry/Cone.h"
 #include "GoTools/geometry/Sphere.h"
 #include "GoTools/geometry/Torus.h"
+#include "GoTools/geometry/Plane.h"
 #include "GoTools/geometry/BoundedSurface.h"
 #include "GoTools/geometry/SISLconversion.h"
+#include "GoTools/geometry/GeometryTools.h"
 #include "sislP.h"
 #include "newmat.h"
 #include "newmatap.h"
@@ -837,7 +843,7 @@ void RevEngUtils::computeAxis(vector<pair<vector<RevEngPoint*>::iterator,
 		RevEngPoint *pt = *it;
 		Point norm1 = pt->getMongeNormal();
 		Point norm2 = pt->getTriangNormal();
-		Point norm = 0.5*(norm1 + norm2);
+		Point norm = norm1; //0.5*(norm1 + norm2);
 		Cmat[ka][kb] += norm[ka]*norm[kb];
 		//Cmat[ka][kb] += norm2[ka]*norm2[kb];
 	      }
@@ -1609,6 +1615,18 @@ void RevEngUtils::computePlane(vector<pair<vector<RevEngPoint*>::iterator,
 }
 
 //===========================================================================
+void RevEngUtils::projectToPlane(vector<RevEngPoint*>& points,
+				 Point& axis, Point& mid, std::vector<Point>& projected,
+				 double& maxdist, double& avdist)
+//===========================================================================
+{
+  vector<pair<vector<RevEngPoint*>::iterator,
+	      vector<RevEngPoint*>::iterator> > points2;
+  points2.push_back(std::make_pair(points.begin(), points.end()));
+  projectToPlane(points2, axis, mid, projected, maxdist, avdist);
+}
+
+//===========================================================================
 void RevEngUtils::projectToPlane(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
 				 std::vector<RevEngPoint*>::iterator> >& points,
 				 Point& axis, Point& mid, std::vector<Point>& projected,
@@ -1810,4 +1828,271 @@ void RevEngUtils::distToCurve(vector<Point>& points,
       ++num;
     }
   avdist /= (double)num;
+}
+
+//===========================================================================
+shared_ptr<ParamSurface> RevEngUtils::doMergePlanes(vector<pair<vector<RevEngPoint*>::iterator,
+						    vector<RevEngPoint*>::iterator> > points,
+						    const BoundingBox& bbox,
+						    vector<int>& nmbpts,
+						    bool set_bound)
+//===========================================================================
+{
+  int totnmb = 0;
+  for (size_t kh=0; kh<nmbpts.size(); ++kh)
+    totnmb += nmbpts[kh];
+  
+  Point pos(0.0, 0.0, 0.0);
+  Point norm(0.0, 0.0, 0.0);
+  vector<RevEngPoint*> all_pts;
+  all_pts.reserve(totnmb);
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      double wgt = 1.0/(double)totnmb;
+
+      for (auto it=points[ki].first; it!=points[ki].second; ++it)
+	{
+	  Point curr = (*it)->getMongeNormal();
+	  Vector3D xyz = (*it)->getPoint();
+	  pos +=  wgt*Point(xyz[0], xyz[1], xyz[2]);
+	  norm += wgt*curr;
+	  all_pts.push_back(*it);
+	}
+    }
+  
+  // Perform approximation with combined point set
+  shared_ptr<ImplicitApprox> impl(new ImplicitApprox());
+  impl->approx(points, 1);
+  Point pos2, normal2;
+  impl->projectPoint(pos, norm, pos2, normal2);
+  // std::ofstream outviz("implsf_merge.g2");
+  // impl->visualize(all_pts, outviz);
+ 
+  shared_ptr<Plane> surf(new Plane(pos2, normal2));
+  Point low = bbox.low();
+  Point high = bbox.high();
+  if (set_bound)
+    {
+      double len = low.dist(high);
+      surf->setParameterBounds(-0.5*len, -0.5*len, 0.5*len, 0.5*len);
+    }
+
+  return surf;
+}
+
+//===========================================================================
+shared_ptr<ParamSurface> RevEngUtils::doMergeCylinders(vector<pair<vector<RevEngPoint*>::iterator,
+						    vector<RevEngPoint*>::iterator> > points,
+						    const BoundingBox& bbox,
+						    vector<int>& nmbpts,
+						    bool set_bound)
+//===========================================================================
+{
+  // Estimate cylinder axis
+  Point axis, Cx, Cy;
+  RevEngUtils::computeAxis(points, axis, Cx, Cy);
+
+  // Estimate radius and point on axis
+  double rad;
+  Point pnt;
+  Point low = bbox.low();
+  Point high = bbox.high();
+  RevEngUtils::computeCylPosRadius(points, low, high,
+				   axis, Cx, Cy, pnt, rad);
+  shared_ptr<Cylinder> surf(new Cylinder(rad, pnt, axis, Cy));
+  if (set_bound)
+    {
+      double len = low.dist(high);
+      surf->setParamBoundsV(-len, len);
+    }
+
+  return surf;
+}
+
+//===========================================================================
+shared_ptr<ParamSurface> RevEngUtils::doMergeSpheres(vector<pair<vector<RevEngPoint*>::iterator,
+						    vector<RevEngPoint*>::iterator> > points,
+						    const BoundingBox& bbox,
+						     vector<int>& nmbpts, Point& normal)
+//===========================================================================
+{
+  Point centre;
+  double radius;
+  try {
+    RevEngUtils::computeSphereProp(points, centre, radius);
+  }
+  catch (...)
+    {
+      shared_ptr<Sphere> dummy;
+      return dummy;
+    }
+
+  int totnmb = 0;
+  for (size_t kh=0; kh<nmbpts.size(); ++kh)
+    totnmb += nmbpts[kh];
+  vector<Point> pnts;
+  pnts.reserve(totnmb);
+  for (size_t ki=0; ki<points.size(); ++ki)
+    for (auto it=points[ki].first; it!=points[ki].second; ++it)
+      {
+	Vector3D xyz = (*it)->getPoint();
+	pnts.push_back(Point(xyz[0], xyz[1], xyz[2]));
+      }
+
+  double eigenvec[3][3];
+  double lambda[3];
+  Point eigen1, eigen2, eigen3;
+  RevEngUtils::principalAnalysis(pnts[0], pnts, lambda, eigenvec);
+  Point z_axis = Point(eigenvec[1][0], eigenvec[1][1], eigenvec[1][2]);
+  Point x_axis = normal.cross(z_axis);
+
+  shared_ptr<Sphere> sph(new Sphere(radius, centre, z_axis, normal));
+
+  return sph;
+}
+
+//===========================================================================
+shared_ptr<ParamSurface> RevEngUtils::doMergeTorus(vector<pair<vector<RevEngPoint*>::iterator,
+						   vector<RevEngPoint*>::iterator> > points,
+						   const BoundingBox& bbox,
+						   vector<int>& nmbpts)
+//===========================================================================
+{
+  shared_ptr<ParamSurface> dummy;
+  
+  int totnmb = 0;
+  for (size_t kh=0; kh<nmbpts.size(); ++kh)
+    totnmb += nmbpts[kh];
+  
+  // Compute mean curvature and initial point in plane
+  double k2mean = 0.0;
+  double wgt = 1.0/(double)totnmb;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      for (auto it=points[ki].first; it!=points[ki].second; ++it)
+	{
+	  double kmax = (*it)->maxPrincipalCurvature();
+	  k2mean += wgt*kmax;
+	}
+    }
+  double rd = 1.0/k2mean;
+  
+  vector<Point> centr(totnmb);
+  Point mid(0.0, 0.0, 0.0);
+  size_t kr = 0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      for (auto it=points[ki].first; it!=points[ki].second; ++it, ++kr)
+	{
+	  Point norm = (*it)->getMongeNormal();
+	  Vector3D xyz = (*it)->getPoint();
+	  Point xyz2(xyz[0], xyz[1], xyz[2]);
+	  centr[kr] = xyz2 + rd*norm;
+	  mid += wgt*centr[kr];
+	}
+    }
+  
+  shared_ptr<ImplicitApprox> impl(new ImplicitApprox());
+  impl->approxPoints(centr, 1);
+
+  double val;
+  Point grad;
+  impl->evaluate(mid, val, grad);
+  grad.normalize_checked();
+  Point pos, normal;
+  impl->projectPoint(mid, grad, pos, normal);
+  double eps1 = 1.0e-8;
+  if (normal.length() < eps1)
+    return dummy;
+  
+  Point Cx = centr[0] - mid;
+  Cx -= (Cx*normal)*normal;
+  Cx.normalize();
+  Point Cy = Cx.cross(normal);
+  
+  double rad;
+  Point pnt;
+  RevEngUtils::computeCircPosRadius(centr, normal, Cx, Cy, pnt, rad);
+  pnt -= ((pnt - pos)*normal)*normal;
+
+  vector<Point> rotated;
+  RevEngUtils::rotateToPlane(points, Cx, normal, pnt, rotated);
+  Point cpos;
+  double crad;
+  RevEngUtils::computeCircPosRadius(rotated, Cy, Cx, normal, cpos, crad);
+  Point cvec = cpos - pnt;
+  double R1 = (cvec - (cvec*normal)*normal).length();
+  double R2 = (cvec*normal)*normal.length();
+ 
+  shared_ptr<Torus> surf(new Torus(R1, crad, pnt+R2*normal, normal, Cy));
+
+  return surf;
+}
+
+
+//===========================================================================
+shared_ptr<SplineCurve> RevEngUtils::midCurve(shared_ptr<SplineCurve>& cv1,
+					      shared_ptr<SplineCurve>& cv2)
+//===========================================================================
+{
+  shared_ptr<SplineCurve> spl1(cv1->clone());
+  shared_ptr<SplineCurve> spl2(cv2->clone());
+
+  // Check orientation
+  Point pt1 = spl1->ParamCurve::point(spl1->startparam());
+  Point pt2 = spl1->ParamCurve::point(spl1->endparam());
+  Point pt3 = spl2->ParamCurve::point(spl2->startparam());
+  Point pt4 = spl2->ParamCurve::point(spl2->endparam());
+  double len1 = pt1.dist(pt3);
+  double len2 = pt1.dist(pt4);
+  if (len2 < len1)
+    spl2->reverseParameterDirection();
+
+  // Ensure same spline room
+  spl2->setParameterInterval(spl1->startparam(), spl1->endparam());
+
+  double tol = 1.0e-4;
+  vector<shared_ptr<SplineCurve> > curves(2);
+  curves[0] = spl1;
+  curves[1] = spl2;
+  GeometryTools::unifyCurveSplineSpace(curves, tol);
+
+  shared_ptr<SplineCurve> midcv = GeometryTools::curveSum(*curves[0], 0.5,
+							  *curves[1], 0.5);
+  return midcv;
+}
+
+
+//===========================================================================
+shared_ptr<SplineCurve> RevEngUtils::createCurve(vector<RevEngPoint*>& points,
+						 int degree, double tol, int maxiter)
+//===========================================================================
+{
+  shared_ptr<SplineCurve> cv;
+  if (points.size() < 2)
+    return cv;
+  
+  // Parameterize curves and fetch data points
+  vector<double> param(points.size(), 0.0);
+  vector<double> pts;
+  pts.reserve(3*points.size());
+  Vector3D prev = points[0]->getPoint();
+  double tmp = 0.0;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      Vector3D xyz = points[ki]->getPoint();
+      pts.insert(pts.end(), xyz.begin(), xyz.end());
+      param[ki] = tmp + prev.dist(xyz);
+      prev = xyz;
+      tmp = param[ki];
+    }
+
+  double smoothwgt = 0.1;
+  ApproxCurve approx(pts, param, 3, tol, degree+1, degree+1);
+  approx.setSmooth(smoothwgt);
+
+  double maxdist, avdist;
+  cv = approx.getApproxCurve(maxdist, avdist, maxiter);
+
+  return cv;
 }

@@ -61,6 +61,8 @@ public:
   // Constructor
   // HedgeSurface();
 
+  HedgeSurface();
+
   HedgeSurface(shared_ptr<ParamSurface> sf, RevEngRegion *region);
 
   HedgeSurface(shared_ptr<ParamSurface> sf, std::vector<RevEngRegion*>& region);
@@ -138,17 +140,19 @@ public:
 
   int numRegions()
   {
-    return regions_.size();
+    return (int)regions_.size();
   }
 
   RevEngRegion* getRegion(int ix)
   {
-    if (ix < 0 || ix >= regions_.size())
+    if (ix < 0 || ix >= (int)regions_.size())
       return 0;
     else
       return regions_[ix];
   }
 
+  void addRegion(RevEngRegion* reg);
+  
   bool removeRegion(RevEngRegion* reg);
   
   BoundingBox regionsBox()
@@ -172,6 +176,9 @@ public:
   void limitSurf();
   void trimWithPoints(double aeps);
 
+  void store(std::ostream& os) const;
+  void read(std::istream& is);
+    
 private:
   std::vector<RevEngRegion*> regions_;
   BoundingBox bbox_;

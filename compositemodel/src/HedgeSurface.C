@@ -49,6 +49,9 @@
 #include "GoTools/geometry/BoundedUtils.h"
 #include "GoTools/creators/TrimCrvUtils.h"
 #include "GoTools/creators/TrimUtils.h"
+#include "GoTools/geometry/Factory.h"
+#include "GoTools/geometry/GoTools.h"
+#include "GoTools/geometry/ObjectHeader.h"
 #include <fstream>
 
 using namespace Go;
@@ -60,6 +63,13 @@ using std::vector;
 // //===========================================================================
 // {
 // }
+
+//===========================================================================
+HedgeSurface::HedgeSurface()
+  : ftSurface()
+//===========================================================================
+{
+}
 
 //===========================================================================
 HedgeSurface::HedgeSurface(shared_ptr<ParamSurface> sf, RevEngRegion *region)
@@ -85,6 +95,7 @@ HedgeSurface::HedgeSurface(shared_ptr<ParamSurface> sf,
     }
   surf_code_ = SURF_TYPE_UNDEF;
 }
+
 
 //===========================================================================
 HedgeSurface::~HedgeSurface()
@@ -417,6 +428,17 @@ bool HedgeSurface::removeRegion(RevEngRegion* reg)
 }
 
 //===========================================================================
+void HedgeSurface::addRegion(RevEngRegion* reg)
+//===========================================================================
+{
+    regions_.push_back(reg);
+    if (bbox_.dimension() == 0)
+      bbox_ = reg->boundingBox();
+    else
+      bbox_.addUnionWith(reg->boundingBox());
+}
+
+//===========================================================================
 void HedgeSurface::limitSurf()
 //===========================================================================
 {
@@ -595,3 +617,46 @@ void HedgeSurface::trimWithPoints(double aeps)
   int stop_break = 1;
 }
 
+//===========================================================================
+void HedgeSurface::store(std::ostream& os) const
+//===========================================================================
+{
+  os << id_ << " " << surf_code_ << std::endl;
+  surf_->writeStandardHeader(os);
+  surf_->write(os);
+  int profile = (profile_.get()) ? 1 : 0;
+  os << profile << std::endl;
+  if (profile_.get())
+    {
+      profile_->writeStandardHeader(os);
+      profile_->write(os);
+      os << sweep1_ << " " << sweep2_ << std::endl;
+    }
+}
+
+//===========================================================================
+void HedgeSurface::read(std::istream& is)
+//===========================================================================
+{
+  GoTools::init();
+  is >> id_ >> surf_code_;
+  ObjectHeader header;
+  header.read(is);
+  shared_ptr<GeomObject> obj(Factory::createObject(header.classType()));
+  obj->read(is);
+  surf_ =  dynamic_pointer_cast<ParamSurface,GeomObject>(obj);
+  int profile;
+  is >> profile;
+  if (profile)
+    {
+      ObjectHeader header2;
+      header2.read(is);
+      shared_ptr<GeomObject> obj2(Factory::createObject(header2.classType()));
+      obj2->read(is);
+      profile_ =  dynamic_pointer_cast<SplineCurve,GeomObject>(obj);
+      sweep1_ = Point(3);
+      sweep1_.read(is);
+      sweep2_ = Point(3);
+      sweep2_.read(is);
+    }
+}

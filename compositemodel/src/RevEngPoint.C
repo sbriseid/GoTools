@@ -73,6 +73,9 @@ RevEngPoint::RevEngPoint()
   sfdist_ = -1.0;
   sfang_ = -1.0;
   nmb_move_ = 0;
+  meancurv0_ = meancurv_ = gausscurv0_ = gausscurv_ = 0.0;
+  sfvariation_ = curvedness_ = 0.0;
+  shapeindex_ = 2.0;
   rp_[0] = rp_[1] = rp_[2] = 0.0;
   fpa_ = spa_ = 0.0;
   edge_[0] = PCA_EDGE_UNDEF;
@@ -111,8 +114,15 @@ RevEngPoint::RevEngPoint(Vector3D xyz, int bnd)
   sfdist_ = -1.0;
   sfang_ = -1.0;
   nmb_move_ = 0;
+  meancurv0_ = meancurv_ = gausscurv0_ = gausscurv_ = 0.0;
+  sfvariation_ = curvedness_ = 0.0;
+  shapeindex_ = 2.0;
   rp_[0] = rp_[1] = rp_[2] = 0.0;
   fpa_ = spa_ = 0.0;
+  edge_[0] = PCA_EDGE_UNDEF;
+  edge_[1] = C1_EDGE_UNDEF;
+  edge_[2] = C2_EDGE_UNDEF;
+  edge_[3] = RP_EDGE_UNDEF;
   surf_[0] = PCA_UNDEF;
   surf_[1] = C1_UNDEF;
   surf_[2] = SI_UNDEF;
@@ -592,13 +602,13 @@ bool RevEngPoint::isNeighbour(RevEngRegion* reg) const
   return false;
 }
 
+
 //===========================================================================
-bool RevEngPoint::mergeWithAdjacent(double mean_edge_len)
+void RevEngPoint::getAdjInfo(double mean_edge_len, vector<RevEngRegion*>& adj_reg,
+			     vector<RevEngPoint*>& adj_pt)
 //===========================================================================
 {
   double fac = 10.0;
-  vector<RevEngRegion*> adj_reg;
-  vector<RevEngPoint*> adj_pt;
   for (size_t ki=0; ki<next_.size(); ++ki)
     {
       if (pntDist(next_[ki]) > fac*mean_edge_len)
@@ -624,6 +634,43 @@ bool RevEngPoint::mergeWithAdjacent(double mean_edge_len)
 	    }
 	}
     }
+}
+
+//===========================================================================
+vector<RevEngRegion*> RevEngPoint::getAdjacentRegions() const
+//===========================================================================
+{
+  vector<RevEngRegion*> adj_reg;
+  for (size_t ki=0; ki<next_.size(); ++ki)
+    {
+      RevEngPoint *pt = dynamic_cast<RevEngPoint*>(next_[ki]);
+      RevEngRegion *curr = pt->region();
+      size_t kj;
+      for (kj=0; kj<adj_reg.size(); ++kj)
+	if (adj_reg[kj] == curr)
+	  break;
+      if (kj == adj_reg.size())
+	adj_reg.push_back(curr);
+    }
+		    
+  return adj_reg;
+}
+
+//===========================================================================
+int RevEngPoint::numAdjacentRegions() const
+//===========================================================================
+{
+  vector<RevEngRegion*> adj_reg = getAdjacentRegions();
+  return (int)adj_reg.size();
+}
+
+//===========================================================================
+bool RevEngPoint::mergeWithAdjacent(double mean_edge_len)
+//===========================================================================
+{
+  vector<RevEngRegion*> adj_reg;
+  vector<RevEngPoint*> adj_pt;
+  getAdjInfo(mean_edge_len, adj_reg, adj_pt);
 
   if (adj_reg.size() == 0)
     return false;
@@ -667,7 +714,7 @@ bool RevEngPoint::mergeWithAdjacent(double mean_edge_len)
 void RevEngPoint::store(std::ostream& os) const
 //===========================================================================
 {
-  os << index_ << " " << xyz_ << std::endl;
+  os << index_ << " " << xyz_ << " " << uv_ << std::endl;
   os << next_.size();
   for (size_t ki=0; ki<next_.size(); ++ki)
     os << " " << next_[ki]->getIndex();
@@ -690,7 +737,7 @@ void RevEngPoint::store(std::ostream& os) const
 void RevEngPoint::read(std::istream& is, double eps, vector<int>& next_ix) 
 //===========================================================================
 {
-  is >> index_ >> xyz_;
+  is >> index_ >> xyz_ >> uv_;
   int nmb_next;
   is >> nmb_next;
   if (nmb_next > 0)

@@ -431,7 +431,7 @@ void CompositeModelFileHandler::writeFaces(std::ostream& os)
                     space_cv->writeStandardHeader(fileout_no_twin);
                     space_cv->write(fileout_no_twin);
                 } else {
-                    std::cout << "The ft_edge is missing the space curve!" << std::endl;
+		  //std::cout << "The ft_edge is missing the space curve!" << std::endl;
                 }
             } else {
                 std::cout << "Not a CurveOnSurface, did not see that one coming!" << std::endl;

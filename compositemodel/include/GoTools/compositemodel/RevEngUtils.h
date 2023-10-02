@@ -44,6 +44,7 @@
 #include "GoTools/compositemodel/RevEngPoint.h"
 #include "GoTools/geometry/ParamSurface.h"
 #include "GoTools/geometry/SplineSurface.h"
+#include "GoTools/geometry/SplineCurve.h"
 #include "GoTools/utils/BoundingBox.h"
 #include <vector>
 
@@ -146,6 +147,10 @@ namespace Go {
 			Point& axis, Point& mid, std::vector<Point>& projected,
 			double& maxdist, double& avdist);
 
+    void projectToPlane(std::vector<RevEngPoint*>& points,
+			Point& axis, Point& mid, std::vector<Point>& projected,
+			double& maxdist, double& avdist);
+
      void rotateToPlane(std::vector<Point>& points,
 			Point& xvec, Point& axis, Point& mid, std::vector<Point>& rotated);
 
@@ -167,6 +172,32 @@ namespace Go {
     void distToCurve(std::vector<Point>& points,
 		    shared_ptr<ParamCurve> curve, double tol,
 		    double& maxdist, double& avdist, int& inside);
+    
+    shared_ptr<ParamSurface> doMergePlanes(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+					   std::vector<RevEngPoint*>::iterator> > points,
+					   const BoundingBox& bbox,
+					   std::vector<int>& nmbpts,
+					   bool set_bound = true);
+    shared_ptr<ParamSurface> doMergeCylinders(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+					      std::vector<RevEngPoint*>::iterator> > points,
+					      const BoundingBox& bbox,
+					      std::vector<int>& nmbpts,
+					      bool set_bound = true);
+    shared_ptr<ParamSurface> doMergeSpheres(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+					    std::vector<RevEngPoint*>::iterator> > points,
+					    const BoundingBox& bbox,
+					    std::vector<int>& nmbpts, Point& normal);
+    
+    shared_ptr<ParamSurface> doMergeTorus(std::vector<std::pair<std::vector<RevEngPoint*>::iterator,
+					  std::vector<RevEngPoint*>::iterator> > points,
+					  const BoundingBox& bbox,
+					  std::vector<int>& nmbpts);
+
+    shared_ptr<SplineCurve> midCurve(shared_ptr<SplineCurve>& cv1,
+				     shared_ptr<SplineCurve>& cv2);
+    
+    shared_ptr<SplineCurve> createCurve(std::vector<RevEngPoint*>& points, int degree,
+					double tol, int maxiter);
   }
   
 } // namespace Go

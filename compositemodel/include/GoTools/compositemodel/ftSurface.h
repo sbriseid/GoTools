@@ -638,7 +638,8 @@ public:
     void replaceSurf(shared_ptr<ParamSurface> sf)
 	{ surf_ = sf;}
 
-private:
+    //private:
+ protected:
     /// Geometric description of the surface associated to this face
     shared_ptr<ParamSurface> surf_;
 

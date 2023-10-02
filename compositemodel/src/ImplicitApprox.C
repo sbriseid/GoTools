@@ -250,6 +250,8 @@ double ImplicitApprox::estimateDist(RevEngPoint* pt)
       if (dd2 < dd)
 	dd = dd2;
     }
+  if (epar) free(epar);
+  if (intcv) freeIntcrvlist(intcv, kcrv);
   return dd; //dist;
 }
 
@@ -333,6 +335,9 @@ void ImplicitApprox::projectPoint(Point point, Point dir,
 	      proj[ka] = pos;
 	    }
 	}
+      if (epar) free(epar);
+      if (intcv) freeIntcrvlist(intcv, kcrv);
+      
     }
   projpos = Point(proj[0][0], proj[0][1], proj[0][2]);
   Point pt2(proj[1][0], proj[1][1], proj[1][2]);
@@ -370,7 +375,7 @@ void ImplicitApprox::visualize(vector<RevEngPoint*> points, std::ostream& os)
   Point zdir(0.0, 0.0, 1.0);
   CompositeModelFactory factory(gap, gap, 10.0*gap, 0.01, 0.05);
   shared_ptr<SurfaceModel> boxmod(factory.createFromBox(low-2.0*diag, xdir, ydir, 
-							5*diag[0], 5*diag[1], 5*diag[2]));
+  							5*diag[0], 5*diag[1], 5*diag[2]));
     
     // Find the coordinate direction with the largest angle with the view direction
     double a1 = xdir.angle(dir);
@@ -415,66 +420,68 @@ void ImplicitApprox::visualize(vector<RevEngPoint*> points, std::ostream& os)
     vector<double> tmpline;
     for (kj=0, p2=0.0; kj<nmb_sample; ++kj, p2+=del)
       {
-	for (ki=0, p1=0.0; ki<nmb_sample; ++ki, p1+=del)
-	  {
-	    // Compute barysentric coordinates of end points of line
-	    // First cartesian
-	    Point sfpos = ssf->ParamSurface::point(p1,p2);
-	    Point cart1 = sfpos + len*dir;
-	    Point cart2 = sfpos - len*dir;
-	    tmpline.insert(tmpline.end(), cart1.begin(), cart1.end());
-	    tmpline.insert(tmpline.end(), cart2.begin(), cart2.end());
+  	for (ki=0, p1=0.0; ki<nmb_sample; ++ki, p1+=del)
+  	  {
+  	    // Compute barysentric coordinates of end points of line
+  	    // First cartesian
+  	    Point sfpos = ssf->ParamSurface::point(p1,p2);
+  	    Point cart1 = sfpos + len*dir;
+  	    Point cart2 = sfpos - len*dir;
+  	    tmpline.insert(tmpline.end(), cart1.begin(), cart1.end());
+  	    tmpline.insert(tmpline.end(), cart2.begin(), cart2.end());
 
-	    Vector4D bary1 = bc_.cartToBary(Vector3D(cart1[0], cart1[1], cart1[2]));
-	    Vector4D bary2 = bc_.cartToBary(Vector3D(cart2[0], cart2[1], cart2[2]));
+  	    Vector4D bary1 = bc_.cartToBary(Vector3D(cart1[0], cart1[1], cart1[2]));
+  	    Vector4D bary2 = bc_.cartToBary(Vector3D(cart2[0], cart2[1], cart2[2]));
 
-	    Vector3D tp1 = bc_.baryToCart(bary1);
-	    Vector3D tp2 = bc_.baryToCart(bary2);
+  	    Vector3D tp1 = bc_.baryToCart(bary1);
+  	    Vector3D tp2 = bc_.baryToCart(bary2);
 	    
-	    // Pick line
-	    BernsteinPoly line = implicit_.pickLine(bary1, bary2);
+  	    // Pick line
+  	    BernsteinPoly line = implicit_.pickLine(bary1, bary2);
 
-	    // Compute zeroes of bernstein polynomial
-	    // First make sisl curve
-	    vector<double> ecoef(line.coefsBegin(), line.coefsEnd());
-	    SISLCurve *qc = newCurve(ik, ik, &et[0], &ecoef[0], 1, 1, 1);
-	    double zero = 0.0;
+  	    // Compute zeroes of bernstein polynomial
+  	    // First make sisl curve
+  	    vector<double> ecoef(line.coefsBegin(), line.coefsEnd());
+  	    SISLCurve *qc = newCurve(ik, ik, &et[0], &ecoef[0], 1, 1, 1);
+  	    double zero = 0.0;
 
-	    // Intersect
-	    double eps = 1.0e-6;
-	    int kstat = 0;
-	    int kcrv=0, kpt=0;
-	    double *epar = 0;
-	    SISLIntcurve **intcv = 0;
-	    if (qc)
-	      s1871(qc, &zero, 1, eps, &kpt, &epar, &kcrv, &intcv, &kstat);
-	    if (qc)
-	      freeCurve(qc);
+  	    // Intersect
+  	    double eps = 1.0e-6;
+  	    int kstat = 0;
+  	    int kcrv=0, kpt=0;
+  	    double *epar = 0;
+  	    SISLIntcurve **intcv = 0;
+  	    if (qc)
+  	      s1871(qc, &zero, 1, eps, &kpt, &epar, &kcrv, &intcv, &kstat);
+  	    if (qc)
+  	      freeCurve(qc);
 
-	    // Compute cartesian points and curves associated with intersections
-	    for (kr=0; kr<kpt; ++kr)
-	      {
-		Vector4D barypt = (1.0 - epar[kr])*bary1 + epar[kr]*bary2;
-		int kb;
-		for (kb=0; kb<4; ++kb)
-		  if (barypt[kb] < -0.001 || barypt[kb] > 1.001)
-		    break;
-		if (kb < 4)
-		  continue;
+  	    // Compute cartesian points and curves associated with intersections
+  	    for (kr=0; kr<kpt; ++kr)
+  	      {
+  		Vector4D barypt = (1.0 - epar[kr])*bary1 + epar[kr]*bary2;
+  		int kb;
+  		for (kb=0; kb<4; ++kb)
+  		  if (barypt[kb] < -0.001 || barypt[kb] > 1.001)
+  		    break;
+  		if (kb < 4)
+  		  continue;
 		
-		Vector3D pos = bc_.baryToCart(barypt);
-		sfpoints.insert(sfpoints.end(), pos.begin(), pos.end());
+  		Vector3D pos = bc_.baryToCart(barypt);
+  		sfpoints.insert(sfpoints.end(), pos.begin(), pos.end());
 
-	      }
-	  }
+  	      }
+	    if (epar) free(epar);
+	    if (intcv) freeIntcrvlist(intcv, kcrv);
+  	  }
       }
     
     // Output
     if (sfpoints.size() > 0)
       {
-	PointCloud3D ptcloud(&sfpoints[0], sfpoints.size()/3);
-	os << "400 1 0 4 255 0 0 255" << std::endl;
-	ptcloud.write(os);
+  	PointCloud3D ptcloud(&sfpoints[0], sfpoints.size()/3);
+  	os << "400 1 0 4 255 0 0 255" << std::endl;
+  	ptcloud.write(os);
       }
 }
 
@@ -595,6 +602,8 @@ void ImplicitApprox::visualize(vector<Point> points, Point& dir, std::ostream& o
 		sfpoints.insert(sfpoints.end(), pos.begin(), pos.end());
 
 	      }
+	    if (epar) free(epar);
+	    if (intcv) freeIntcrvlist(intcv, kcrv);
 	  }
       }
     

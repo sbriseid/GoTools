@@ -484,6 +484,12 @@ namespace Go
       return nmb_move_;
     }
 
+    void getAdjInfo(double mean_edge_len, std::vector<RevEngRegion*>& adj_reg,
+		    std::vector<RevEngPoint*>& adj_pt);
+
+    std::vector<RevEngRegion*> getAdjacentRegions() const;
+    int numAdjacentRegions() const;
+    
     bool mergeWithAdjacent(double mean_edge_len);
     
     void store(std::ostream& os) const;
