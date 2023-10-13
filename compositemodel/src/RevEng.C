@@ -2169,10 +2169,14 @@ void RevEng::buildSurfaces()
   recognizeSurfaces(min_point_in, true);
 
   // Segmentation of composed regions
+  std::cout << "Segment composed regions" << std::endl;
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (!regions_[ki]->hasSurface())
 	{
+	  std::ofstream ofs("region_to_segm.g2");
+	  regions_[ki]->writeRegionInfo(ofs);
+	  
 	  bool segmented = false;
 	  if (regions_[ki]->hasPrimary())
 	    {
@@ -2192,6 +2196,7 @@ void RevEng::buildSurfaces()
 
     }
 
+  std::cout << "Merge adjacent regions" << std::endl;
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->hasSurface())
@@ -2460,14 +2465,25 @@ void RevEng::buildSurfaces()
 			++kj;
 		    }
 		}
-	      for (size_t kr=0; kr<adj_surfs.size(); ++kr)
+	    }
+	  for (size_t kr=0; kr<adj_surfs.size(); ++kr)
+	    {
+	      size_t kj;
+	      for (kj=0; kj<surfaces_.size(); ++kj)
+		if (surfaces_[kj].get() == adj_surfs[kr])
+		  break;
+	      if (kj < surfaces_.size())
+		surfaces_.erase(surfaces_.begin()+kj);
+	    }
+
+	  for (size_t kh=0; kh<surfaces_.size(); ++kh)
+	    {
+	      int numreg = surfaces_[kh]->numRegions();
+	      for (int ka=0; ka<numreg; ++ka)
 		{
-		  size_t kj;
-		  for (kj=0; kj<surfaces_.size(); ++kj)
-		    if (surfaces_[kj].get() == adj_surfs[kr])
-		      break;
-		  if (kj < surfaces_.size())
-		    surfaces_.erase(surfaces_.begin()+kj);
+		  RevEngRegion *reg = surfaces_[kh]->getRegion(ka);
+		  if (reg->hasSurface() == false)
+		    std::cout << "Missing link surface-regions. ki=" << ki << ", kh=" << kh << ", surf: " << surfaces_[ki].get() << ", region: " << reg << std::endl;
 		}
 	    }
 	}
@@ -2861,17 +2877,22 @@ bool RevEng::segmentByContext(int ix, int min_point_in)
   vector<RevEngRegion*> adj_planar = regions_[ix]->fetchAdjacentPlanar();
   bool segmented = regions_[ix]->segmentByPlanarContext(min_point_in, approx_tol_,
 							adj_planar, separate_groups);
-
   if (!segmented)
     {
       // Search for context direction
       double angtol = 0.2;
+
       Point direction = regions_[ix]->directionFromAdjacent(angtol);
       if (direction.dimension() == 3)
 	segmented = regions_[ix]->segmentByDirectionContext(min_point_in, approx_tol_,
 							    direction, angtol,
 							    separate_groups);
-
+      if (segmented && (!regions_[ix]->hasSurface()))
+	{
+	  double angtol = -1.0;
+	  bool found = recognizeOneSurface(ix, min_point_in, angtol, dirvec_, true);
+	  int stop_break = 1;
+	}
     }
   
   if (segmented)
@@ -2898,8 +2919,7 @@ bool RevEng::segmentByContext(int ix, int min_point_in)
       surfaceExtractOutput(ix, separate_groups, prev_surfs);
     }
   
-  
-  int stop_break = 1;
+  return segmented;
 }
 
 //===========================================================================

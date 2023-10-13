@@ -321,7 +321,7 @@ namespace Go
     
     bool
     analyzeTorusContext(std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*> >& adj,
-			double angtol, std::vector<size_t>& adjacent_ix,
+			double tol, double angtol, std::vector<size_t>& adjacent_ix,
 			Point& pos, Point& axis, Point& Cx, double& R1, double& R2);
 
     bool tryOtherSurf(int prefer_elementary_, bool replace);
@@ -739,6 +739,13 @@ namespace Go
 			       int num_inside, std::vector<double>& parvals,
 			       std::vector<std::pair<double, double> >& dist_ang,
 			       std::vector<RevEngRegion*>& added_adjacent);
+
+    bool computeIntegrateInfo(std::vector<RevEngPoint*>& points, RevEngRegion *adj_reg,
+			      double tol, double angtol, double radius, bool local_approx, 
+			      int min_next, int max_next, int max_nmb_outlier, 
+			      bool& outlier, int& nmb_pt_adj, double& maxdist, 
+			      double& avdist, int& nmb_in, double& maxdist_adj, 
+			      double& avdist_adj, int& nmb_in_adj);
   };
 }
 
