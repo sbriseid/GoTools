@@ -314,15 +314,19 @@ namespace Go
 		      std::vector<HedgeSurface*>& prevsfs,
 		      std::vector<std::vector<RevEngPoint*> >& out_groups);
 
+    RevEngPoint* closestPoint(const Point& pos, double& dist);
+
     std::vector<RevEngPoint*> extractNextToAdjacent(RevEngRegion* reg);
 
     void growFromNeighbour(std::vector<RevEngPoint*>& seed, double tol,
 			   RevEngRegion *neighbour);
     
     bool
-    analyzeTorusContext(std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*> >& adj,
+    analyseTorusContext(std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*> >& adj,
 			double tol, double angtol, std::vector<size_t>& adjacent_ix,
-			Point& pos, Point& axis, Point& Cx, double& R1, double& R2);
+			int& plane_ix, int& cyl_ix, Point& pos, Point& axis,
+			Point& Cx, double& R1, double& R2, double cyl_dom[4],
+			bool& outer);
 
     bool tryOtherSurf(int prefer_elementary_, bool replace);
     
@@ -435,6 +439,11 @@ namespace Go
       maxdist = maxdist_;
       avdist = avdist_;
       num_inside = num_inside_;
+    }
+
+    double getAverageDist()
+    {
+      return avdist_;
     }
 
     int getNumInside()
@@ -568,6 +577,11 @@ namespace Go
 
     void adjustWithSurf(double tol, double angtol);
 
+    double getFracNorm()
+    {
+      return frac_norm_in_;
+    }
+    
     bool hasBaseSf()
     {
       return basesf_.get();
@@ -645,6 +659,7 @@ namespace Go
     double avH_, avK_, MAH_, MAK_;
     BoundingBox bbox_;
     DirectionCone normalcone_;
+    double frac_norm_in_;
     Point avnorm_;
     double maxdist_, avdist_, variance_;
     int num_inside_;

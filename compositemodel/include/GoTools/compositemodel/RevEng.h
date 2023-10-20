@@ -106,22 +106,19 @@ namespace Go
 
     void edgeClassification();
     void classifyPoints();
-      
-    void growRegions();
+
+    void segmentIntoRegions();
+
+    void initialSurfaces();
+
+    void updateAxesAndSurfaces();
+
+    void updateRegionStructure();
+
+    void surfaceCreation(int pass);
 
     void buildSurfaces();
       
-    // void recognizePlanes();
-      
-    // void recognizeCylinders();
-      
-    void mergePlanes(size_t first, size_t last);
-
-    // Could be private
-    void mergeCylinders(size_t first, size_t last);
-
-    void trimSurfaces();
-
     shared_ptr<SurfaceModel> createModel();
 
     void storeClassified(std::ostream& os) const;
@@ -245,11 +242,27 @@ namespace Go
       model_character_ = std::min(2, std::max(0, character));
     }
 
+    void setMainAxis(Point mainaxis[3])
+    {
+      mainaxis_[0] = mainaxis[0];
+      mainaxis_[1] = mainaxis[1];
+      mainaxis_[2] = mainaxis[2];
+    }
+
+    void getMainAxis(Point mainaxis[3])
+    {
+      mainaxis[0] = mainaxis_[0];
+      mainaxis[1] = mainaxis_[1];
+      mainaxis[2] = mainaxis_[2];
+    }
+
   private:
     int model_character_;
     shared_ptr<ftPointSet> tri_sf_;
     double mean_edge_len_;
     std::vector<shared_ptr<RevEngRegion> > regions_;
+    std::vector<shared_ptr<RevEngRegion> > regions_extra_;
+    std::vector<RevEngPoint*> single_points_;
     std::vector<shared_ptr<HedgeSurface> > surfaces_;  // I think the 
     // surfaces must be collected here to have a stable storage
     // The surfaces can be freeform as well as primary. The collection
@@ -283,14 +296,20 @@ namespace Go
 
     int prefer_elementary_; // 0 = always, 1 = preferred, 2 = best accuracy
 
-    Point dirvec_[3];
+    Point mainaxis_[3];
     
     void initParameters();
     void updateParameters();
     bool recognizeOneSurface(int& ix, int min_point_in, double angtol,
-			     Point mainaxis[3], bool firstpass);
-    void recognizeSurfaces(int min_point_in, bool firstpass);
+			     Point mainaxis[3], int pass);
+    void recognizeSurfaces(int min_point_in, int pass);
     void defineAxis(Point axis[3], bool only_surf=false, int min_num=-1);
+
+    void computeAxisFromCylinder(Point initaxis[3], int min_num, double max_ang,
+				 Point axis[3], int num_points[3]);
+    
+    void computeAxisFromPlane(Point initaxis[3], int min_num, double max_ang,
+			      Point axis[3], int num_points[3]);
     
     void surfaceExtractOutput(int idx,
 			      std::vector<std::vector<RevEngPoint*> > out_groups,
@@ -299,7 +318,7 @@ namespace Go
 				  std::vector<HedgeSurface*>& adj_surfs);
 
     bool segmentByPlaneGrow(int ix, int min_point_in);
-    bool segmentByContext(int ix, int min_point_in);
+    bool segmentByContext(int ix, int min_point_in, bool first);
     void growSurface(size_t& ix);
     void mergeSurfaces();
     void mergeSplineSurfaces();
@@ -341,6 +360,15 @@ namespace Go
     
     void writeRegionStage(std::ostream& of, std::ostream& ofs) const;
     void checkConsistence(std::string text) const;
+
+    void mergePlanes(size_t first, size_t last);
+
+    // Could be private
+    void mergeCylinders(size_t first, size_t last);
+
+    void trimSurfaces();
+
+
   };
 
 } // namespace Go

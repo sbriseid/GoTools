@@ -39,6 +39,7 @@
 
 #include "GoTools/compositemodel/HedgeSurface.h"
 #include "GoTools/compositemodel/RevEngRegion.h"
+#include "GoTools/compositemodel/RevEngUtils.h"
 #include "GoTools/geometry/ParamSurface.h"
 #include "GoTools/geometry/BoundedSurface.h"
 #include "GoTools/geometry/ElementarySurface.h"
@@ -129,6 +130,129 @@ ClassType HedgeSurface::instanceType(int& code)
   return type;
 }
 
+
+//===========================================================================
+bool HedgeSurface::updateSurfaceWithAxis(Point axis[3], int ix, double tol)
+//===========================================================================
+{
+  bool updated = false;
+  int code = -1;
+  ClassType type = instanceType(code);
+  if (type == Class_Plane)
+    updated = updatePlaneWithAxis(axis, ix, tol);
+  else if (type == Class_Cylinder)
+    updated = updateCylinderWithAxis(axis, ix, tol);
+
+  return updated;
+}
+
+//===========================================================================
+bool HedgeSurface::updatePlaneWithAxis(Point axis[3], int ix, double tol)
+//===========================================================================
+{
+  shared_ptr<Plane> init_plane = dynamic_pointer_cast<Plane,ParamSurface>(surf_);
+  if (!init_plane.get())
+    return false;
+  Point loc = init_plane->location();
+  Point mid(0.0, 0.0, 0.0);
+  double wgt = 1.0/(double)numPoints();
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    for (auto it=regions_[ki]->pointsBegin(); it!=regions_[ki]->pointsEnd(); ++it)
+      {
+	Vector3D pos0 = (*it)->getPoint();
+	Point pos(pos0[0], pos0[1], pos0[2]);
+	Point vec = pos - loc;
+	Point pos2 = loc + (vec*axis[ix])*axis[ix];
+	mid += wgt*pos2;
+      }
+
+  shared_ptr<Plane> plane(new Plane(mid, axis[ix], axis[(ix+1)%3]));
+
+  // Check accuracy
+  bool updated = checkAccuracyAndUpdate(plane, tol);
+  return updated;
+}
+
+//===========================================================================
+bool HedgeSurface::updateCylinderWithAxis(Point axis[3], int ix, double tol)
+//===========================================================================
+{
+  vector<pair<vector<RevEngPoint*>::iterator,
+	      vector<RevEngPoint*>::iterator> > points;
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    points.push_back(std::make_pair(regions_[ki]->pointsBegin(),
+				    regions_[ki]->pointsEnd()));
+  
+  Point pos;
+  double rad;
+  Point low = bbox_.low();
+  Point high = bbox_.high();
+  RevEngUtils::computeCylPosRadius(points, low, high, axis[ix], axis[(ix+1)%3],
+				   axis[(ix+2)%3], pos, rad);
+
+  // Select x-axis
+  shared_ptr<ElementarySurface> elem =
+    dynamic_pointer_cast<ElementarySurface,ParamSurface>(surf_);
+  int ix2 = (ix+2)%3;
+  if (elem.get())
+    {
+      Point dir = elem->direction2();
+      double ang1 = dir.angle(axis[(ix+1)%3]);
+      ang1 = std::min(ang1, M_PI-ang1);
+      double ang2 = dir.angle(axis[(ix+2)%3]);
+      ang2 = std::min(ang1, M_PI-ang2);
+      if (ang1 < ang2)
+	ix2 = (ix+1)%3;
+    }
+  shared_ptr<Cylinder> cyl(new Cylinder(rad, pos, axis[ix], axis[ix2]));
+  
+  // Check accuracy
+  bool updated = checkAccuracyAndUpdate(cyl, tol);
+  return updated;
+}
+
+//===========================================================================
+bool HedgeSurface::checkAccuracyAndUpdate(shared_ptr<ParamSurface> surf, double tol)
+//===========================================================================
+{
+  bool updated = false;
+  vector<vector<pair<double, double> > > dist_ang(regions_.size());
+  vector<double> maxd(regions_.size()), avd(regions_.size());
+  vector<int> num_in(regions_.size());
+  vector<vector<double> > parvals(regions_.size());
+  int all_in = 0;
+  double avd_all = 0.0;
+  double fac = 1.0/(double)numPoints();
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      vector<RevEngPoint*> inpt, outpt;
+      RevEngUtils::distToSurf(regions_[ki]->pointsBegin(), regions_[ki]->pointsEnd(),
+			      surf, tol, maxd[ki], avd[ki], num_in[ki],
+			      inpt, outpt, parvals[ki], dist_ang[ki], -1.0);
+      all_in += num_in[ki];
+      avd_all += fac*regions_[ki]->numPoints()*avd[ki];
+    }
+
+  if (all_in > numPoints()/2 && avd_all <= tol)
+    {
+      updated = true;
+      for (size_t ki=0; ki<regions_.size(); ++ki)
+	{
+	  size_t kj=0;
+	  for (auto it=regions_[ki]->pointsBegin(); it!=regions_[ki]->pointsEnd();
+	       ++it, ++kj)
+	    {
+	      (*it)->setPar(Vector2D(parvals[ki][2*kj],parvals[ki][2*kj+1]));
+	      (*it)->setSurfaceDist(dist_ang[ki][kj].first, dist_ang[ki][kj].second);
+	    }
+	  regions_[ki]->setAccuracy(maxd[ki], avd[ki], num_in[ki]);
+	  regions_[ki]->computeDomain();
+	}
+
+      replaceSurf(surf);
+    }
+  return updated;
+}
 
 //===========================================================================
 bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double approx_tol, ClassType& type, double& score)

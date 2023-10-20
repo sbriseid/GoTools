@@ -54,6 +54,8 @@ shared_ptr<ParamCurve> CoincCurveIntersectionCurve::getCurve() const
 
     ParamObjectInt* obj1 = (ParamObjectInt*)(ipoints_.front()->getObj1());
     ParamCurveInt* cv1 = dynamic_cast<ParamCurveInt*>(obj1);
+    if (!cv1)
+      return cached_geom_curve_;
     shared_ptr<ParamCurve> cv1_2 = cv1->getParamCurve();
     cached_geom_curve_ =  shared_ptr<ParamCurve>(cv1_2->subCurve(startpar_,
 								 endpar_));
@@ -106,9 +108,13 @@ CoincCurveIntersectionCurve::evaluateAt(double pval, Point& pos, Point& tan)
 {
   ParamObjectInt* obj1 = (ParamObjectInt*)(ipoints_.front()->getObj1());
   ParamCurveInt* cv1 = dynamic_cast<ParamCurveInt*>(obj1);
+  if (!cv1)
+    return;
   shared_ptr<ParamCurve> cv1_2 = cv1->getParamCurve();
   ParamObjectInt* obj2 = (ParamObjectInt*)(ipoints_.front()->getObj2());
   ParamCurveInt* cv2 = dynamic_cast<ParamCurveInt*>(obj2);
+  if (!cv2)
+    return;
   shared_ptr<ParamCurve> cv2_2 = cv2->getParamCurve();
 
   vector<Point> der1(2);
