@@ -64,6 +64,8 @@ using namespace Go;
 using std::vector;
 using std::pair;
 
+//#define DEBUG
+
 typedef MatrixXD<double, 3> Matrix3D;
 
 //===========================================================================
@@ -479,11 +481,12 @@ RevEngUtils::surfApprox(vector<double>& data, int dim, vector<double>& param,
   approx2.setLeastSquares(data, param, ptwgt, approxwgt);
   shared_ptr<SplineSurface> surf3;
   approx2.equationSolve(surf3);
-
+#ifdef DEBUG
   std::ofstream of("first_approx.g2");
   surf3->writeStandardHeader(of);
   surf3->write(of);
-
+#endif
+  
   ApproxSurf approx(surf3, data, param, dim, tol);
   //ApproxSurf approx(surf3, data, param, dim, tol, 0, false, true, 0, true);
   approx.setMBA(true);
@@ -804,9 +807,11 @@ void RevEngUtils::parameterizeWithPlane(vector<Point>& pnts, const BoundingBox& 
 
   shared_ptr<SplineSurface> surf(new SplineSurface(order, order, order, order, &et[0], 
 						   &et[0], coefs.begin(), dim));
+#ifdef DEBUG
   std::ofstream of("parplane.g2");
   surf->writeStandardHeader(of);
   surf->write(of);
+#endif
   
   param.resize(2*pnts.size());
   data.reserve(dim*pnts.size());
@@ -1046,11 +1051,13 @@ void RevEngUtils::coneApex(vector<pair<vector<RevEngPoint*>::iterator,
 	}
     }
 
+#ifdef DEBUG
     std::ofstream of("directions.g2");
     of << "410 1 0 4 155 200 0 255" << std::endl;
     of << dird.size() << std::endl;
     for (size_t ki=0; ki<dird.size(); ++ki)
       of << pp[ki] << " " << pp[ki]+dird[ki] << std::endl;
+#endif
     
     double det = 0.0;
     int sgn = 1;

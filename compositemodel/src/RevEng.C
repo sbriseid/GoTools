@@ -82,6 +82,12 @@ int colors[MAX_COLORS][3] = {
   {0, 255, 128},
 };
 
+//#define DEBUG_DIV
+//#define DEBUG_MONGE
+//#define DEBUG_ENHANCE
+//#define DEBUG_SEG
+//#define DEBUG
+
 //===========================================================================
 RevEng::RevEng(shared_ptr<ftPointSet> tri_sf, double mean_edge_len)
   : tri_sf_(tri_sf), mean_edge_len_(mean_edge_len)
@@ -170,7 +176,9 @@ void RevEng::enhancePoints()
 //===========================================================================
 {
   setBoundingBox();
+#ifdef DEBUG_ENHANCE  
   std::cout << "Bounding box, min: " << bbox_.low() << ", max: " << bbox_.high() << std::endl;
+#endif
 
   // Update parameters based on surface roughness
   updateParameters();
@@ -188,11 +196,13 @@ void RevEng::enhancePoints()
       tri_ang[ki] = pt->getTriangAngle();
     }
   std::sort(tri_ang.begin(), tri_ang.end());
+#ifdef DEBUG_ENHANCE  
   std::cout << "Triangle angles: " << tri_ang[0] << " " << tri_ang[nmbpt/4];
   std::cout << " " << tri_ang[nmbpt/2] << " " << tri_ang[3*nmbpt/4];
   std::cout << " " << tri_ang[nmbpt-1] << std::endl;
   std::cout << "norm_ang_lim_ : " << norm_ang_lim_ << std::endl;
-
+#endif
+  
   double wgt_nmb = 1.0/(double)nmbpt;
   double av_close = 0.0;
   int max_close = 0;
@@ -236,7 +246,7 @@ void RevEng::enhancePoints()
       
       if (nearpts.size() >= 3)
 	{
-
+#ifdef DEBUG_DIV
 	  std::ofstream of("nearpts.g2");
 	  if (writepoints)
 	    {
@@ -248,7 +258,8 @@ void RevEng::enhancePoints()
 	      for (size_t kr=0; kr<nearpts.size(); ++kr)
 		of << nearpts[kr]->getPoint() << std::endl;
 	    }
-      
+#endif
+	  
 	  // Compute eigenvectors and values of covariance matrix
 	  nearpts.push_back(pt);
 	  double lambda[3];
@@ -275,7 +286,7 @@ void RevEng::enhancePoints()
 		nearpts[kr]->addCovarianceEigen(eigen1, lambda[0], eigen2, lambda[1],
 						eigen3, lambda[2]);
 	    }
-      
+#ifdef DEBUG_DIV      
 	  if (writepoints)
 	    {
 	      for (int ki=0; ki<3; ++ki)
@@ -287,6 +298,7 @@ void RevEng::enhancePoints()
 		  of << curr << " " << curr+0.1*vec << std::endl;
 		}
 	    }
+#endif
 	  // Compute normal and curvature using Monge patch
 	  // Point normal;//, mincvec, maxcvec;
 	  // double minc, maxc;
@@ -317,9 +329,11 @@ void RevEng::enhancePoints()
     }
 
   std::sort(lambda_3.begin(), lambda_3.end());
+#ifdef DEBUG_ENHANCE  
   std::cout << "No close, min: " << min_close << ", max: " << max_close << ", average: " << av_close << std::endl;
   std::cout << "lambda3, min: " << lambda_3[0] << ", max: " << lambda_3[nmbpt-1] << ", medium: " << lambda_3[nmbpt/2] << std::endl;
-
+#endif
+  
   for (int ki=0; ki<nmbpt; ++ki)
     {
       RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
@@ -376,7 +390,9 @@ void RevEng::enhancePoints()
   // of03 << nmbpt << std::endl;
 
 
+#ifdef DEBUG_ENHANCE  
   std::cout << "Start curvature filter" << std::endl;
+#endif
   curvatureFilter();
   for (int ki=0; ki<nmbpt; ++ki)
     {
@@ -384,8 +400,9 @@ void RevEng::enhancePoints()
       pt->resetPointAssociation();
     }
   
+#ifdef DEBUG_ENHANCE  
   std::cout << "Finish curvature filter" << std::endl;
- 
+#endif 
   int stop_break = 1;
 
 }
@@ -445,6 +462,7 @@ void RevEng::computeMonge(RevEngPoint* pt, std::vector<RevEngPoint*>& points,
   shared_ptr<SplineSurface> tmp(new SplineSurface(order, order, order, order, 
 						  mongesf->basis_u().begin(),
 						  mongesf->basis_v().begin(), &coefs2[0], 3));
+#ifdef DEBUG_DIV
   int writesurface = 0;
   if (writesurface)
     {
@@ -462,6 +480,7 @@ void RevEng::computeMonge(RevEngPoint* pt, std::vector<RevEngPoint*>& points,
 	  of << tmppt << std::endl;
 	}
     }
+#endif
   
   // Compute surface normal 
   double avdist = 0.0;
@@ -473,8 +492,10 @@ void RevEng::computeMonge(RevEngPoint* pt, std::vector<RevEngPoint*>& points,
     }
   avdist /= (double)nmbpts;
 
+#ifdef DEBUG_MONGE
   std::ofstream of2("Monge_curvature.g2");
   std::ofstream of3("Monge_curvature2.g2");
+#endif
   vector<Point> monge1, monge2, monge3, monge4;
    for (size_t kr=0; kr<points.size(); ++kr)
     {
@@ -750,7 +771,9 @@ void RevEng::setClassificationParams()
 //===========================================================================
 {
   int class_type = getClassificationType();
+#ifdef DEBUG_ENHANCE  
   std::cout << "Classification type: " << class_type << std::endl;
+#endif
   // std::cout << "New classification type: " << std::endl;
   // std::cin >> class_type;
   // if (class_type == 1 || class_type == 3)
@@ -777,6 +800,7 @@ void RevEng::setClassificationParams()
   //   }
 
   int nmbpt = tri_sf_->size();
+#ifdef DEBUG_ENHANCE
   std::ofstream of01("minc1.g2");
   std::ofstream of03("maxc1.g2");
   of01 << "410 1 0 4 200 50 0 255" << std::endl;
@@ -793,6 +817,7 @@ void RevEng::setClassificationParams()
   ofM << nmbpt << std::endl;
   ofP << "410 1 0 4 0 200 55 255" << std::endl;
   ofP << nmbpt << std::endl;
+#endif
   vector<Vector3D> triangplane;
   for (int ki=0; ki<nmbpt; ++ki)
     {
@@ -802,20 +827,21 @@ void RevEng::setClassificationParams()
       Vector3D xyz = pt->getPoint();
       Point xyz2(xyz[0], xyz[1], xyz[2]);
       double avlen = pt->getMeanEdgLen();
+      Point norm = pt->getTriangNormal();
+      double ang = pt->getTriangAngle();
+      Point Mnorm = pt->getMongeNormal();
+      Point Pnorm = pt->getPCANormal();
 
       double fac = (pt->nmbMonge() == 0) ? 0.0 : 5.0;
+#ifdef DEBUG_ENHANCE
       of01 << xyz2 << " " << xyz2+fac*avlen*minc << std::endl;
       of03 << xyz2 << " " << xyz2+fac*avlen*maxc << std::endl;
 
-      Point norm = pt->getTriangNormal();
-      double ang = pt->getTriangAngle();
       of << xyz2 << " " << xyz2+5.0*avlen*norm << std::endl;
-      Point Mnorm = pt->getMongeNormal();
       ofM << xyz2 << " " << xyz2+5.0*avlen*Mnorm << std::endl;
 
-      Point Pnorm = pt->getPCANormal();
       ofP << xyz2 << " " << xyz2+5.0*avlen*Pnorm << std::endl;
-
+#endif
       if (pt->isOutlier())
 	continue;
       
@@ -823,12 +849,14 @@ void RevEng::setClassificationParams()
 	triangplane.push_back(xyz);
     }
 
+#ifdef DEBUG_ENHANCE
   std::ofstream of4("triangplane.g2");
   of4 << "400 1 0 4 200 0 200 255" << std::endl;
   of4 << triangplane.size() << std::endl;
   for (size_t kj=0; kj<triangplane.size(); ++kj)
     of4 << triangplane[kj] << std::endl;
-
+#endif
+  
   // // Surface variation
   // std::sort(sfvar.begin(), sfvar.end());
   // double varmed = 0.5*(sfvar[nmbpts/2]+sfvar[(nmbpts+1)/2]);
@@ -903,7 +931,9 @@ void RevEng::setEdgeClassificationParams()
 //===========================================================================
 {
   int edge_class_type = getEdgeClassificationType();
+#ifdef DEBUG_ENHANCE  
   std::cout << "Edge classification type: " << edge_class_type << std::endl;
+#endif
   // std::cout << "New classification type: " << std::endl;
   // std::cin >> edge_class_type;
   if (edge_class_type == CURVATURE_EDGE || edge_class_type == PCATYPE_EDGE ||
@@ -932,11 +962,13 @@ void RevEng::setEdgeClassificationParams()
 	      if (crvrad < cfac_*avlen)
 		curvaturecorners.push_back(xyz);
 	    }
+#ifdef DEBUG_ENHANCE
 	  std::ofstream of3("curvaturecorners0.g2");
 	  of3 << "400 1 0 4 10 10 10 255" << std::endl;
 	  of3 << curvaturecorners.size() << std::endl;
 	  for (size_t kj=0; kj<curvaturecorners.size(); ++kj)
 	    of3 << curvaturecorners[kj] << std::endl;
+#endif
 	}
       else if (edge_class_type == PCATYPE_EDGE)
 	{
@@ -956,11 +988,13 @@ void RevEng::setEdgeClassificationParams()
 	      if (var > pca_lim)
 		pts_v.push_back(xyz);
 	    }
+#ifdef DEBUG_ENHANCE
 	  std::ofstream of3("sfvar.g2");
 	  of3 << "400 1 0 4 155 0 100 255" << std::endl;
 	  of3 << pts_v.size() << std::endl;
 	  for (size_t kr=0; kr<pts_v.size(); ++kr)
 	    of3 << pts_v[kr] << std::endl;
+#endif
 	}
       else if (edge_class_type == CNESS_EDGE)
 	{
@@ -980,11 +1014,13 @@ void RevEng::setEdgeClassificationParams()
 	      if (curved > cness_lim)
 		pts_c.push_back(xyz);
 	    }
+#ifdef DEBUG_ENHANCE
 	  std::ofstream of5("curvedness.g2");
 	  of5 << "400 1 0 4 0 155 100 255" << std::endl;
 	  of5 << pts_c.size() << std::endl;
 	  for (size_t kr=0; kr<pts_c.size(); ++kr)
 	    of5 << pts_c[kr] << std::endl;
+#endif
 	}
       else if (edge_class_type == RPFAC_EDGE)
 	{
@@ -1122,6 +1158,7 @@ void RevEng::edgeClassification()
     }
 
 
+#ifdef DEBUG_ENHANCE
   std::ofstream of2("triangcorners.g2");
   of2 << "400 1 0 4 0 0 0 255" << std::endl;
   of2 << triangcorners.size() << std::endl;
@@ -1160,7 +1197,8 @@ void RevEng::edgeClassification()
       for (size_t kr=0; kr<edgepts.size();++kr)
 	ofedg << edgepts[kr] << std::endl;
     }
-  int stop_break = 1;
+#endif
+   int stop_break = 1;
  }
 
 //===========================================================================
@@ -1349,6 +1387,7 @@ void RevEng::classifyPoints()
       pt->setClassification(ctype, si_type, ps_type);
    }
 
+#ifdef DEBUG_SEG
   std::ofstream of("curvature_segments.g2");
   for (int ka=0; ka<3; ++ka)
     for (int kb=0; kb<3; ++kb)
@@ -1388,7 +1427,7 @@ void RevEng::classifyPoints()
       for (size_t kr=0; kr<class_pfs[ka].size(); ++kr)
 	of4 << class_pfs[ka][kr] << std::endl;
       }
-  
+#endif  
   int stop_break = 1;
 }
 
@@ -1410,7 +1449,9 @@ void RevEng::setApproxTolerance()
 //===========================================================================
 {
   double eps = getInitApproxTol();
+#ifdef DEBUG
   std::cout << "Approx tol: " << eps << std::endl;
+#endif
   // std::cout << "New tolerance: " << std::endl;
   // std::cin >> eps;
   setApproxTol(eps);
@@ -1452,11 +1493,13 @@ double RevEng::getInitApproxTol()
   else if (model_character_ == ROUGH)
     eps *= 2.0;
 
+#ifdef DEBUG_DIV
   std::cout << "Maxptdist: " << maxdist << ", avdist: " << avptdist;
   std::cout << ", medptdist: " << pointdist[pointdist.size()/2];
   std::cout << ", eps: " << eps << std::endl;
   
   std::ofstream ofd("ptdist.g2");
+#endif
   double ptd1 = minptdist;
   double ptd2 = maxptdist;
   int nmbd = 12;
@@ -1472,6 +1515,7 @@ double RevEng::getInitApproxTol()
       ptrs[ix].push_back(xyz);
     }
 
+#ifdef DEBUG_DIV
   for (int ki=0; ki<nmbd; ++ki)
     {
       if (ptrs[ki].size() > 0)
@@ -1483,6 +1527,7 @@ double RevEng::getInitApproxTol()
 	    ofd << ptrs[ki][kr] << std::endl;
 	}
     }
+#endif
 
   return eps;
  }
@@ -1523,6 +1568,7 @@ void RevEng::segmentIntoRegions()
     }
 
   std::sort(regions_.begin(), regions_.end(), sort_region);
+#ifdef DEBUG
   if (regions_.size() > 0)
     {
       std::cout << "Regions 1" << std::endl;
@@ -1530,13 +1576,15 @@ void RevEng::segmentIntoRegions()
       std::ofstream ofs("small_regions1.g2");
       writeRegionStage(of, ofs);
     }
+#endif
 
   // Sort regions according to number of points
   std::sort(regions_.begin(), regions_.end(), sort_region);
 
   min_point_region_ = setSmallRegionNumber();
+#ifdef DEBUG
   std::cout << "Min point region: " << min_point_region_ << std::endl;
-  
+#endif  
   // Set adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -1557,7 +1605,9 @@ void RevEng::segmentIntoRegions()
   std::swap(single_points_, remaining_single);
   
   // Simplify regions structure
+#ifdef DEBUG
   std::cout << "Number of regions pre integrate: " << regions_.size() << std::endl;
+#endif
   int num_reg = (int)regions_.size();
   for (int ka=num_reg-1; ka>=0; --ka)
     {
@@ -1574,10 +1624,12 @@ void RevEng::segmentIntoRegions()
     }
   if (num_reg < (int)regions_.size())
     regions_.erase(regions_.begin()+num_reg, regions_.end());
+#ifdef DEBUG
   std::cout << "Number of regions post integrate: " << regions_.size() << std::endl;
-  
+#endif  
   std::sort(regions_.begin(), regions_.end(), sort_region);
   
+#ifdef DEBUG
   checkConsistence("Regions2");
 
   if (regions_.size() > 0)
@@ -1587,7 +1639,8 @@ void RevEng::segmentIntoRegions()
       std::ofstream ofs("small_regions2.g2");
       writeRegionStage(of, ofs);
      }
-
+#endif
+  
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -1630,6 +1683,7 @@ void RevEng::initialSurfaces()
   
   std::sort(regions_.begin(), regions_.end(), sort_region);
 
+#ifdef DEBUG
   checkConsistence("Regions3");
 
   if (regions_.size() > 0)
@@ -1648,7 +1702,8 @@ void RevEng::initialSurfaces()
       for (size_t kr=0; kr<single_points_.size(); ++kr)
 	of_single << single_points_[kr]->getPoint() << std::endl;
      }
-
+#endif
+  
   // Integrate single points when appropriate
   vector<RevEngPoint*> remaining_single;
   for (int ka=0; ka<(int)single_points_.size(); ++ka)
@@ -1681,7 +1736,9 @@ void RevEng::initialSurfaces()
   bool joinreg = true;
   if (joinreg)
     {
+#ifdef DEBUG
       std::cout << "Pre join. Number of regions: " << regions_.size() << std::endl;
+#endif
       // int num_reg = (int)regions_.size();
       for (size_t ki=0; ki<regions_.size(); ++ki)
 	{
@@ -1712,6 +1769,7 @@ void RevEng::initialSurfaces()
 	}
       // if (num_reg < (int)regions_.size())
       //   regions_.erase(regions_.begin()+num_reg, regions_.end());
+#ifdef DEBUG
       std::cout << "Post join. Number of regions: " << regions_.size() << std::endl;
 
       checkConsistence("Regions4");
@@ -1723,8 +1781,9 @@ void RevEng::initialSurfaces()
 	  std::ofstream ofs("small_regions4.g2");
 	  writeRegionStage(of, ofs);
 	}
+#endif
     }
-
+  
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -1737,7 +1796,9 @@ void RevEng::initialSurfaces()
 
 
   // Simplify regions structure
+#ifdef DEBUG
   std::cout << "Number of regions pre integrate: " << regions_.size() << std::endl;
+#endif
   int num_reg = (int)regions_.size();
   for (int ka=num_reg-1; ka>=0; --ka)
     {
@@ -1754,6 +1815,7 @@ void RevEng::initialSurfaces()
     }
   if (num_reg < (int)regions_.size())
     regions_.erase(regions_.begin()+num_reg, regions_.end());
+#ifdef DEBUG
   std::cout << "Number of regions post integrate: " << regions_.size() << std::endl;
   
   checkConsistence("Regions5");
@@ -1765,7 +1827,8 @@ void RevEng::initialSurfaces()
       std::ofstream ofs("small_regions5.g2");
       writeRegionStage(of, ofs);
      }
-
+#endif
+  
   std::sort(regions_.begin(), regions_.end(), sort_region);
   
   // Update adjacency between regions
@@ -1867,7 +1930,9 @@ void RevEng::updateRegionStructure()
   // number of points. Probably class parameter. Need to look at the use
 
   // Segmentation of composed regions
+#ifdef DEBUG
   std::cout << "Segment composed regions" << std::endl;
+#endif
   double frac_norm_lim= 0.75;
 
   size_t reg_size = regions_.size();
@@ -1878,14 +1943,18 @@ void RevEng::updateRegionStructure()
       
       if (!regions_[ki]->hasSurface())
 	{
+#ifdef DEBUG_DIV
 	  std::ofstream ofs("region_to_segm.g2");
 	  regions_[ki]->writeRegionInfo(ofs);
+#endif
 	  
 	  bool segmented = false;
 	  if (regions_[ki]->getFracNorm() > frac_norm_lim)
 	    {
 	      // Grow sub regions according to surface type
+#ifdef DEBUG_DIV
 	      std::cout << "Grow planes" << std::endl;
+#endif
 	      segmented = segmentByPlaneGrow(ki, min_point_in);
 	    }
 	  if (!segmented)
@@ -1896,7 +1965,9 @@ void RevEng::updateRegionStructure()
 
     }
 
+#ifdef DEBUG_DIV
   std::cout << "Merge adjacent regions" << std::endl;
+#endif
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->hasSurface())
@@ -1910,7 +1981,9 @@ void RevEng::updateRegionStructure()
 	}
     }
   
+#ifdef DEBUG_DIV
   std::cout << "Merge adjacent regions" << std::endl;
+#endif
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->hasSurface())
@@ -1923,6 +1996,7 @@ void RevEng::updateRegionStructure()
 
 	}
     }
+#ifdef DEBUG
   checkConsistence("Regions7");
 
    if (regions_.size() > 0)
@@ -1932,7 +2006,7 @@ void RevEng::updateRegionStructure()
       std::ofstream ofs("small_regions7.g2");
       writeRegionStage(of, ofs);
      }
-   
+#endif   
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -1943,7 +2017,9 @@ void RevEng::updateRegionStructure()
       regions_[ki]->setRegionAdjacency();
     }
 
+#ifdef DEBUG
   std::cout << "Pre join. Number of regions: " << regions_.size() << std::endl;
+#endif
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->numPoints() < min_point_region_)
@@ -1953,6 +2029,7 @@ void RevEng::updateRegionStructure()
 	growSurface(ki);
     }
   
+#ifdef DEBUG
   checkConsistence("Regions8");
 
    if (regions_.size() > 0)
@@ -1962,6 +2039,7 @@ void RevEng::updateRegionStructure()
       std::ofstream ofs("small_regions8.g2");
       writeRegionStage(of, ofs);
      }
+#endif
    
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
@@ -2285,19 +2363,22 @@ void RevEng::recognizeSurfaces(int min_point_in, int pass)
   int pass2 = pass + 1;
   for (int ki=0; ki<(int)regions_.size(); ++ki)
     {
+#ifdef DEBUG
       std::set<RevEngPoint*> tmpset(regions_[ki]->pointsBegin(), regions_[ki]->pointsEnd());
       if (tmpset.size() != regions_[ki]->numPoints())
 	std::cout << "Point number mismatch. " << ki << " " << tmpset.size() << " " << regions_[ki]->numPoints() << std::endl;
+#endif
       if (regions_[ki]->numPoints() < min_point_region_)
 	continue;
       int classtype = regions_[ki]->getClassification();
+#ifdef DEBUG
       std::cout << "No " << ki <<  ", classtype: " << classtype << std::endl;
       
       std::ofstream of1("region.g2");
       regions_[ki]->writeRegionInfo(of1);
       std::ofstream of2("unitsphere.g2");
       regions_[ki]->writeUnitSphereInfo(of2);
-
+#endif
       bool found = recognizeOneSurface(ki, min_point_in, angtol, mainaxis_, pass2);
        
    }
@@ -2323,6 +2404,7 @@ void RevEng::surfaceCreation(int pass)
   int min_point_in = 50; //10; //20;
   recognizeSurfaces(min_point_in, pass);
 
+#ifdef DEBUG
   checkConsistence("Regions9");
 
    if (regions_.size() > 0)
@@ -2334,6 +2416,7 @@ void RevEng::surfaceCreation(int pass)
      }
 
    std::cout << "Merge adjacent regions, regions: " << regions_.size() << ", surfaces: " << surfaces_.size() << std::endl;
+#endif
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->hasSurface())
@@ -2346,6 +2429,7 @@ void RevEng::surfaceCreation(int pass)
 
 	}
     }
+#ifdef DEBUG
   checkConsistence("Regions10");
 
    std::cout << "Finished merge adjacent regions, regions: " << regions_.size() << ", surfaces: " << surfaces_.size() << std::endl;
@@ -2356,7 +2440,7 @@ void RevEng::surfaceCreation(int pass)
       std::ofstream ofs("small_regions10.g2");
       writeRegionStage(of, ofs);
      }
-
+#endif
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -2388,6 +2472,7 @@ void RevEng::surfaceCreation(int pass)
       // 	}
     }
       
+#ifdef DEBUG
   checkConsistence("Regions11");
 
    std::cout << "Finished grow with surf, regions: " << regions_.size() << ", surfaces: " << surfaces_.size() << std::endl;
@@ -2398,6 +2483,7 @@ void RevEng::surfaceCreation(int pass)
       std::ofstream ofs("small_regions11.g2");
       writeRegionStage(of, ofs);
      }
+#endif
    
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
@@ -2435,8 +2521,10 @@ void RevEng::buildSurfaces()
     {
       if (!regions_[ki]->hasSurface())
 	{
+#ifdef DEBUG_DIV
 	  std::ofstream ofs("region_to_segm.g2");
 	  regions_[ki]->writeRegionInfo(ofs);
+#endif
 	  
 	  bool segmented = false;
 	  if (regions_[ki]->hasPrimary())
@@ -2457,7 +2545,9 @@ void RevEng::buildSurfaces()
 
     }
 
+#ifdef DEBUG_DIV
   std::cout << "Merge adjacent regions" << std::endl;
+#endif
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->hasSurface())
@@ -2470,6 +2560,7 @@ void RevEng::buildSurfaces()
 
 	}
     }
+#ifdef DEBUG
   checkConsistence("Regions3_01");
 
    if (regions_.size() > 0)
@@ -2479,7 +2570,7 @@ void RevEng::buildSurfaces()
       std::ofstream ofs("small_regions3_01.g2");
       writeRegionStage(of, ofs);
      }
-
+#endif
 
   
   // Update axis
@@ -2547,21 +2638,22 @@ void RevEng::buildSurfaces()
       //std::cout << "ki=" << ki << ", nmb surf: " << surfaces_.size() << std::endl;
       if (regions_[ki]->hasSurface())
 	growSurface(ki);
-      for (int kh=0; kh<(int)surfaces_.size(); ++kh)
-	{
-	  int numreg = surfaces_[kh]->numRegions();
-	  for (int ka=0; ka<numreg; ++ka)
-	    {
-	      RevEngRegion *reg = surfaces_[kh]->getRegion(ka);
-	      size_t kr;
-	      for (kr=0; kr<regions_.size(); ++kr)
-		if (reg == regions_[kr].get())
-		  break;
-	      if (kr == regions_.size())
-		std::cout << "Region4, surface 1. Obsolete region pointer, ki=" << ki << ", kh=" << kh << ". Region: " << reg << ", surface: " << surfaces_[kh].get() << std::endl;
-	    }
-	}
+      // for (int kh=0; kh<(int)surfaces_.size(); ++kh)
+      // 	{
+      // 	  int numreg = surfaces_[kh]->numRegions();
+      // 	  for (int ka=0; ka<numreg; ++ka)
+      // 	    {
+      // 	      RevEngRegion *reg = surfaces_[kh]->getRegion(ka);
+      // 	      size_t kr;
+      // 	      for (kr=0; kr<regions_.size(); ++kr)
+      // 		if (reg == regions_[kr].get())
+      // 		  break;
+      // 	      if (kr == regions_.size())
+      // 		std::cout << "Region4, surface 1. Obsolete region pointer, ki=" << ki << ", kh=" << kh << ". Region: " << reg << ", surface: " << surfaces_[kh].get() << std::endl;
+      // 	    }
+      // 	}
     }
+#ifdef DEBUG_DIV
       std::cout << "Number of regions, post grow with surf: " << regions_.size() << std::endl;
       std::cout << "Number of surfaces: " << surfaces_.size() << std::endl;
 
@@ -2626,7 +2718,7 @@ void RevEng::buildSurfaces()
       std::ofstream ofs("small_regions4.g2");
       writeRegionStage(of, ofs);
      }
-
+#endif
   
   // std::cout << "Number of surfaces: " << surfaces_.size() << ", give number: " << std::endl;
   // std::cin >> sfix;
@@ -2665,7 +2757,9 @@ void RevEng::buildSurfaces()
       if (regions_[ki]->hasSurface())
 	regions_[ki]->adjustWithSurf(approx_tol_, 10.0*anglim_);
     }
-      std::cout << "Number of regions, post grow with surf: " << regions_.size() << std::endl;
+  
+#ifdef DEBUG_DIV
+  std::cout << "Number of regions, post grow with surf: " << regions_.size() << std::endl;
       std::cout << "Number of surfaces: " << surfaces_.size() << std::endl;
 
   if (regions_.size() > 0)
@@ -2675,7 +2769,7 @@ void RevEng::buildSurfaces()
       std::ofstream ofs("small_regions5.g2");
       writeRegionStage(of, ofs);
      }
-
+#endif
     }
   
   for (size_t ki=0; ki<regions_.size(); ++ki)
@@ -2736,7 +2830,7 @@ void RevEng::buildSurfaces()
 	      if (kj < surfaces_.size())
 		surfaces_.erase(surfaces_.begin()+kj);
 	    }
-
+#ifdef DEBUG_DIV
 	  for (size_t kh=0; kh<surfaces_.size(); ++kh)
 	    {
 	      int numreg = surfaces_[kh]->numRegions();
@@ -2746,9 +2840,11 @@ void RevEng::buildSurfaces()
 		  if (reg->hasSurface() == false)
 		    std::cout << "Missing link surface-regions. ki=" << ki << ", kh=" << kh << ", surf: " << surfaces_[ki].get() << ", region: " << reg << std::endl;
 		}
+#endif
 	    }
 	}
     }
+#ifdef DEBUG_DIV
   for (int ki=0; ki<(int)regions_.size(); ++ki)
     {
       vector<RevEngRegion*> adjacent;
@@ -2810,7 +2906,8 @@ void RevEng::buildSurfaces()
       std::ofstream ofs("small_regions5_2.g2");
       writeRegionStage(of, ofs);
       }
-  
+#endif
+   
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -2821,16 +2918,19 @@ void RevEng::buildSurfaces()
       regions_[ki]->setRegionAdjacency();
     }
 
-      std::cout << "Number of regions, pre grow with surf: " << regions_.size() << std::endl;
+#ifdef DEBUG_DIV
+  std::cout << "Number of regions, pre grow with surf: " << regions_.size() << std::endl;
       std::cout << "Number of surfaces: " << surfaces_.size() << std::endl;
+#endif
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->hasSurface())
 	growSurface(ki);
     }
+#ifdef DEBUG_DIV
       std::cout << "Number of regions, post grow with surf: " << regions_.size() << std::endl;
       std::cout << "Number of surfaces: " << surfaces_.size() << std::endl;
-
+      
   for (int ki=0; ki<(int)regions_.size(); ++ki)
     {
       vector<RevEngRegion*> adjacent;
@@ -2870,7 +2970,9 @@ void RevEng::buildSurfaces()
 	    }
 	}
     }
+#endif
 
+#ifdef DEBUG_DIV
   std::cout << "Regions6" << std::endl;
   for (size_t ki=0; ki<surfaces_.size(); ++ki)
     {
@@ -2893,7 +2995,9 @@ void RevEng::buildSurfaces()
       writeRegionStage(of, ofs);
      }
     }
-
+#endif
+  
+#ifdef DEBUG_DIV
   for (int ki=0; ki<(int)regions_.size(); ++ki)
     {
       vector<RevEngRegion*> adjacent;
@@ -2939,7 +3043,8 @@ void RevEng::buildSurfaces()
   std::cout << "Pre merge: " << surfaces_.size() << " surfaces" << std::endl;
   mergeSurfaces();
   std::cout << "Post merge: " << surfaces_.size() << " surfaces" << std::endl;
-
+#endif
+  
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -3053,7 +3158,8 @@ void RevEng::defineAxis(Point axis[3], bool onlysurf, int min_num)
       for (int ka=0; ka<3; ++ka)
 	axis[ka] = mainaxis_[ka];
     }
-  
+
+#ifdef DEBUG_DIV
   std::ofstream ofax2("base_axis.g2");
   Point mid = 0.5*(bbox_.low() + bbox_.high());
   double len = 0.5*bbox_.low().dist(bbox_.high());
@@ -3063,7 +3169,7 @@ void RevEng::defineAxis(Point axis[3], bool onlysurf, int min_num)
       ofax2 << "1" << std::endl;
       ofax2 << mid << " " << mid+len*axis[ka] << std::endl;
     }
-  
+#endif
 }
 
 //===========================================================================
@@ -3107,19 +3213,23 @@ bool RevEng::segmentByPlaneGrow(int ix, int min_point_in)
   //     regions_[ix]->getPrimary()->instanceType() != Class_Plane)
   //   return;   // Not appropriate
 
+#ifdef DEBUG
   std::ofstream ofreg("segment_reg.g2");
   regions_[ix]->writeRegionInfo(ofreg);
+#endif
 
   vector<shared_ptr<HedgeSurface> > plane_sfs;
   vector<HedgeSurface*> prev_surfs;
   vector<vector<RevEngPoint*> > out_groups;
   regions_[ix]->segmentByPlaneGrow(approx_tol_, min_point_in, plane_sfs, prev_surfs,
 				   out_groups);
+#ifdef DEBUG
   for (size_t ki=0; ki<plane_sfs.size(); ++ki)
     {
       plane_sfs[ki]->surface()->writeStandardHeader(ofreg);
       plane_sfs[ki]->surface()->write(ofreg);
     }
+#endif
   
   if (out_groups.size() > 0 || prev_surfs.size() > 0)
     surfaceExtractOutput(ix, out_groups, prev_surfs);
@@ -3157,6 +3267,7 @@ bool RevEng::segmentByContext(int ix, int min_point_in, bool first)
 	}
     }
   
+#ifdef DEBUG
   if (segmented)
     {
       std::ofstream of("seg_by_context.g2");
@@ -3174,7 +3285,8 @@ bool RevEng::segmentByContext(int ix, int min_point_in, bool first)
 	    of << separate_groups[ki][ka]->getPoint() << std::endl;
 	}
     }
-	  
+#endif
+  
   if (separate_groups.size() > 0)
     {
       vector<HedgeSurface*> prev_surfs;
@@ -3239,6 +3351,7 @@ void RevEng::updateRegionsAndSurfaces(size_t& ix, vector<RevEngRegion*>& grown_r
   for (size_t kj=0; kj<regions_.size(); ++kj)
     regions_[kj]->setVisited(false);
 
+#ifdef DEBUG_DIV
   std::ofstream ofpts("sfpoints2.g2");
   std::ofstream ofpar("sfparpoints2.txt");
   int numpt = regions_[ix]->numPoints();
@@ -3250,6 +3363,7 @@ void RevEng::updateRegionsAndSurfaces(size_t& ix, vector<RevEngRegion*>& grown_r
       ofpar << pt->getPar() << " " << pt->getPoint() << std::endl;
       ofpts << pt->getPoint() << std::endl;
     }
+#endif
   int stop_break = 1;
   
 }
@@ -3269,7 +3383,7 @@ void RevEng::mergeSurfaces()
 	    std::swap(surfaces_[ki], surfaces_[kj]);
 	}
     }
-
+#ifdef DEBUG
   std::ofstream ofm("merged_sfs.g2");
   std::ofstream of("surfs0.g2");
   for (size_t ki=0; ki<surfaces_.size(); ++ki)
@@ -3277,7 +3391,7 @@ void RevEng::mergeSurfaces()
       shared_ptr<ParamSurface> surf = surfaces_[ki]->surface();
       surf->writeStandardHeader(of);
       surf->write(of);
-
+      
       int nreg = surfaces_[ki]->numRegions();
       for (int ka=0; ka<nreg; ++ka)
 	{
@@ -3291,9 +3405,11 @@ void RevEng::mergeSurfaces()
 	    }
 	}
     }
-
+#endif
+  
   for (size_t ki=0; ki<surfaces_.size(); ++ki)
     {
+#ifdef DEBUG
       std::ofstream ofn("surfsn.g2");
       for (size_t kh=0; kh<surfaces_.size(); ++kh)
 	{
@@ -3301,6 +3417,7 @@ void RevEng::mergeSurfaces()
 	  surf->writeStandardHeader(ofn);
 	  surf->write(ofn);
 	}
+#endif
       
       // Identify possible merge candidates
       vector<size_t> cand_ix;
@@ -3332,6 +3449,7 @@ void RevEng::mergeSurfaces()
 		  }
 	      }
 	  
+#ifdef DEBUG
 	  std::ofstream pre("pre_merge.g2");
 	  for (size_t kr=0; kr<cand_ix.size(); ++kr)
 	    {
@@ -3339,10 +3457,12 @@ void RevEng::mergeSurfaces()
 	      surf->writeStandardHeader(pre);
 	      surf->write(pre);
 	    }
+#endif
 	  shared_ptr<HedgeSurface> merged_surf = doMerge(cand_ix, cand_score,
 							 type);
 	  if (merged_surf.get())
 	    {
+#ifdef DEBUG
 	      std::ofstream post("post_merge.g2");
 	      for (size_t kr=0; kr<cand_ix.size(); ++kr)
 		{
@@ -3356,17 +3476,20 @@ void RevEng::mergeSurfaces()
 
 	      surfm->writeStandardHeader(ofm);
 	      surfm->write(ofm);
+#endif
 	      int nreg = merged_surf->numRegions();
 	      for (int ka=0; ka<nreg; ++ka)
 		{
 		  RevEngRegion *reg =  merged_surf->getRegion(ka);
 		  int nmb = reg->numPoints();
+#ifdef DEBUG
 		  ofm << "400 1 0 4 255 0 0 255" << std::endl;
 		  ofm << nmb << std::endl;
 		  for (int kb=0; kb<nmb; ++kb)
 		    {
 		      ofm << reg->getPoint(kb)->getPoint() << std::endl;
 		    }
+#endif
 		}
 	     
 
@@ -3389,6 +3512,7 @@ void RevEng::mergeSurfaces()
       surfaces_[ki]->limitSurf();
     }
   
+#ifdef DEBUG
   std::ofstream of1("surfs1.g2");
   shared_ptr<std::ofstream> ofp(new std::ofstream("planes_2.g2"));
   shared_ptr<std::ofstream> ofc1(new std::ofstream("cylinders_2.g2"));
@@ -3398,7 +3522,7 @@ void RevEng::mergeSurfaces()
   shared_ptr<std::ofstream> ofsp(new std::ofstream("spline_2.g2"));
   for (size_t ki=0; ki<surfaces_.size(); ++ki)
     {
-      shared_ptr<std::ofstream> ofs;
+     shared_ptr<std::ofstream> ofs;
       if (surfaces_[ki]->isPlane())
 	ofs = ofp;
       else if (surfaces_[ki]->isCylinder())
@@ -3442,6 +3566,7 @@ void RevEng::mergeSurfaces()
 	    }
 	}
     }
+#endif
 
   int stop_break2 = 1;
 }
@@ -3457,6 +3582,7 @@ void RevEng::mergeSplineSurfaces()
       if (type1 != Class_SplineSurface)
 	continue;
       
+#ifdef DEBUG
       std::ofstream ofn("surfsn.g2");
       for (size_t kh=0; kh<surfaces_.size(); ++kh)
 	{
@@ -3464,6 +3590,7 @@ void RevEng::mergeSplineSurfaces()
 	  surf->writeStandardHeader(ofn);
 	  surf->write(ofn);
 	}
+#endif
 
       vector<RevEngRegion*> regions1 = surfaces_[ki]->getRegions();
       DirectionCone cone1 = surfaces_[ki]->surface()->normalCone();
@@ -3501,6 +3628,7 @@ void RevEng::mergeSplineSurfaces()
 	      }
 	  if (can_merge && num_edge_between == 0)
 	    {
+#ifdef DEBUG	      
 	      std::ofstream pre("pre_merge_spline.g2");
 	      shared_ptr<ParamSurface> surf1 = surfaces_[ki]->surface();
 	      surf1->writeStandardHeader(pre);
@@ -3508,11 +3636,13 @@ void RevEng::mergeSplineSurfaces()
 	      shared_ptr<ParamSurface> surf2 = surfaces_[kj]->surface();
 	      surf2->writeStandardHeader(pre);
 	      surf2->write(pre);
-
+#endif
+	      
 	      shared_ptr<HedgeSurface> merged =
 		doMergeSpline(surfaces_[ki], cone1, surfaces_[kj], cone2);
 	      if (merged)
 		{
+#ifdef DEBUG
 		  std::ofstream post("post_merge_spline.g2");
 		  shared_ptr<ParamSurface> surfm = merged->surface();
 		  surfm->writeStandardHeader(post);
@@ -3529,6 +3659,7 @@ void RevEng::mergeSplineSurfaces()
 			  post << reg->getPoint(kb)->getPoint() << std::endl;
 			}
 		    }
+#endif
 		  std::swap(surfaces_[ki], merged);
 		  surfaces_.erase(surfaces_.begin()+kj);
 		  kj--;
@@ -3537,6 +3668,8 @@ void RevEng::mergeSplineSurfaces()
 	    }
 	}
     }
+
+#ifdef DEBUG
   std::ofstream of1("surfs2.g2");
   std::ofstream of1n("surfs2n.g2");
   for (size_t ki=0; ki<surfaces_.size(); ++ki)
@@ -3565,6 +3698,7 @@ void RevEng::mergeSplineSurfaces()
 	    }
 	}
     }
+  #endif
 }
 
 // //===========================================================================
@@ -3762,10 +3896,12 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
       if (!surf.get())
 	break;
 
+#ifdef DEBUG
       std::ofstream of1("merge_sf.g2");
       std::ofstream of2("in_out_merge.g2");
       surf->writeStandardHeader(of1);
       surf->write(of1);
+#endif
       
       // Test accuracy
       all_in.clear();
@@ -3800,6 +3936,7 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
 	      avd_sf += num*avd/(double)num_sf;
 	      num_in_sf += num_in;
 	    }
+#ifdef DEBUG
 	    of2 << "400 1 0 4 155 50 50 255" << std::endl;
 	    of2 << in.size() << std::endl;
 	    for (size_t kn=0; kn<in.size(); ++kn)
@@ -3808,7 +3945,8 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
 	    of2 << out.size() << std::endl;
 	    for (size_t kn=0; kn<out.size(); ++kn)
 	      of2 << out[kn]->getPoint() << std::endl;
-
+#endif
+	    
 	    if (num_in_sf > num_sf/2 && avd_sf < approx_tol_)
 	      {
 		all_in.push_back(in);
@@ -3899,11 +4037,13 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
     {
       surf2 = RevEngUtils::doMergeTorus(points, bbox2, nmbpts);
     }
-  
+
+#ifdef DEBUG
   std::ofstream of3("merge_sf2.g2");
   std::ofstream of4("in_out_merge2.g2");
   surf2->writeStandardHeader(of3);
   surf2->write(of3);
+#endif
   vector<RevEngPoint*> in2, out2;
   vector<vector<pair<double,double> > > distang2(regions3.size());
   vector<vector<double> > parvals2(regions3.size());
@@ -3921,6 +4061,7 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
       avd_all2 += regions3[kj]->numPoints()*avd/(double)num_all2;
       num_in_all2 += num_in;
     }
+#ifdef DEBUG
   of4 << "400 1 0 4 155 50 50 255" << std::endl;
   of4 << in2.size() << std::endl;
   for (size_t kn=0; kn<in2.size(); ++kn)
@@ -3929,7 +4070,8 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
   of4 << out2.size() << std::endl;
   for (size_t kn=0; kn<out2.size(); ++kn)
     of4 << out2[kn]->getPoint() << std::endl;
-
+#endif
+  
   if (surf2.get() && num_in_all2 >= num_in_all && avd_all2 < avd_all &&
       num_in_all2 > num_all2/2 && avd_all2 < approx_tol_)
     {
@@ -3963,6 +4105,7 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
 	    }
 	}
     }
+#ifdef DEBUG
   if (merged_surf.get())
     {
       std::ofstream ofp("parpoints.txt");
@@ -3976,6 +4119,7 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
 	    }
 	}
     }
+#endif
   return merged_surf;
 }
  
@@ -3989,7 +4133,9 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
 //===========================================================================
   {
   // Collect point clouds
+#ifdef DEBUG
   std::ofstream ofp("all_merge_points.g2");
+#endif
   vector<pair<vector<RevEngPoint*>::iterator,
 	      vector<RevEngPoint*>::iterator> > points;
   BoundingBox bbox(3);
@@ -4004,11 +4150,13 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
 	  points.push_back(std::make_pair(reg[kj]->pointsBegin(),
 					  reg[kj]->pointsEnd()));
 	  bbox.addUnionWith(reg[kj]->boundingBox());
+#ifdef DEBUE
 	  ofp << "400 1 0 0" << std::endl;
 	  int npt = reg[kj]->numPoints();
 	  ofp << npt << std::endl;
 	  for (int ka=0; ka<npt; ++ka)
 	    ofp << reg[kj]->getPoint(ka)->getPoint() << std::endl;
+#endif
 	}
     }
   
@@ -4127,12 +4275,14 @@ shared_ptr<HedgeSurface> RevEng::doMergeSpline(shared_ptr<HedgeSurface>& surf1,
       projectsf = RevEngUtils::doMergeTorus(all_pts2, bbox, nmbpts);
     }
 
+  #ifdef DEBUG
   if (projectsf.get())
     {
       std::ofstream of1("projectsf.g2");
       projectsf->writeStandardHeader(of1);
       projectsf->write(of1);
     }
+#endif
   
   // Parameterize on surface
   vector<double> data;
@@ -4176,6 +4326,7 @@ shared_ptr<HedgeSurface> RevEng::doMergeSpline(shared_ptr<HedgeSurface>& surf1,
     }
   int num_in = (int)all_pts.size() - num_out;
 
+#ifdef DEBUG
   if (surf.get())
     {
       std::ofstream of2("mergedsf.g2");
@@ -4184,6 +4335,7 @@ shared_ptr<HedgeSurface> RevEng::doMergeSpline(shared_ptr<HedgeSurface>& surf1,
       for (size_t ki=0; ki<regions.size(); ++ki)
 	regions[ki]->writeRegionInfo(of2);
     }
+#endif
 
   BoundingBox bb1 = surf1->boundingBox();
   BoundingBox bb2 = surf2->boundingBox();
@@ -4508,6 +4660,7 @@ void RevEng::mergePlanes(size_t first, size_t last)
 	}
     }
 
+#ifdef DEBUG_DIV
   std::ofstream of("planes0.g2");
   for (size_t ki=0; ki<surfaces_.size(); ++ki)
     {
@@ -4515,6 +4668,7 @@ void RevEng::mergePlanes(size_t first, size_t last)
       surf->writeStandardHeader(of);
       surf->write(of);
     }
+#endif
   
   // Find similar planes
   for (size_t ki=first; ki<last; ++ki)
@@ -4582,6 +4736,7 @@ void RevEng::mergePlanes(size_t first, size_t last)
 
       if (cand_ix.size() > 1)
 	{
+#ifdef DEBUG_DIV
 	  std::ofstream pre("pre_merge.g2");
 	  for (size_t kr=0; kr<cand_ix.size(); ++kr)
 	    {
@@ -4589,9 +4744,11 @@ void RevEng::mergePlanes(size_t first, size_t last)
 	      surf->writeStandardHeader(pre);
 	      surf->write(pre);
 	    }
+#endif
 	  shared_ptr<HedgeSurface> merged_surf;// = doMergePlanes(cand_ix);
 	  if (merged_surf.get())
 	    {
+#ifdef DEBUG_DIV
 	      std::ofstream post("post_merge.g2");
 	      for (size_t kr=0; kr<cand_ix.size(); ++kr)
 		{
@@ -4602,7 +4759,7 @@ void RevEng::mergePlanes(size_t first, size_t last)
 	      shared_ptr<ParamSurface> surfm = merged_surf->surface();
 	      surfm->writeStandardHeader(post);
 	      surfm->write(post);
-		  
+#endif  
 	      std::swap(surfaces_[cand_ix[0]], merged_surf);
 	      if (cand_ix[0] > ki)
 		std::swap(surfaces_[ki], surfaces_[cand_ix[0]]);
@@ -4674,6 +4831,7 @@ void RevEng::mergeCylinders(size_t first, size_t last)
 	}
     }
 
+#ifdef DEBUG_DIV
   std::ofstream cyl("sorted_cylinders.g2");
   for (size_t ki=first; ki<last; ++ki)
     {
@@ -4681,6 +4839,7 @@ void RevEng::mergeCylinders(size_t first, size_t last)
       surf->writeStandardHeader(cyl);
       surf->write(cyl);
     }
+#endif
   
   // Find similar cylinders
   for (size_t ki=first; ki<last; ++ki)
@@ -4750,6 +4909,7 @@ void RevEng::mergeCylinders(size_t first, size_t last)
 
       if (cand_ix.size() > 1)
 	{
+#ifdef DEBUG_DIV
 	  std::ofstream pre("pre_merge.g2");
 	  for (size_t kr=0; kr<cand_ix.size(); ++kr)
 	    {
@@ -4757,9 +4917,11 @@ void RevEng::mergeCylinders(size_t first, size_t last)
 	      surf->writeStandardHeader(pre);
 	      surf->write(pre);
 	    }
+#endif
 	  shared_ptr<HedgeSurface> merged_surf;// = doMergeCylinders(cand_ix);
 	  if (merged_surf.get())
 	    {
+#ifdef DEBUG_DIV
 	      std::ofstream post("post_merge.g2");
 	      for (size_t kr=0; kr<cand_ix.size(); ++kr)
 		{
@@ -4770,7 +4932,8 @@ void RevEng::mergeCylinders(size_t first, size_t last)
 	      shared_ptr<ParamSurface> surfm = merged_surf->surface();
 	      surfm->writeStandardHeader(post);
 	      surfm->write(post);
-		  
+#endif
+	      
 	      std::swap(surfaces_[cand_ix[0]], merged_surf);
 	      if (cand_ix[0] > ki)
 		std::swap(surfaces_[ki], surfaces_[cand_ix[0]]);
@@ -4951,7 +5114,9 @@ void RevEng::cylinderFit(vector<size_t>& sf_ix, Point mainaxis[3], int ix)
   RevEngUtils::computeCylPosRadius(points, low, high, axis, Cx, Cy, pos,
 				   radius);
 
+#ifdef DEBUg
   std::ofstream of("cylinderfit.g2");
+#endif
   for (size_t ki=0; ki<sf_ix.size(); ++ki)
     {
       HedgeSurface* surf = surfaces_[sf_ix[ki]].get();
@@ -4978,13 +5143,17 @@ void RevEng::cylinderFit(vector<size_t>& sf_ix, Point mainaxis[3], int ix)
 				       mainaxis[(ix+1)%3], mainaxis[(ix+2)%3],
 				       pos1, radius1);
       shared_ptr<Cylinder> cyl0(new Cylinder(radius0, pos0, axis, Cy));
+#ifdef DEBUG
       cyl0->writeStandardHeader(of);
       cyl0->write(of);
+#endif
       shared_ptr<Cylinder> cyl1(new Cylinder(radius1, pos1, mainaxis[ix],
 					     mainaxis[(ix+2)%3]));
+#ifdef DEBUG
       cyl1->writeStandardHeader(of);
       cyl1->write(of);
-
+#endif
+      
       for (size_t kj=0; kj<reg.size(); ++kj)
 	{
 	  double maxd0, avd0;
@@ -4995,6 +5164,7 @@ void RevEng::cylinderFit(vector<size_t>& sf_ix, Point mainaxis[3], int ix)
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
 				  cyl0, approx_tol_, maxd0, avd0, num_in0, in0, out0,
 				  parvals0, distang0);
+#ifdef DEBUG
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in0.size() << std::endl;
 	  for (size_t kr=0; kr<in0.size(); ++kr)
@@ -5003,6 +5173,7 @@ void RevEng::cylinderFit(vector<size_t>& sf_ix, Point mainaxis[3], int ix)
 	  of << out0.size() << std::endl;
 	  for (size_t kr=0; kr<out0.size(); ++kr)
 	    of << out0[kr]->getPoint() << std::endl;
+#endif
 	  
 	  double maxd1, avd1;
 	  int num_in1;
@@ -5012,6 +5183,7 @@ void RevEng::cylinderFit(vector<size_t>& sf_ix, Point mainaxis[3], int ix)
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
 				  cyl1, approx_tol_, maxd1, avd1, num_in1, in1,
 				  out1, parvals1, distang1);
+#ifdef DEBUG
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in1.size() << std::endl;
 	  for (size_t kr=0; kr<in1.size(); ++kr)
@@ -5020,7 +5192,7 @@ void RevEng::cylinderFit(vector<size_t>& sf_ix, Point mainaxis[3], int ix)
 	  of << out1.size() << std::endl;
 	  for (size_t kr=0; kr<out1.size(); ++kr)
 	    of << out1[kr]->getPoint() << std::endl;
-	  
+#endif
 	  int stop_break = 1;
 	}
     }
@@ -5056,8 +5228,9 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
   RevEngUtils::computeCylPosRadius(points, low, high, axis, Cx, Cy, pos,
 				   radius);
 
+#ifdef DEBUG
   std::ofstream of("cylinderfit.g2");
-  
+#endif
   for (size_t ki=0; ki<sf_ix.size(); ++ki)
     {
       HedgeSurface* surf = surfaces_[sf_ix[ki]].get();
@@ -5080,16 +5253,17 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
       double radius2 = computeCylRadius(points0, pos, Cx, Cy);
       
       shared_ptr<Cylinder> cyl(new Cylinder(radius0, pos0, axis, Cy));
+      shared_ptr<Cylinder> cyl2(new Cylinder(radius2, pos, axis, Cy));
+      shared_ptr<Cylinder> cyl3(new Cylinder(radius0, pos, axis, Cy));
+#ifdef DEBUG
       cyl->writeStandardHeader(of);
       cyl->write(of);
-      shared_ptr<Cylinder> cyl2(new Cylinder(radius2, pos, axis, Cy));
       cyl2->writeStandardHeader(of);
       cyl2->write(of);
 
-      shared_ptr<Cylinder> cyl3(new Cylinder(radius0, pos, axis, Cy));
       cyl2->writeStandardHeader(of);
       cyl2->write(of);
-
+#endif
       for (size_t kj=0; kj<reg.size(); ++kj)
 	{
 	  double maxd, avd;
@@ -5100,6 +5274,7 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
 				  cyl, approx_tol_, maxd, avd, num_in, in, out,
 				  parvals, distang);
+#ifdef DEBUG
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in.size() << std::endl;
 	  for (size_t kr=0; kr<in.size(); ++kr)
@@ -5108,7 +5283,7 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
 	  of << out.size() << std::endl;
 	  for (size_t kr=0; kr<out.size(); ++kr)
 	    of << out[kr]->getPoint() << std::endl;
-	  
+#endif
 	  double maxd2, avd2;
 	  int num_in2;
 	  vector<RevEngPoint*> in2, out2;
@@ -5117,6 +5292,7 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
 				  cyl2, approx_tol_, maxd2, avd2, num_in2, in2,
 				  out2, parvals2, distang2);
+#ifdef DEBUG
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in2.size() << std::endl;
 	  for (size_t kr=0; kr<in2.size(); ++kr)
@@ -5125,6 +5301,7 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
 	  of << out2.size() << std::endl;
 	  for (size_t kr=0; kr<out2.size(); ++kr)
 	    of << out2[kr]->getPoint() << std::endl;
+#endif
 	  
 	  double maxd3, avd3;
 	  int num_in3;
@@ -5134,6 +5311,7 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
 				  cyl3, approx_tol_, maxd3, avd3, num_in3, in3,
 				  out3, parvals3, distang3);
+#ifdef DEBUG
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in3.size() << std::endl;
 	  for (size_t kr=0; kr<in3.size(); ++kr)
@@ -5142,7 +5320,7 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
 	  of << out3.size() << std::endl;
 	  for (size_t kr=0; kr<out3.size(); ++kr)
 	    of << out3[kr]->getPoint() << std::endl;
-	  
+#endif
 	  int stop_break = 1;
 	}
     }
@@ -5256,22 +5434,30 @@ void RevEng::collectAxis(vector<SurfaceProperties>& sfprop)
 void RevEng::trimSurfaces()
 //===========================================================================
 {
+#ifdef DEBUG
   std::ofstream of1("surfbd.g2");
+#endif
   for (size_t ki=0; ki<surfaces_.size(); ++ki)
     {
       // Restrict unbounded surfaces
       surfaces_[ki]->ensureSurfaceBounded();
+#ifdef DEBUG
       surfaces_[ki]->surface()->writeStandardHeader(of1);
       surfaces_[ki]->surface()->write(of1);
+#endif
     }
 
+#ifdef DEBUG
   std::ofstream of3("trimsurfs.g2");
+#endif
   for (size_t ki=0; ki<surfaces_.size(); ++ki)
     {
       surfaces_[ki]->trimWithPoints(approx_tol_);
 
+#ifdef DEBUG
       surfaces_[ki]->surface()->writeStandardHeader(of3);
       surfaces_[ki]->surface()->write(of3);
+#endif
       int stop1 = 1;
     }
 
