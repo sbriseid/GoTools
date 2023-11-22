@@ -87,6 +87,7 @@ int colors[MAX_COLORS][3] = {
 //#define DEBUG_ENHANCE
 //#define DEBUG_SEG
 //#define DEBUG
+//#define DEBUGONE
 
 //===========================================================================
 RevEng::RevEng(shared_ptr<ftPointSet> tri_sf, double mean_edge_len)
@@ -333,7 +334,9 @@ void RevEng::enhancePoints()
   std::cout << "No close, min: " << min_close << ", max: " << max_close << ", average: " << av_close << std::endl;
   std::cout << "lambda3, min: " << lambda_3[0] << ", max: " << lambda_3[nmbpt-1] << ", medium: " << lambda_3[nmbpt/2] << std::endl;
 #endif
-  
+
+  if (false)
+    {
   for (int ki=0; ki<nmbpt; ++ki)
     {
       RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
@@ -342,6 +345,7 @@ void RevEng::enhancePoints()
       double rp[2];
       setRp(pt, rp);
       pt->setRp(rp);
+    }
     }
 
   for (int ki=0; ki<nmbpt; ++ki)
@@ -1671,7 +1675,8 @@ void RevEng::initialSurfaces()
       vector<RevEngPoint*> single;
       vector<shared_ptr<HedgeSurface> > sfs;
       vector<HedgeSurface*> prev_sfs;
-      regions_[kr]->peelOffRegions(min_point_in, approx_tol_, sfs, out_groups, single);
+      regions_[kr]->peelOffRegions(min_point_in, approx_tol_, mainaxis_,
+				   sfs, out_groups, single);
       if (single.size() > 0)
 	single_points_.insert(single_points_.end(), single.begin(), single.end());
       if (out_groups.size() > 0 || prev_sfs.size() > 0)
@@ -1959,7 +1964,17 @@ void RevEng::updateRegionStructure()
 	    }
 	  if (!segmented)
 	    {
-	      segmented = segmentByContext(ki, min_point_in, true);
+	      // Check if a segmentation into several cylinder like
+	      // regions is feasible
+	      double avH, avK, MAH, MAK;
+	      regions_[ki]->getAvCurvatureInfo(avH, avK, MAH, MAK);
+	      double fac = 5.0;
+	      if (MAH > fac*MAK)
+		{
+		  segmented = segmentByAxis(ki, min_point_in);
+		}
+	      if (!segmented)
+		segmented = segmentByContext(ki, min_point_in, true);
 	    }
 	}
 
@@ -2361,6 +2376,7 @@ void RevEng::recognizeSurfaces(int min_point_in, int pass)
 {
   double angtol = -1; //angfac*anglim_;
   int pass2 = pass + 1;
+  std::sort(regions_.begin(), regions_.end(), sort_region);
   for (int ki=0; ki<(int)regions_.size(); ++ki)
     {
 #ifdef DEBUG
@@ -2371,8 +2387,8 @@ void RevEng::recognizeSurfaces(int min_point_in, int pass)
       if (regions_[ki]->numPoints() < min_point_region_)
 	continue;
       int classtype = regions_[ki]->getClassification();
-#ifdef DEBUG
-      std::cout << "No " << ki <<  ", classtype: " << classtype << std::endl;
+#ifdef DEBUGONE
+      //std::cout << "No " << ki <<  ", classtype: " << classtype << std::endl;
       
       std::ofstream of1("region.g2");
       regions_[ki]->writeRegionInfo(of1);
@@ -3237,6 +3253,47 @@ bool RevEng::segmentByPlaneGrow(int ix, int min_point_in)
     surfaces_.insert(surfaces_.end(), plane_sfs.begin(), plane_sfs.end());
 
   bool segmented = (out_groups.size() > 0);
+  return segmented;
+}
+
+//===========================================================================
+bool RevEng::segmentByAxis(int ix, int min_point_in)
+//===========================================================================
+{
+  vector<vector<RevEngPoint*> > separate_groups;
+  vector<RevEngPoint*> single_points;
+  bool segmented = regions_[ix]->segmentByAxis(min_point_in, approx_tol_,
+					       mainaxis_, separate_groups,
+					       single_points);
+  if (segmented && single_points.size() > 0)
+    single_points_.insert(single_points_.end(), single_points.begin(),
+			  single_points.end());
+#ifdef DEBUG
+  if (segmented)
+    {
+      std::ofstream of("seg_by_axis.g2");
+      int num = regions_[ix]->numPoints();
+      of << "400 1 0 4 255 0 0 255" << std::endl;
+      of <<  num << std::endl;
+      for (int ka=0; ka<num; ++ka)
+	of << regions_[ix]->getPoint(ka)->getPoint() << std::endl;
+
+      for (size_t ki=0; ki<separate_groups.size(); ++ki)
+	{
+	  of << "400 1 0 4 0 255 0 255" << std::endl;
+	  of <<  separate_groups[ki].size() << std::endl;
+	  for (int ka=0; ka<(int)separate_groups[ki].size(); ++ka)
+	    of << separate_groups[ki][ka]->getPoint() << std::endl;
+	}
+    }
+#endif
+  
+  if (separate_groups.size() > 0)
+    {
+      vector<HedgeSurface*> prev_surfs;
+      surfaceExtractOutput(ix, separate_groups, prev_surfs);
+    }
+  
   return segmented;
 }
 
@@ -5114,7 +5171,7 @@ void RevEng::cylinderFit(vector<size_t>& sf_ix, Point mainaxis[3], int ix)
   RevEngUtils::computeCylPosRadius(points, low, high, axis, Cx, Cy, pos,
 				   radius);
 
-#ifdef DEBUg
+#ifdef DEBUG
   std::ofstream of("cylinderfit.g2");
 #endif
   for (size_t ki=0; ki<sf_ix.size(); ++ki)
@@ -5713,13 +5770,16 @@ void RevEng::readClassified(istream& is)
 	  pt1->addNeighbour(pt2);
 	}
     }
-  
+
+  if (false)
+    {
   for (int ki=0; ki<nmbpts; ++ki)
     {
       RevEngPoint *pt = dynamic_cast<RevEngPoint*>((*tri_sf_)[ki]); 
       double rp[3];
       setRp(pt, rp);
       pt->setRp(rp);
+    }
     }
   
   setBoundingBox();
@@ -5839,7 +5899,7 @@ void RevEng::readParams(istream& is)
 void RevEng::writeRegionStage(ostream& of, ostream& ofs) const
 //===========================================================================
 {
-  std::cout << "Size: " << regions_.size() << std::endl;
+  std::cout << "Num regions: " << regions_.size() << ", num surfaces: " << surfaces_.size() << std::endl;
   
   vector<Vector3D> small;
   int nmb_one = 0;
@@ -5852,7 +5912,7 @@ void RevEng::writeRegionStage(ostream& of, ostream& ofs) const
       // if (tmpset.size() != regions_[kr]->numPoints())
       // 	std::cout << "Point number mismatch. " << kr << " " << tmpset.size() << " " << regions_[kr]->numPoints() << std::endl;
       int nmb = regions_[kr]->numPoints();
-      if (nmb < 50)
+      if (nmb < min_point_region_)
 	{
 	  for (int ki=0; ki<nmb; ++ki)
 	    small.push_back(regions_[kr]->getPoint(ki)->getPoint());

@@ -188,7 +188,7 @@ namespace Go
 			      std::vector<HedgeSurface*>& adj_surfs);
 
     void
-    peelOffRegions(int min_point, double tol,
+    peelOffRegions(int min_point, double tol, Point mainaxis[3], 
 		   std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		   std::vector<vector<RevEngPoint*> >& out_groups,
 		   std::vector<RevEngPoint*>& single_pts);
@@ -549,6 +549,10 @@ namespace Go
 				std::vector<RevEngRegion*>& adj_planar,
 				std::vector<std::vector<RevEngPoint*> >& added_groups);
 
+    bool segmentByAxis(int min_point_in, double tol, Point mainaxis[3],
+		       std::vector<std::vector<RevEngPoint*> >& added_groups,
+		       std::vector<RevEngPoint*>& single_pts);
+
     Point directionFromAdjacent(double angtol);
     
     bool segmentByDirectionContext(int min_point_in, double tol,
@@ -675,7 +679,7 @@ namespace Go
     shared_ptr<SweepData> sweep_;
     bool visited_;
 
-    const Point& pluckerAxis();
+    Point& pluckerAxis();
     void extendWithGaussRad();
     void extendWithGaussRad2();
     void analyseNormals(double tol, Point& normal, Point& centre, double& radius);
@@ -702,6 +706,10 @@ namespace Go
     shared_ptr<Cylinder>
     computeCylinder(std::vector<RevEngPoint*>& points, double tol,
 		    std::vector<std::vector<RevEngPoint*> >& configs);
+    shared_ptr<Cylinder>
+    computeCylinder(std::vector<RevEngPoint*>& points, double tol,
+		    std::vector<std::vector<RevEngPoint*> >& configs,
+		    shared_ptr<Cone>& cone);
     shared_ptr<Sphere> computeSphere(std::vector<RevEngPoint*>& points);
     shared_ptr<Cone> computeCone(std::vector<RevEngPoint*>& points, Point& apex);
     shared_ptr<Torus> computeTorus(std::vector<RevEngPoint*>& points,

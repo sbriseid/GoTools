@@ -256,6 +256,33 @@ namespace Go
       mainaxis[2] = mainaxis_[2];
     }
 
+    // Prelimenary results
+    int numRegions()
+    {
+      return regions_.size();
+    }
+
+    shared_ptr<RevEngRegion> getRegion(int ix)
+    {
+      return regions_[ix];
+    }
+
+    int numSurfaces()
+    {
+      return surfaces_.size();
+    }
+
+    shared_ptr<HedgeSurface> getSurface(int ix)
+    {
+      return surfaces_[ix];
+    }
+
+    // Could be used to elect if a group of points should be visualized
+    double getMinPointRegion()
+    {
+      return min_point_region_;
+    }
+
   private:
     int model_character_;
     shared_ptr<ftPointSet> tri_sf_;
@@ -318,6 +345,7 @@ namespace Go
 				  std::vector<HedgeSurface*>& adj_surfs);
 
     bool segmentByPlaneGrow(int ix, int min_point_in);
+    bool segmentByAxis(int ix, int min_point_in);
     bool segmentByContext(int ix, int min_point_in, bool first);
     void growSurface(size_t& ix);
     void mergeSurfaces();
