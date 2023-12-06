@@ -729,7 +729,7 @@ void RevEngPoint::store(std::ostream& os) const
     os << " " << edge_[ka];
   for (int ka=0; ka<4; ++ka)
     os << " " << surf_[ka];
-  os << " " << outlier_ << std::endl;
+  os << " " << outlier_ << " " << sfdist_ << " " << sfang_ << std::endl;
   os << std::endl;
 }
 
@@ -763,9 +763,7 @@ void RevEngPoint::read(std::istream& is, double eps, vector<int>& next_ix)
     is >> edge_[ka];
   for (int ka=0; ka<4; ++ka)
     is >> surf_[ka];
-  is >> outlier_;
-  sfdist_ = -1.0;
-  sfang_ = -1.0;
+  is >> outlier_ >> sfdist_ >> sfang_;
   resetPointAssociation();
 
 }

@@ -171,7 +171,7 @@ public:
   bool isCompatible(HedgeSurface* other, double angtol, double approx_tol,
 		    ClassType& type, double& score);
 
-  bool hasPrimary();
+  bool hasBaseSf();
 
   void ensureSurfaceBounded();
 

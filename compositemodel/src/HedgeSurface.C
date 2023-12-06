@@ -226,8 +226,9 @@ bool HedgeSurface::checkAccuracyAndUpdate(shared_ptr<ParamSurface> surf, double 
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       vector<RevEngPoint*> inpt, outpt;
+      int num2_in;
       RevEngUtils::distToSurf(regions_[ki]->pointsBegin(), regions_[ki]->pointsEnd(),
-			      surf, tol, maxd[ki], avd[ki], num_in[ki],
+			      surf, tol, maxd[ki], avd[ki], num_in[ki], num2_in,
 			      inpt, outpt, parvals[ki], dist_ang[ki], -1.0);
       all_in += num_in[ki];
       avd_all += fac*regions_[ki]->numPoints()*avd[ki];
@@ -299,12 +300,12 @@ bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double appro
       for (int ka=0; ka<nreg; ++ka)
 	{
 	  RevEngRegion *reg =  getRegion(ka);
-	  if (reg->hasPrimary())
+	  if (reg->hasBaseSf())
 	    {
 	      double maxdp, avdp;
 	      int num_inp;
 	      int curr_numpt = reg->numPoints();
-	      reg->getPrimaryInfo(maxdp, avdp, num_inp);
+	      reg->getBaseDist(maxdp, avdp, num_inp);
 	      if (avdp < approx_tol && num_inp > curr_numpt/2 && curr_numpt > numpt)
 		{
 		  preg = reg;
@@ -315,8 +316,8 @@ bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double appro
       if (preg)
 	{
 	  psurf1 =
-	    dynamic_pointer_cast<ElementarySurface,ParamSurface>(preg->getPrimary());
-	  type1 = preg->getPrimary()->instanceType();
+	    dynamic_pointer_cast<ElementarySurface,ParamSurface>(preg->getBase());
+	  type1 = preg->getBase()->instanceType();
 	}
     }
   
@@ -328,12 +329,12 @@ bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double appro
       for (int ka=0; ka<nreg; ++ka)
 	{
 	  RevEngRegion *reg =  other->getRegion(ka);
-	  if (reg->hasPrimary())
+	  if (reg->hasBaseSf())
 	    {
 	      double maxdp, avdp;
 	      int num_inp;
 	      int curr_numpt = reg->numPoints();
-	      reg->getPrimaryInfo(maxdp, avdp, num_inp);
+	      reg->getBaseDist(maxdp, avdp, num_inp);
 	      if (avdp < approx_tol && num_inp > curr_numpt/2 && curr_numpt > numpt)
 		{
 		  preg = reg;
@@ -344,8 +345,8 @@ bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double appro
       if (preg)
 	{
 	  psurf2 =
-	    dynamic_pointer_cast<ElementarySurface,ParamSurface>(preg->getPrimary());
-	  type2 = preg->getPrimary()->instanceType();
+	    dynamic_pointer_cast<ElementarySurface,ParamSurface>(preg->getBase());
+	  type2 = preg->getBase()->instanceType();
 	}
     }
   
@@ -417,11 +418,11 @@ bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double appro
 }
 
 //===========================================================================
-bool HedgeSurface::hasPrimary()
+bool HedgeSurface::hasBaseSf()
 //===========================================================================
 {
   for (size_t ki=0; ki<regions_.size(); ++ki)
-    if (regions_[ki]->hasPrimary())
+    if (regions_[ki]->hasBaseSf())
       return true;
   return false;
 }

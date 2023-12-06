@@ -79,16 +79,19 @@ namespace Go
   
   struct SweepData
   {
-    int type_;  // Linear = 1, rotational = 2
+    int type_;  // Linear = 1, rotational = 2, cylinderlike = 3, conelike = 4
     shared_ptr<SplineCurve> profile_;
     Point location_;
     Point added_info_;
+    double radius_;
+    double angle_;
     double maxdist_;
     double avdist_;
     int num_in_;
 
     SweepData(int type, shared_ptr<SplineCurve> profile, Point location, 
-	      Point info2, double maxdist, double avdist, int num_in)
+	      Point info2, double maxdist, double avdist, int num_in,
+	      double radius = -1.0, double angle = 0.0)
     {
       type_ = type;
       profile_ = profile;
@@ -97,6 +100,8 @@ namespace Go
       maxdist_ = maxdist;
       avdist_ = avdist;
       num_in_ = num_in;
+      radius_ = radius;
+      angle_ = angle;
     }
   };
 
@@ -110,7 +115,7 @@ namespace Go
     RevEngRegion(int classification_type, int edge_class_type);
 
     RevEngRegion(int classification_type, int edge_class_type,
-		 std::vector<RevEngPoint*> & points);
+		 std::vector<RevEngPoint*>& points);
 
     ~RevEngRegion();
     
@@ -174,15 +179,20 @@ namespace Go
     
     RevEngPoint* seedPointPlane(int min_next, double rfac, double angtol);
     
-    void growLocalPlane(double tol, std::vector<RevEngPoint*>& plane_pts,
+    void growLocalPlane(Point mainaxis[3], double tol,
+			std::vector<RevEngPoint*>& plane_pts,
 			shared_ptr<Plane>& plane_out);
     // void growLocal(RevEngPoint* seed, double tol, double radius, int min_close,
     // 		   std::vector<RevEngPoint*>& out);
 
-    void growWithSurf(int max_nmb, double tol,
+    void growWithSurf(Point mainaxis[3], int max_nmb, double tol,
 		      std::vector<RevEngRegion*>& grown_regions,
 		      std::vector<HedgeSurface*>& adj_surfs);
 
+    bool mergePlanarReg(double zero_H, double zero_K, double tol,
+			Point mainaxis[3],
+			std::vector<RevEngRegion*>& grown_regions);
+    
     void mergeAdjacentSimilar(double tol,
 			      std::vector<RevEngRegion*>& grown_regions,
 			      std::vector<HedgeSurface*>& adj_surfs);
@@ -210,7 +220,7 @@ namespace Go
 		      std::vector<RevEngRegion*>& adapted_regions,
 		      std::vector<shared_ptr<RevEngRegion> >& outdiv_regions);
 
-     void joinRegions(double approx_tol, double anglim,
+     void joinRegions(Point mainaxis[3], double approx_tol, double anglim,
 		     std::vector<RevEngRegion*>& adapted_regions);
 
     void extractOutPoints(std::vector<std::pair<double, double> >& dist_ang,
@@ -224,6 +234,9 @@ namespace Go
 			    double tol, double maxd, double avd,
 			    std::vector<RevEngPoint*>& dist_points);
     
+   void connectedGroups(std::vector<RevEngPoint*>& move,
+			std::vector<std::vector<RevEngPoint*> >& out_groups,
+			bool outer=false);
    void extractSpesPoints(std::vector<RevEngPoint*>& move,
 			   std::vector<std::vector<RevEngPoint*> >& out_groups,
 			   bool outer=false);
@@ -262,15 +275,15 @@ namespace Go
 	return false;
     }
     
-    bool extractPlane(double tol, int min_pt, double angtol,
-		      int prefer_elementary_,
+    bool extractPlane(Point mainaxis[3],
+		      double tol, int min_pt, double angtol,
+		      int prefer_elementary,
 		      std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		      std::vector<HedgeSurface*>& prevsfs,
 		      std::vector<std::vector<RevEngPoint*> >& out_groups);
 
     bool extractCylinder(double tol, int min_pt, double angtol,
-			 double mean_edge_len,
-			 int prefer_elementary_,
+			 int prefer_elementary,
 			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 			 std::vector<HedgeSurface*>& prevsfs,
 			 std::vector<std::vector<RevEngPoint*> >& out_groups,
@@ -281,68 +294,85 @@ namespace Go
     bool feasibleCylinder(double zero_H, double zero_K) const;
 
     bool extractSphere(double tol, int min_pt, double angtol,
-		       double mean_edge_len,
-		       int prefer_elementary_,
+		       int prefer_elementary,
 		       std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		       std::vector<HedgeSurface*>& prevsfs,
 		       std::vector<std::vector<RevEngPoint*> >& out_groups);
 
     bool extractLinearSweep(double tol, int min_pt, double angtol,
-			    int prefer_elementary_,
+			    int prefer_elementary,
 			    std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 			    std::vector<HedgeSurface*>& prevsfs);
 
     bool extractCone(double tol, int min_pt, double angtol,
-		     double mean_edge_len,
-		     int prefer_elementary_,
+		     int prefer_elementary,
 		     std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		     std::vector<HedgeSurface*>& prevsfs,
 		     std::vector<std::vector<RevEngPoint*> >& out_groups);
 
     bool extractTorus(double tol, int min_pt, double angtol,
-		      double mean_edge_len,
-		      int prefer_elementary_,
+		      int prefer_elementary,
 		      std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		      std::vector<HedgeSurface*>& prevsfs,
 		      std::vector<std::vector<RevEngPoint*> >& out_groups);
 
     bool contextTorus(Point mainaxis[3],
 		      double tol, int min_pt, double angtol,
-		      double mean_edge_len,
-		      int prefer_elementary_,
+		      int prefer_elementary,
 		      std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		      std::vector<HedgeSurface*>& prevsfs,
 		      std::vector<std::vector<RevEngPoint*> >& out_groups);
 
-    RevEngPoint* closestPoint(const Point& pos, double& dist);
+    bool contextCylinder(Point mainaxis[3],
+			 double tol, int min_pt, double angtol,
+			 int prefer_elementary,
+			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+			 std::vector<HedgeSurface*>& prevsfs,
+			 std::vector<std::vector<RevEngPoint*> >& out_groups);
+
+    bool contextCylinder(Point mainaxis[3],
+			 double tol, int min_pt, double angtol,
+			 int prefer_elementary,
+			 std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*> >& adj_elem,
+			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+			 std::vector<HedgeSurface*>& prevsfs,
+			 std::vector<std::vector<RevEngPoint*> >& out_groups);
+
+     RevEngPoint* closestPoint(const Point& pos, double& dist);
 
     std::vector<RevEngPoint*> extractNextToAdjacent(RevEngRegion* reg);
 
-    void growFromNeighbour(std::vector<RevEngPoint*>& seed, double tol,
+    std::vector<RevEngPoint*> extractBdPoints();
+
+    std::vector<RevEngPoint*> extractBranchPoints();
+
+    void growFromNeighbour(Point mainaxis[3],
+			   std::vector<RevEngPoint*>& seed, double tol,
 			   RevEngRegion *neighbour);
     
-    bool
-    analyseTorusContext(std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*> >& adj,
-			double tol, double angtol, std::vector<size_t>& adjacent_ix,
-			int& plane_ix, int& cyl_ix, Point& pos, Point& axis,
-			Point& Cx, double& R1, double& R2, double cyl_dom[4],
-			bool& outer);
 
-    bool tryOtherSurf(int prefer_elementary_, bool replace);
+    bool tryOtherSurf(int prefer_elementary, bool replace);
     
     bool extractFreeform(double tol, int min_pt, double angtol,
-			 double mean_edge_len,
-			 int prefer_elementary_,
+			 int prefer_elementary,
 			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 			 std::vector<HedgeSurface*>& prevsfs,
 			 std::vector<std::vector<RevEngPoint*> >& out_groups);
 
     void implicitizeSplit();
 
-    void segmentByPlaneGrow(double tol, int min_pt, 
+    void segmentByPlaneGrow(Point mainaxis[3], double tol, int min_pt, 
 			    std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 			    std::vector<HedgeSurface*>& prevsfs,
 			    std::vector<std::vector<RevEngPoint*> >& out_groups);
+    
+    bool segmentByPlaneAxis(Point mainaxis[3], int min_point_in,
+			    double tol, double angtol, int prefer_elementary,
+			    std::vector<RevEngRegion*>& adj_planar,
+			    std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+			    std::vector<shared_ptr<RevEngRegion> >& added_reg,
+			    std::vector<HedgeSurface*>& prevsfs,
+			    std::vector<std::vector<RevEngPoint*> >& added_groups);
     
     void setHedge(HedgeSurface* surface)
     {
@@ -497,7 +527,8 @@ namespace Go
 			     int max_next, double tol, double angtol,
 			     int max_nmb_outlier, RevEngRegion* taboo=0);
 
-    bool adjustWithCylinder(double tol, double angtol, int min_point_region,
+    bool adjustWithCylinder(Point mainaxis[3],
+			    double tol, double angtol, int min_point_region,
 			    std::vector<std::vector<RevEngPoint*> >& out_groups,
 			    std::vector<RevEngRegion*>& grown_regions,
 			    std::vector<HedgeSurface*>& adj_surfs);
@@ -545,12 +576,20 @@ namespace Go
 
     std::vector<RevEngRegion*> fetchAdjacentPlanar();
 
-    bool segmentByPlanarContext(int min_point_in, double tol,
+    bool segmentByPlanarContext(Point mainaxis[3], int min_point_in, double tol,
 				std::vector<RevEngRegion*>& adj_planar,
 				std::vector<std::vector<RevEngPoint*> >& added_groups);
 
-    bool segmentByAxis(int min_point_in, double tol, Point mainaxis[3],
-		       std::vector<std::vector<RevEngPoint*> >& added_groups,
+    void sortByAxis(vector<Point>& axis, double tol,
+		    std::vector<std::vector<RevEngPoint*> >& groups1,
+		    std::vector<std::vector<RevEngPoint*> >& groups2,
+		    std::vector<RevEngPoint*>& remaining);
+
+    bool segmentByAxis(Point mainaxis[3], int min_point, double tol, 
+		       double angtol, int prefer_elementary,
+		       std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+		       std::vector<shared_ptr<RevEngRegion> >& added_reg,
+		       std::vector<std::vector<RevEngPoint*> >& out_groups,
 		       std::vector<RevEngPoint*>& single_pts);
 
     Point directionFromAdjacent(double angtol);
@@ -561,8 +600,7 @@ namespace Go
 
      
     void getAdjacentElemInfo(std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*>  >& adj_elem,
-			     std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*>  >& adj_elem_base,
-			     std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*>  >& adj_primary);
+			     std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*>  >& adj_elem_base);
 
     void setPreviousReg(RevEngRegion *prev)
     {
@@ -579,7 +617,7 @@ namespace Go
 					     std::vector<RevEngPoint*>& seq_pts,
 					     double tol);
 
-    void adjustWithSurf(double tol, double angtol);
+    void adjustWithSurf(Point mainaxis[3], double tol, double angtol);
 
     double getFracNorm()
     {
@@ -623,26 +661,9 @@ namespace Go
 
     bool hasEdgeBetween(RevEngRegion* adj);
 
-    bool hasPrimary()
-    {
-      return (primary_.get() != 0);
-    }
-
-    shared_ptr<ParamSurface> getPrimary()
-    {
-      return primary_;
-    }
-
-    void getPrimaryInfo(double& maxdist_primary,
-			double& avdist_primary, int& num_in_primary)
-    {
-      maxdist_primary = maxdist_primary_;
-      avdist_primary = avdist_primary_;
-      num_in_primary = num_in_primary_;
-    }
-
-    
     void writeRegionInfo(std::ostream& of);
+    void writeRegionPoints(std::ostream& of);
+    void writeAdjacentPoints(std::ostream& of);
     void writeUnitSphereInfo(std::ostream& of);
     void writeSubTriangulation(std::ostream& of);
     void writeSurface(std::ostream& of);
@@ -672,9 +693,6 @@ namespace Go
     shared_ptr<ParamSurface> basesf_;
     double maxdist_base_, avdist_base_;
     int num_in_base_;
-    shared_ptr<ParamSurface> primary_;
-    double maxdist_primary_, avdist_primary_;
-    int num_in_primary_;
 
     shared_ptr<SweepData> sweep_;
     bool visited_;
@@ -702,14 +720,17 @@ namespace Go
 		     shared_ptr<Cylinder> cyl,
 		     shared_ptr<SplineCurve> spl, double tol,
 		     std::vector<std::vector<RevEngPoint*> >& configs);
-    shared_ptr<Plane> computePlane(std::vector<RevEngPoint*>& points, const Point& norm_dir);
+    shared_ptr<Plane> computePlane(std::vector<RevEngPoint*>& points,
+				   const Point& norm_dir, Point mainaxis[3]);
     shared_ptr<Cylinder>
-    computeCylinder(std::vector<RevEngPoint*>& points, double tol,
-		    std::vector<std::vector<RevEngPoint*> >& configs);
-    shared_ptr<Cylinder>
-    computeCylinder(std::vector<RevEngPoint*>& points, double tol,
-		    std::vector<std::vector<RevEngPoint*> >& configs,
-		    shared_ptr<Cone>& cone);
+    computeCylinder(std::vector<RevEngPoint*>& points, double tol);
+    void analyseCylProject(shared_ptr<Cylinder> cyl, double tol,
+			   std::vector<std::vector<RevEngPoint*> >& configs);
+    void analyseCylRotate(shared_ptr<Cylinder> cyl, double tol,
+			  double avdist, int num_in, double& avdist_lin,
+			  int& num_in_lin, double& avdist_cub,
+			  int& num_in_cub, shared_ptr<Cone>& cone);
+
     shared_ptr<Sphere> computeSphere(std::vector<RevEngPoint*>& points);
     shared_ptr<Cone> computeCone(std::vector<RevEngPoint*>& points, Point& apex);
     shared_ptr<Torus> computeTorus(std::vector<RevEngPoint*>& points,
@@ -731,20 +752,11 @@ namespace Go
 			       double& maxd, double& avd,
 			       std::vector<RevEngPoint*>& in,
 			       std::vector<RevEngPoint*>& out);
-    void checkReplaceSurf(double tol, bool always=false);
+    void checkReplaceSurf(Point mainaxis[3], double tol, bool always=false);
     bool parameterizeOnSurf(shared_ptr<ParamSurface> surf,
 			    std::vector<double>& data,
 			    std::vector<double>& param,
 			    int& inner1, int& inner2, bool& close1, bool& close2);
-    void setPrimarySf(shared_ptr<ParamSurface> surf, double maxd, double avd,
-		      int num_in)
-    {
-      primary_ = surf;
-      maxdist_primary_ = maxd;
-      avdist_primary_ = avd;
-      num_in_primary_ = num_in;
-    }
-
     bool reparameterize(std::vector<double>& param, std::vector<double>& param2,
 			double& umin, double& umax, double& vmin, double& vmax);
 
@@ -769,6 +781,47 @@ namespace Go
 			      bool& outlier, int& nmb_pt_adj, double& maxdist, 
 			      double& avdist, int& nmb_in, double& maxdist_adj, 
 			      double& avdist_adj, int& nmb_in_adj);
+
+        bool
+    analyseTorusContext(std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*> >& adj,
+			double tol, double angtol, std::vector<size_t>& adjacent_ix,
+			int& plane_ix, int& cyl_ix, Point& pos, Point& axis,
+			Point& Cx, double& R1, double& R2, double cyl_dom[4],
+			bool& outer);
+    bool
+    analyseCylinderContext(std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*> >& adj,
+			   double tol, double angtol, Point mainaxis[3],
+			   std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*> >& adj_planar,
+			   Point& pos, Point& axis, Point& Cx, double& rad);
+
+    bool planarComponent(Point vec, int min_point, double tol,
+			 double angtol, Point mainaxis[3],
+			 std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+			 std::vector<vector<RevEngPoint*> >& out_groups,
+			 std::vector<RevEngPoint*>& single_pts);
+
+    bool defineHelicalInfo(shared_ptr<Cylinder> cyl,  double tol,
+			   double angtol, int min_point, double avdist,
+			   int num_in1, int num_in2,
+			   std::vector<std::pair<double,double> >& dist_ang,
+			   std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+			   std::vector<std::vector<RevEngPoint*> >& out_groups,
+			   std::vector<RevEngPoint*>& single_pts);
+    
+    bool integratePlanarPoints(std::vector<Point>& dir,
+			       std::vector<std::vector<RevEngPoint*> >& groups,
+			       std::vector<std::pair<shared_ptr<ElementarySurface>,RevEngRegion*> >& adj_elem,
+			       double tol, double angtol,
+			       std::vector<RevEngPoint*>& remaining);
+    
+    bool defineCylindricalRegs(Point mainaxis[3],
+			       std::vector<std::vector<RevEngPoint*> >& groups,
+			       int min_point, double tol, double angtol,
+			       std::vector<shared_ptr<RevEngRegion> >& added_reg,
+			       std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
+			       std::vector<RevEngPoint*>& remaining);
+    
+    void axisFromAdjacent(double angtol, std::vector<Point>& axis);
   };
 }
 

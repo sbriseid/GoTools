@@ -82,12 +82,14 @@ int colors[MAX_COLORS][3] = {
   {0, 255, 128},
 };
 
-//#define DEBUG_DIV
+#define DEBUG_DIV
+#define DEBUG_EDGE
 //#define DEBUG_MONGE
 //#define DEBUG_ENHANCE
-//#define DEBUG_SEG
-//#define DEBUG
-//#define DEBUGONE
+#define DEBUG_SEG
+#define DEBUG
+#define DEBUGONE
+#define DEBUG_PLANAR
 
 //===========================================================================
 RevEng::RevEng(shared_ptr<ftPointSet> tri_sf, double mean_edge_len)
@@ -1192,7 +1194,9 @@ void RevEng::edgeClassification()
   of7 << Rpcorners.size() << std::endl;
   for (size_t kj=0; kj<Rpcorners.size(); ++kj)
     of7 << Rpcorners[kj] << std::endl;
+#endif
 
+#ifdef DEBUG_EDGE
    if (edgepts.size() > 0)
     {
       std::ofstream ofedg("edgepts.g2");
@@ -1595,6 +1599,14 @@ void RevEng::segmentIntoRegions()
       regions_[ki]->setRegionAdjacency();
     }
 
+#ifdef DEBUG_PLANAR
+  std::ofstream ofp("planar_reg.g2");
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      if (regions_[ki]->feasiblePlane(zero_H_, zero_K_))
+	regions_[ki]->writeRegionPoints(ofp);
+    }
+#endif
   // Integrate single points when appropriate
   vector<RevEngPoint*> remaining_single;
   for (int ka=0; ka<(int)single_points_.size(); ++ka)
@@ -1607,6 +1619,45 @@ void RevEng::segmentIntoRegions()
 	}
     }
   std::swap(single_points_, remaining_single);
+
+  // Merge adjacent planar regions
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      if (regions_[ki]->feasiblePlane(zero_H_, zero_K_))
+	{
+	  vector<RevEngRegion*> grown_regions;
+	  vector<HedgeSurface*> adj_surfs;
+	  bool merged = regions_[ki]->mergePlanarReg(zero_H_, zero_K_, 
+						     approx_tol_, mainaxis_,
+						     grown_regions);
+	  if (grown_regions.size() > 0 || adj_surfs.size() > 0)
+	    updateRegionsAndSurfaces(ki, grown_regions, adj_surfs);
+	}
+    }
+  
+  std::sort(regions_.begin(), regions_.end(), sort_region);
+  
+#ifdef DEBUG
+  checkConsistence("Regions1_2");
+
+  if (regions_.size() > 0)
+    {
+      std::cout << "Regions 1_2" << std::endl;
+      std::ofstream of("regions1_2.g2");
+      std::ofstream ofs("small_regions1_2.g2");
+      writeRegionStage(of, ofs);
+     }
+#endif
+  
+  // Update adjacency between regions
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->clearRegionAdjacency();
+    }
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->setRegionAdjacency();
+    }
   
   // Simplify regions structure
 #ifdef DEBUG
@@ -1755,7 +1806,8 @@ void RevEng::initialSurfaces()
 	  else
 	    {
 	      vector<RevEngRegion*> adapted_regions;
-	      regions_[ki]->joinRegions(approx_tol_, 10.0*anglim_, adapted_regions);
+	      regions_[ki]->joinRegions(mainaxis_, approx_tol_,
+					10.0*anglim_, adapted_regions);
 	      for (size_t kj=0; kj<adapted_regions.size(); ++kj)
 		{
 		  size_t kr=0;
@@ -1938,48 +1990,83 @@ void RevEng::updateRegionStructure()
 #ifdef DEBUG
   std::cout << "Segment composed regions" << std::endl;
 #endif
-  double frac_norm_lim= 0.75;
+  double frac_norm_lim = 0.2; //0.75;
 
   size_t reg_size = regions_.size();
   for (size_t ki=0; ki<reg_size; ++ki)
     {
       if (regions_[ki]->numPoints() < min_point_region_)
 	continue;
+
+      if (regions_[ki]->hasSurface())
+	continue;
+
+      if (regions_[ki]->hasSweepInfo())
+	continue;
       
-      if (!regions_[ki]->hasSurface())
-	{
 #ifdef DEBUG_DIV
-	  std::ofstream ofs("region_to_segm.g2");
-	  regions_[ki]->writeRegionInfo(ofs);
+      std::ofstream ofs("region_to_segm.g2");
+      regions_[ki]->writeRegionInfo(ofs);
+      std::ofstream of2("unitsphere_segm.g2");
+      regions_[ki]->writeUnitSphereInfo(of2);
+      Point origo(0.0, 0.0, 0.0);
+      of2 << "410 1 0 4 0 0 0 255" << std::endl;
+      of2 << "3" << std::endl;
+      for (int ka=0; ka<3; ++ka)
+	of2 << origo << " " << mainaxis_[ka] << std::endl;
+
+      std::ofstream ofa("adjacent_to_segm.g2");
+      regions_[ki]->writeAdjacentPoints(ofa);
+      //regions_[ki]->sortByAxis(mainaxis_, min_point_in, approx_tol_);
 #endif
 	  
-	  bool segmented = false;
-	  if (regions_[ki]->getFracNorm() > frac_norm_lim)
-	    {
-	      // Grow sub regions according to surface type
+      bool segmented = false;
+      if (regions_[ki]->getFracNorm() > frac_norm_lim)
+	{
+	  // Grow sub regions according to surface type
 #ifdef DEBUG_DIV
-	      std::cout << "Grow planes" << std::endl;
+	  //std::cout << "Grow planes" << std::endl;
 #endif
-	      segmented = segmentByPlaneGrow(ki, min_point_in);
+	  segmented = segmentByPlaneGrow(ki, min_point_in);
+	}
+      if (!segmented)
+	{
+	  // Check if a segmentation into several cylinder like
+	  // regions is feasible
+	  double avH, avK, MAH, MAK;
+	  regions_[ki]->getAvCurvatureInfo(avH, avK, MAH, MAK);
+	  double fac = 5.0;
+	  if (MAH > fac*MAK)
+	    {
+	      segmented = segmentByAxis(ki, min_point_in);
 	    }
 	  if (!segmented)
-	    {
-	      // Check if a segmentation into several cylinder like
-	      // regions is feasible
-	      double avH, avK, MAH, MAK;
-	      regions_[ki]->getAvCurvatureInfo(avH, avK, MAH, MAK);
-	      double fac = 5.0;
-	      if (MAH > fac*MAK)
-		{
-		  segmented = segmentByAxis(ki, min_point_in);
-		}
-	      if (!segmented)
-		segmented = segmentByContext(ki, min_point_in, true);
-	    }
+	    segmented = segmentByContext(ki, min_point_in, true);
 	}
-
     }
 
+  // Update adjcency pointers
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->clearRegionAdjacency();
+    }
+  for (size_t ki=0; ki<regions_.size(); ++ki)
+    {
+      regions_[ki]->setRegionAdjacency();
+    }
+  
+#ifdef DEBUG
+  checkConsistence("Regions6_2");
+
+   if (regions_.size() > 0)
+    {
+      std::cout << "Regions6_2" << std::endl;
+      std::ofstream of("regions6_2.g2");
+      std::ofstream ofs("small_regions6_2.g2");
+      writeRegionStage(of, ofs);
+     }
+#endif
+   
 #ifdef DEBUG_DIV
   std::cout << "Merge adjacent regions" << std::endl;
 #endif
@@ -2215,7 +2302,8 @@ bool RevEng::recognizeOneSurface(int& ix, int min_point_in, double angtol,
       vector<shared_ptr<HedgeSurface> > plane_sfs;
       vector<HedgeSurface*> prev_surfs;
       vector<vector<RevEngPoint*> > out_groups;
-      found1 = regions_[ix]->extractPlane(approx_tol_, min_point_in, angtol, 
+      found1 = regions_[ix]->extractPlane(mainaxis_,
+					  approx_tol_, min_point_in, angtol, 
 					  prefer_elementary_,
 					  plane_sfs, prev_surfs, out_groups);
 
@@ -2228,16 +2316,24 @@ bool RevEng::recognizeOneSurface(int& ix, int min_point_in, double angtol,
 	return true;
     }
 
-  if (regions_[ix]->tryOtherSurf(prefer_elementary_, firstpass) &&
-      regions_[ix]->feasibleCylinder(zero_H_, zero_K_))
+  if (regions_[ix]->tryOtherSurf(prefer_elementary_, firstpass) /*&&
+								  regions_[ix]->feasibleCylinder(zero_H_, zero_K_)*/)
     {
       vector<shared_ptr<HedgeSurface> > cyl_sfs;
       vector<HedgeSurface*> prev_surfs;
       vector<vector<RevEngPoint*> > out_groups;
       bool repeat = false;
+      
+      // Cylinder from context information
+      found2 = regions_[ix]->contextCylinder(mainaxis, approx_tol_,
+					     min_point_in,
+					     angtol, prefer_elementary_,
+					     cyl_sfs, prev_surfs,
+					     out_groups);
+
+      if (!found2)
       found2 = regions_[ix]->extractCylinder(approx_tol_, min_point_in,
-					     angtol, mean_edge_len_,
-					     prefer_elementary_,
+					     angtol, prefer_elementary_,
 					     cyl_sfs, prev_surfs,
 					     out_groups, repeat);
 
@@ -2287,15 +2383,13 @@ bool RevEng::recognizeOneSurface(int& ix, int min_point_in, double angtol,
 
       // Torus from context information
       found5 = regions_[ix]->contextTorus(mainaxis, approx_tol_, min_point_in,
-					  angtol, mean_edge_len_,
-					  prefer_elementary_,
+					  angtol, prefer_elementary_,
 					  tor_sfs, prev_surfs,
 					  out_groups);
 
       if (!found5)
 	found5 = regions_[ix]->extractTorus(approx_tol_, min_point_in,
-					    angtol, mean_edge_len_,
-					    prefer_elementary_,
+					    angtol, prefer_elementary_,
 					    tor_sfs, prev_surfs,
 					    out_groups);
 
@@ -2314,8 +2408,7 @@ bool RevEng::recognizeOneSurface(int& ix, int min_point_in, double angtol,
       vector<HedgeSurface*> prev_surfs;
       vector<vector<RevEngPoint*> > out_groups;
       found3 = regions_[ix]->extractSphere(approx_tol_, min_point_in,
-					   angtol, mean_edge_len_,
-					   prefer_elementary_,
+					   angtol, prefer_elementary_,
 					   sph_sfs, prev_surfs,
 					   out_groups);
 
@@ -2335,8 +2428,7 @@ bool RevEng::recognizeOneSurface(int& ix, int min_point_in, double angtol,
       vector<HedgeSurface*> prev_surfs;
       vector<vector<RevEngPoint*> > out_groups;
       found4 = regions_[ix]->extractCone(approx_tol_, min_point_in,
-					 angtol, mean_edge_len_,
-					 prefer_elementary_,
+					 angtol, prefer_elementary_,
 					 cone_sfs, prev_surfs,
 					 out_groups);
 	   
@@ -2355,8 +2447,7 @@ bool RevEng::recognizeOneSurface(int& ix, int min_point_in, double angtol,
       vector<HedgeSurface*> prev_surfs;
       vector<vector<RevEngPoint*> > out_groups;
       found6 = regions_[ix]->extractFreeform(approx_tol_, min_point_in,
-					     angtol, mean_edge_len_,
-					     prefer_elementary_,
+					     angtol, prefer_elementary_,
 					     spl_sfs, prev_surfs,
 					     out_groups);
 
@@ -2543,10 +2634,10 @@ void RevEng::buildSurfaces()
 #endif
 	  
 	  bool segmented = false;
-	  if (regions_[ki]->hasPrimary())
+	  if (regions_[ki]->hasBaseSf())
 	    {
 	      // Grow sub regions according to surface type
-	      shared_ptr<ParamSurface> primary = regions_[ki]->getPrimary();
+	      shared_ptr<ParamSurface> primary = regions_[ki]->getBase();
 	      if (primary->instanceType() == Class_Plane)
 		{
 		  std::cout << "Grow planes" << std::endl;
@@ -2771,7 +2862,7 @@ void RevEng::buildSurfaces()
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       if (regions_[ki]->hasSurface())
-	regions_[ki]->adjustWithSurf(approx_tol_, 10.0*anglim_);
+	regions_[ki]->adjustWithSurf(mainaxis, approx_tol_, 10.0*anglim_);
     }
   
 #ifdef DEBUG_DIV
@@ -2795,8 +2886,9 @@ void RevEng::buildSurfaces()
 	  vector<RevEngRegion*> grown_regions;
 	  vector<HedgeSurface*> adj_surfs;
 	  vector<vector<RevEngPoint*> > out_groups;
-	  regions_[ki]->adjustWithCylinder(approx_tol_, anglim_, min_point_region_,
-					   out_groups, grown_regions, adj_surfs);
+	  regions_[ki]->adjustWithCylinder(mainaxis_, approx_tol_, anglim_,
+					   min_point_region_, out_groups,
+					   grown_regions, adj_surfs);
 	for (size_t kr=0; kr<out_groups.size(); ++kr)
 	  {
 	    shared_ptr<RevEngRegion> reg(new RevEngRegion(regions_[ki]->getClassificationType(),
@@ -3225,10 +3317,6 @@ void RevEng::surfaceExtractOutput(int idx,
 bool RevEng::segmentByPlaneGrow(int ix, int min_point_in)
 //===========================================================================
 {
-  // if ((!regions_[ix]->hasPrimary() ) ||
-  //     regions_[ix]->getPrimary()->instanceType() != Class_Plane)
-  //   return;   // Not appropriate
-
 #ifdef DEBUG
   std::ofstream ofreg("segment_reg.g2");
   regions_[ix]->writeRegionInfo(ofreg);
@@ -3237,8 +3325,8 @@ bool RevEng::segmentByPlaneGrow(int ix, int min_point_in)
   vector<shared_ptr<HedgeSurface> > plane_sfs;
   vector<HedgeSurface*> prev_surfs;
   vector<vector<RevEngPoint*> > out_groups;
-  regions_[ix]->segmentByPlaneGrow(approx_tol_, min_point_in, plane_sfs, prev_surfs,
-				   out_groups);
+  regions_[ix]->segmentByPlaneGrow(mainaxis_, approx_tol_, min_point_in, 
+				   plane_sfs, prev_surfs, out_groups);
 #ifdef DEBUG
   for (size_t ki=0; ki<plane_sfs.size(); ++ki)
     {
@@ -3260,10 +3348,16 @@ bool RevEng::segmentByPlaneGrow(int ix, int min_point_in)
 bool RevEng::segmentByAxis(int ix, int min_point_in)
 //===========================================================================
 {
+  double angtol = 5.0*anglim_;
+  vector<shared_ptr<HedgeSurface> > hedgesfs;
+  vector<shared_ptr<RevEngRegion> > added_reg;
   vector<vector<RevEngPoint*> > separate_groups;
   vector<RevEngPoint*> single_points;
-  bool segmented = regions_[ix]->segmentByAxis(min_point_in, approx_tol_,
-					       mainaxis_, separate_groups,
+  bool segmented = regions_[ix]->segmentByAxis(mainaxis_, min_point_in, 
+					       approx_tol_, angtol,
+					       prefer_elementary_,
+					       hedgesfs, added_reg,
+					       separate_groups,
 					       single_points);
   if (segmented && single_points.size() > 0)
     single_points_.insert(single_points_.end(), single_points.begin(),
@@ -3294,6 +3388,11 @@ bool RevEng::segmentByAxis(int ix, int min_point_in)
       surfaceExtractOutput(ix, separate_groups, prev_surfs);
     }
   
+  if (added_reg.size() > 0)
+    regions_.insert(regions_.end(), added_reg.begin(), added_reg.end());
+  if (hedgesfs.size() > 0)
+    surfaces_.insert(surfaces_.end(), hedgesfs.begin(), hedgesfs.end());
+  
   return segmented;
 }
 
@@ -3301,20 +3400,54 @@ bool RevEng::segmentByAxis(int ix, int min_point_in)
 bool RevEng::segmentByContext(int ix, int min_point_in, bool first)
 //===========================================================================
 {
+#ifdef DEBUG_DIV
+  vector<RevEngPoint*> branchpt = regions_[ix]->extractBranchPoints();
+  if (branchpt.size() > 0)
+    {
+      std::ofstream ofb("branch_pts_seg.g2");
+      ofb << "400 1 0 4 0 0 0 255" << std::endl;
+      ofb << branchpt.size() << std::endl;
+      for (size_t ki=0; ki<branchpt.size(); ++ki)
+	ofb << branchpt[ki]->getPoint() << std::endl;
+    }
+  
+#endif
+  
   vector<vector<RevEngPoint*> > separate_groups;
   vector<RevEngRegion*> adj_planar = regions_[ix]->fetchAdjacentPlanar();
-  bool segmented = regions_[ix]->segmentByPlanarContext(min_point_in, approx_tol_,
-							adj_planar, separate_groups);
+  vector<shared_ptr<HedgeSurface> > hedgesfs;
+  vector<shared_ptr<RevEngRegion> > added_reg;
+  vector<HedgeSurface*> prevsfs;
+  bool segmented = false;
+  if (adj_planar.size() > 1)
+    {
+      double angtol = 0.1;
+      segmented = regions_[ix]->segmentByPlaneAxis(mainaxis_, min_point_in, 
+						   approx_tol_, angtol,
+						   prefer_elementary_,
+						   adj_planar, hedgesfs,
+						   added_reg,
+						   prevsfs, separate_groups);
+    }
+
+  if (adj_planar.size() > 0 && segmented == false)
+    segmented = regions_[ix]->segmentByPlanarContext(mainaxis_,
+						     min_point_in, approx_tol_,
+						     adj_planar, separate_groups);
   if (!segmented)
     {
       // Search for context direction
       double angtol = 0.2;
 
       Point direction = regions_[ix]->directionFromAdjacent(angtol);
+      vector<vector<RevEngPoint*> > separate_groups2;
       if (direction.dimension() == 3)
 	segmented = regions_[ix]->segmentByDirectionContext(min_point_in, approx_tol_,
 							    direction, angtol,
-							    separate_groups);
+							    separate_groups2);
+      if (separate_groups2.size() > 0)
+	separate_groups.insert(separate_groups.end(), separate_groups2.begin(),
+			       separate_groups2.end());
       if (segmented && (!regions_[ix]->hasSurface()))
 	{
 	  double angtol = -1.0;
@@ -3349,6 +3482,11 @@ bool RevEng::segmentByContext(int ix, int min_point_in, bool first)
       vector<HedgeSurface*> prev_surfs;
       surfaceExtractOutput(ix, separate_groups, prev_surfs);
     }
+
+  if (added_reg.size() > 0)
+    regions_.insert(regions_.end(), added_reg.begin(), added_reg.end());
+  if (hedgesfs.size() > 0)
+    surfaces_.insert(surfaces_.end(), hedgesfs.begin(), hedgesfs.end());
   
   return segmented;
 }
@@ -3361,7 +3499,8 @@ void RevEng::growSurface(size_t& ix)
   int min_nmb = 5*min_point_region_;  // Should be set from distribution of how many
 	  // points the regions have
   vector<HedgeSurface*> adj_surfs;
-  regions_[ix]->growWithSurf(min_nmb, approx_tol_, grown_regions, adj_surfs);
+  regions_[ix]->growWithSurf(mainaxis_, min_nmb, approx_tol_, grown_regions,
+			     adj_surfs);
   updateRegionsAndSurfaces(ix, grown_regions, adj_surfs);
 }
 
@@ -3983,11 +4122,11 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
 	  for (kj=0; kj<reg.size(); ++kj)
 	    {
  	      double maxd, avd;
-	      int num_in;
+	      int num_in, num2_in;
 	      int num = reg[kj]->numPoints();
 	      RevEngUtils::distToSurf(reg[kj]->pointsBegin(),
 				      reg[kj]->pointsEnd(),
-				      surf, approx_tol_, maxd, avd, num_in, 
+				      surf, approx_tol_, maxd, avd, num_in, num2_in,
 				      in, out, curr_parvals[kj], curr_distang[kj]);
 	      maxd_sf = std::max(maxd_sf, maxd);
 	      avd_sf += num*avd/(double)num_sf;
@@ -4109,10 +4248,10 @@ shared_ptr<HedgeSurface> RevEng::doMerge(vector<size_t>& cand_ix,
   for (size_t kj=0; kj<regions3.size(); ++kj)
     {
       double maxd, avd;
-      int num_in;
+      int num_in, num2_in;
       RevEngUtils::distToSurf(regions3[kj]->pointsBegin(),
 			      regions3[kj]->pointsEnd(),
-			      surf2, approx_tol_, maxd, avd, num_in, 
+			      surf2, approx_tol_, maxd, avd, num_in, num2_in,
 			      in2, out2, parvals2[kj], distang2[kj]);
       maxd_all2 = std::max(maxd_all2, maxd);
       avd_all2 += regions3[kj]->numPoints()*avd/(double)num_all2;
@@ -4256,9 +4395,9 @@ shared_ptr<HedgeSurface> RevEng::doMergeSpline(shared_ptr<HedgeSurface>& surf1,
       bbox.addUnionWith(reg->getBbox());
       vector<RevEngPoint*> pts = reg->getPoints();
       all_pts.insert(all_pts.end(), pts.begin(), pts.end());
-      if (reg->hasPrimary())
+      if (reg->hasBaseSf())
 	{
-	  ClassType ctype = reg->getPrimary()->instanceType();
+	  ClassType ctype = reg->getBase()->instanceType();
 	  if (type1 == Class_Unknown)
 	    type1 = ctype;
 	  else if (type1 != ctype)
@@ -4273,9 +4412,9 @@ shared_ptr<HedgeSurface> RevEng::doMergeSpline(shared_ptr<HedgeSurface>& surf1,
       bbox.addUnionWith(reg->getBbox());
       vector<RevEngPoint*> pts = reg->getPoints();
       all_pts.insert(all_pts.end(), pts.begin(), pts.end());
-      if (reg->hasPrimary())
+      if (reg->hasBaseSf())
 	{
-	  ClassType ctype = reg->getPrimary()->instanceType();
+	  ClassType ctype = reg->getBase()->instanceType();
 	  if (type2 == Class_Unknown)
 	    type2 = ctype;
 	  else if (type1 != ctype)
@@ -4829,45 +4968,7 @@ void RevEng::mergePlanes(size_t first, size_t last)
 	}
       int stop_break = 1;
     }
-  // vector<shared_ptr<HedgeSurface> > planes;
 
-  // Collect all planes
-  // while every plane is considered
-  // {
-  // Find the largest plane;
-  // Copy region to current;
-  // for (all planes not previously considered)
-  //   {
-  //     Check similarity (deviation between point and plane, plane normal cone);
-  //     if (similar)
-  // 	add region to current; remember region;
-  //   }
-  // recognize plane based on current;
-
-  // for (all regions in current)
-  //   {
-  //     for (all points)
-  // 	{
-  // 	  check accuracy;
-  // 	  remember points with good enough accuracy (or number of points);
-  // 	}
-  //     if (accuracy not good enough)
-  // 	remove region from current;
-  //   }
-
-  // recognize plane based on current;
-  // clean up (merge regions in current if close, attach several regions to new?updated HedgeSurfaces if not;
-  // }
-
-  // Should unassembled planar points be assigned to appropriate plane if
-  // close engough?
-
-  // Close enough and good enough must be defined
-  // Points may be disassembled
-
-  // A lot of the operations here are the same for all surface types.
-  // Maybe an inheritance in HedgeSurface instead of a swith would
-  // facilitate specialization on type keeping the main algorithm common?
 }
 
 
@@ -5214,13 +5315,13 @@ void RevEng::cylinderFit(vector<size_t>& sf_ix, Point mainaxis[3], int ix)
       for (size_t kj=0; kj<reg.size(); ++kj)
 	{
 	  double maxd0, avd0;
-	  int num_in0;
+	  int num_in0, num2_in0;
 	  vector<RevEngPoint*> in0, out0;
 	  vector<pair<double,double> > distang0;
 	  vector<double> parvals0;
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
-				  cyl0, approx_tol_, maxd0, avd0, num_in0, in0, out0,
-				  parvals0, distang0);
+				  cyl0, approx_tol_, maxd0, avd0, num_in0, num2_in0,
+				  in0, out0, parvals0, distang0);
 #ifdef DEBUG
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in0.size() << std::endl;
@@ -5233,13 +5334,13 @@ void RevEng::cylinderFit(vector<size_t>& sf_ix, Point mainaxis[3], int ix)
 #endif
 	  
 	  double maxd1, avd1;
-	  int num_in1;
+	  int num_in1, num2_in1;
 	  vector<RevEngPoint*> in1, out1;
 	  vector<pair<double,double> > distang1;
 	  vector<double> parvals1;
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
-				  cyl1, approx_tol_, maxd1, avd1, num_in1, in1,
-				  out1, parvals1, distang1);
+				  cyl1, approx_tol_, maxd1, avd1, num_in1, num2_in1,
+				  in1, out1, parvals1, distang1);
 #ifdef DEBUG
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in1.size() << std::endl;
@@ -5324,12 +5425,12 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
       for (size_t kj=0; kj<reg.size(); ++kj)
 	{
 	  double maxd, avd;
-	  int num_in;
+	  int num_in, num2_in;
 	  vector<RevEngPoint*> in, out;
 	  vector<pair<double,double> > distang;
 	  vector<double> parvals;
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
-				  cyl, approx_tol_, maxd, avd, num_in, in, out,
+				  cyl, approx_tol_, maxd, avd, num_in, num2_in, in, out,
 				  parvals, distang);
 #ifdef DEBUG
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
@@ -5342,13 +5443,13 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
 	    of << out[kr]->getPoint() << std::endl;
 #endif
 	  double maxd2, avd2;
-	  int num_in2;
+	  int num_in2, num2_in2;
 	  vector<RevEngPoint*> in2, out2;
 	  vector<pair<double,double> > distang2;
 	  vector<double> parvals2;
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
-				  cyl2, approx_tol_, maxd2, avd2, num_in2, in2,
-				  out2, parvals2, distang2);
+				  cyl2, approx_tol_, maxd2, avd2, num_in2, num2_in2,
+				  in2, out2, parvals2, distang2);
 #ifdef DEBUG
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in2.size() << std::endl;
@@ -5361,13 +5462,13 @@ void RevEng::cylinderFit(vector<int>& sf_ix, Point normal)
 #endif
 	  
 	  double maxd3, avd3;
-	  int num_in3;
+	  int num_in3, num2_in3;
 	  vector<RevEngPoint*> in3, out3;
 	  vector<pair<double,double> > distang3;
 	  vector<double> parvals3;
 	  RevEngUtils::distToSurf(reg[kj]->pointsBegin(), reg[kj]->pointsEnd(),
-				  cyl3, approx_tol_, maxd3, avd3, num_in3, in3,
-				  out3, parvals3, distang3);
+				  cyl3, approx_tol_, maxd3, avd3, num_in3, num2_in3,
+				  in3, out3, parvals3, distang3);
 #ifdef DEBUG
 	  of << "400 1 0 4 155 50 50 255" << std::endl;
 	  of << in3.size() << std::endl;
@@ -5450,14 +5551,14 @@ void RevEng::collectAxis(vector<SurfaceProperties>& sfprop)
 	  RevEngRegion *reg = surfaces_[ki]->getRegion(ka);
 	  int num = reg->numPoints();
 	  num_pts += num;
-	  if (reg->hasPrimary() && num > num_pt_primary)
+	  if (reg->hasBaseSf() && num > num_pt_primary)
 	    {
 	      double maxdp, avdp;
 	      int num_inp;
-	      reg->getPrimaryInfo(maxdp, avdp, num_inp);
+	      reg->getBaseDist(maxdp, avdp, num_inp);
 	      if (num_inp > num/2 && avdp < approx_tol_)
 		{
-		  primary = reg->getPrimary();
+		  primary = reg->getBase();
 		  num_pt_primary = num;
 		}
 	    }

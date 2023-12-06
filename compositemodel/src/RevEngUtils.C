@@ -1724,7 +1724,8 @@ void RevEngUtils::rotateToPlane(vector<Point>& points,
 void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
 			     vector<RevEngPoint*>::iterator end,
 			     shared_ptr<ParamSurface> surf, double tol,
-			     double& maxdist, double& avdist, int& num_inside,
+			     double& maxdist, double& avdist,
+			     int& num_inside, int& num_inside2,
 			     vector<RevEngPoint*>& in, vector<RevEngPoint*>& out,
 			     vector<double>& parvals,
 			     vector<pair<double,double> >& distang,
@@ -1733,7 +1734,7 @@ void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
 {
   double eps = 1.0e-6;
   maxdist = avdist = 0.0;
-  num_inside = 0;
+  num_inside = num_inside2 = 0;
   int num = 0;
   double *seed = 0;
   double seed2[2];
@@ -1759,16 +1760,19 @@ void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
       double ang = norm1.angle(norm2);
       ang = std::min(M_PI-ang, ang);
       distang.push_back(std::make_pair(dist, ang));
-      if (dist <= tol && (angtol < 0.0 || ang <= angtol))
+      if (dist <= tol)
 	{
-	  in.push_back(*it);
-	  ++num_inside;
+	  ++num_inside2;
+	  if (angtol < 0.0 || ang <= angtol)
+	    {
+	      in.push_back(*it);
+	      ++num_inside;
+	    }
+	  else
+	    out.push_back(*it);
 	}
-	else
-	  {
-	  out.push_back(*it);
-	  int stop_break = 1;
-	}
+      else
+	out.push_back(*it);
       seed2[0] = upar;
       seed2[1] = vpar;
       prev = pnt;
