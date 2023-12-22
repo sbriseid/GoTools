@@ -259,7 +259,7 @@ namespace Go
     // Prelimenary results
     int numRegions()
     {
-      return regions_.size();
+      return (int)regions_.size();
     }
 
     shared_ptr<RevEngRegion> getRegion(int ix)
@@ -269,7 +269,7 @@ namespace Go
 
     int numSurfaces()
     {
-      return surfaces_.size();
+      return (int)surfaces_.size();
     }
 
     shared_ptr<HedgeSurface> getSurface(int ix)
@@ -328,7 +328,7 @@ namespace Go
     void initParameters();
     void updateParameters();
     bool recognizeOneSurface(int& ix, int min_point_in, double angtol,
-			     Point mainaxis[3], int pass);
+			     int pass);
     void recognizeSurfaces(int min_point_in, int pass);
     void defineAxis(Point axis[3], bool only_surf=false, int min_num=-1);
 
@@ -344,10 +344,11 @@ namespace Go
     void updateRegionsAndSurfaces(size_t& ix, std::vector<RevEngRegion*>& grown_regions,
 				  std::vector<HedgeSurface*>& adj_surfs);
 
-    bool segmentByPlaneGrow(int ix, int min_point_in);
+    bool segmentComposite(int& ix, int min_point_in, double angtol);
+    bool segmentByPlaneGrow(int ix, int min_point_in, double angtol);
     bool segmentByAxis(int ix, int min_point_in);
-    bool segmentByContext(int ix, int min_point_in, bool first);
-    void growSurface(size_t& ix);
+    bool segmentByContext(int ix, int min_point_in, double angtol, bool first);
+    void growSurface(size_t& ix, int pass = 1);
     void mergeSurfaces();
     void mergeSplineSurfaces();
     shared_ptr<HedgeSurface> doMerge(std::vector<size_t>& cand_ix,

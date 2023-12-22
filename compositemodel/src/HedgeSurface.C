@@ -132,22 +132,24 @@ ClassType HedgeSurface::instanceType(int& code)
 
 
 //===========================================================================
-bool HedgeSurface::updateSurfaceWithAxis(Point axis[3], int ix, double tol)
+bool HedgeSurface::updateSurfaceWithAxis(Point axis[3], int ix, double tol,
+					 double angtol)
 //===========================================================================
 {
   bool updated = false;
   int code = -1;
   ClassType type = instanceType(code);
   if (type == Class_Plane)
-    updated = updatePlaneWithAxis(axis, ix, tol);
+    updated = updatePlaneWithAxis(axis, ix, tol, angtol);
   else if (type == Class_Cylinder)
-    updated = updateCylinderWithAxis(axis, ix, tol);
+    updated = updateCylinderWithAxis(axis, ix, tol, angtol);
 
   return updated;
 }
 
 //===========================================================================
-bool HedgeSurface::updatePlaneWithAxis(Point axis[3], int ix, double tol)
+bool HedgeSurface::updatePlaneWithAxis(Point axis[3], int ix, double tol,
+				       double angtol)
 //===========================================================================
 {
   shared_ptr<Plane> init_plane = dynamic_pointer_cast<Plane,ParamSurface>(surf_);
@@ -169,12 +171,13 @@ bool HedgeSurface::updatePlaneWithAxis(Point axis[3], int ix, double tol)
   shared_ptr<Plane> plane(new Plane(mid, axis[ix], axis[(ix+1)%3]));
 
   // Check accuracy
-  bool updated = checkAccuracyAndUpdate(plane, tol);
+  bool updated = checkAccuracyAndUpdate(plane, tol, angtol);
   return updated;
 }
 
 //===========================================================================
-bool HedgeSurface::updateCylinderWithAxis(Point axis[3], int ix, double tol)
+bool HedgeSurface::updateCylinderWithAxis(Point axis[3], int ix, double tol,
+					  double angtol)
 //===========================================================================
 {
   vector<pair<vector<RevEngPoint*>::iterator,
@@ -207,34 +210,43 @@ bool HedgeSurface::updateCylinderWithAxis(Point axis[3], int ix, double tol)
   shared_ptr<Cylinder> cyl(new Cylinder(rad, pos, axis[ix], axis[ix2]));
   
   // Check accuracy
-  bool updated = checkAccuracyAndUpdate(cyl, tol);
+  bool updated = checkAccuracyAndUpdate(cyl, tol, angtol);
   return updated;
 }
 
 //===========================================================================
-bool HedgeSurface::checkAccuracyAndUpdate(shared_ptr<ParamSurface> surf, double tol)
+bool HedgeSurface::checkAccuracyAndUpdate(shared_ptr<ParamSurface> surf,
+					  double tol, double angtol)
 //===========================================================================
 {
   bool updated = false;
   vector<vector<pair<double, double> > > dist_ang(regions_.size());
   vector<double> maxd(regions_.size()), avd(regions_.size());
   vector<int> num_in(regions_.size());
+  vector<int> num2_in(regions_.size());
   vector<vector<double> > parvals(regions_.size());
   int all_in = 0;
   double avd_all = 0.0;
   double fac = 1.0/(double)numPoints();
+  vector<int> sfflag(regions_.size(), NOT_SET);
+  bool sfOK = true;
+  bool cyllike = (surf->instanceType() == Class_Cylinder ||
+		  surf->instanceType() == Class_Cone);
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
       vector<RevEngPoint*> inpt, outpt;
-      int num2_in;
       RevEngUtils::distToSurf(regions_[ki]->pointsBegin(), regions_[ki]->pointsEnd(),
-			      surf, tol, maxd[ki], avd[ki], num_in[ki], num2_in,
-			      inpt, outpt, parvals[ki], dist_ang[ki], -1.0);
+			      surf, tol, maxd[ki], avd[ki], num_in[ki], num2_in[ki],
+			      inpt, outpt, parvals[ki], dist_ang[ki], angtol);
       all_in += num_in[ki];
       avd_all += fac*regions_[ki]->numPoints()*avd[ki];
+      sfflag[ki] = regions_[ki]->defineSfFlag(0, tol, num_in[ki], num2_in[ki],
+					      avd[ki], cyllike);
+      if (sfflag[ki] == NOT_SET)
+	sfOK = false;
     }
 
-  if (all_in > numPoints()/2 && avd_all <= tol)
+  if (sfOK) //all_in > numPoints()/2 && avd_all <= tol)
     {
       updated = true;
       for (size_t ki=0; ki<regions_.size(); ++ki)
@@ -246,8 +258,9 @@ bool HedgeSurface::checkAccuracyAndUpdate(shared_ptr<ParamSurface> surf, double 
 	      (*it)->setPar(Vector2D(parvals[ki][2*kj],parvals[ki][2*kj+1]));
 	      (*it)->setSurfaceDist(dist_ang[ki][kj].first, dist_ang[ki][kj].second);
 	    }
-	  regions_[ki]->setAccuracy(maxd[ki], avd[ki], num_in[ki]);
+	  regions_[ki]->setAccuracy(maxd[ki], avd[ki], num_in[ki], num2_in[ki]);
 	  regions_[ki]->computeDomain();
+	  regions_[ki]->setSurfaceFlag(sfflag[ki]);
 	}
 
       replaceSurf(surf);
@@ -303,9 +316,9 @@ bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double appro
 	  if (reg->hasBaseSf())
 	    {
 	      double maxdp, avdp;
-	      int num_inp;
+	      int num_inp, num2_inp;
 	      int curr_numpt = reg->numPoints();
-	      reg->getBaseDist(maxdp, avdp, num_inp);
+	      reg->getBaseDist(maxdp, avdp, num_inp, num2_inp);
 	      if (avdp < approx_tol && num_inp > curr_numpt/2 && curr_numpt > numpt)
 		{
 		  preg = reg;
@@ -332,9 +345,9 @@ bool HedgeSurface::isCompatible(HedgeSurface* other, double angtol, double appro
 	  if (reg->hasBaseSf())
 	    {
 	      double maxdp, avdp;
-	      int num_inp;
+	      int num_inp, num2_inp;
 	      int curr_numpt = reg->numPoints();
-	      reg->getBaseDist(maxdp, avdp, num_inp);
+	      reg->getBaseDist(maxdp, avdp, num_inp, num2_inp);
 	      if (avdp < approx_tol && num_inp > curr_numpt/2 && curr_numpt > numpt)
 		{
 		  preg = reg;

@@ -160,13 +160,14 @@ public:
     return bbox_;
   }
 
-  bool updateSurfaceWithAxis(Point axis[3], int ix, double tol);
+  bool updateSurfaceWithAxis(Point axis[3], int ix, double tol, double angtol);
     
-  bool updatePlaneWithAxis(Point axis[3], int ix, double tol);
+  bool updatePlaneWithAxis(Point axis[3], int ix, double tol, double angtol);
     
-  bool updateCylinderWithAxis(Point axis[3], int ix, double tol);
+  bool updateCylinderWithAxis(Point axis[3], int ix, double tol, double angtol);
     
-  bool checkAccuracyAndUpdate(shared_ptr<ParamSurface> surf, double tol);
+  bool checkAccuracyAndUpdate(shared_ptr<ParamSurface> surf, double tol,
+			      double angtol);
 
   bool isCompatible(HedgeSurface* other, double angtol, double approx_tol,
 		    ClassType& type, double& score);
