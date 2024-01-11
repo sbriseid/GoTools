@@ -80,7 +80,7 @@ namespace Go
   // Surface flag
   enum
     {
-     ACCURACY_OK, ANGULAR_DEVIATION, ACCURACY_POOR, PROBABLE_HELIX, FEW_POINTS, NOT_SET
+     ACCURACY_OK, ANGULAR_DEVIATION, PROBABLE_HELIX, ACCURACY_POOR, FEW_POINTS, NOT_SET
     };
   
   struct SweepData
@@ -111,6 +111,23 @@ namespace Go
     }
   };
 
+  struct SegmentData
+  {
+    int type_; // Around axis = 1
+    Point loc_;
+    Point axis_;
+    double min_dist_;
+    double max_dist_;
+
+    SegmentData(int type, Point& loc, Point& axis, double mind, double maxd)
+    {
+      type_ = type;
+      loc_ = loc;
+      axis_ = axis;
+      min_dist_ = mind;
+      max_dist_ = maxd;
+    }
+  };
   
   class RevEngRegion
   {
@@ -309,7 +326,8 @@ namespace Go
 
     bool feasibleCylinder(double zero_H, double zero_K) const;
 
-    bool extractSphere(double tol, int min_pt, int min_pt_reg, 
+    bool extractSphere(Point mainaxis[3],
+		      double tol, int min_pt, int min_pt_reg, 
 		       double angtol, int prefer_elementary,
 		       std::vector<shared_ptr<HedgeSurface> >& hedgesfs,
 		       std::vector<HedgeSurface*>& prevsfs,
@@ -577,7 +595,12 @@ namespace Go
 
     bool hasDivideInfo()
     {
-      return false;
+      return (seg_info_.size() > 0);
+    }
+
+    int numDivideInfo()
+    {
+      return (int)seg_info_.size();
     }
 
     void setRegionAdjacency();
@@ -656,6 +679,10 @@ namespace Go
 			  std::vector<std::vector<RevEngPoint*> >& out_groups,
 			  std::vector<RevEngPoint*>& single_pts);
 
+    bool divideWithSegInfo(int seg_ix, int min_pt_reg,
+			   std::vector<std::vector<RevEngPoint*> >& sep_groups,
+			   std::vector<RevEngPoint*>& single_pts);
+    
     Point directionFromAdjacent(double angtol);
     
     bool segmentByDirectionContext(int min_point_in, double tol,
@@ -765,6 +792,8 @@ namespace Go
     shared_ptr<SweepData> sweep_;
     bool visited_;
 
+    std::vector<shared_ptr<SegmentData> > seg_info_;;
+    
     //Point& pluckerAxis();
     void extendWithGaussRad();
     void extendWithGaussRad2();
@@ -799,7 +828,8 @@ namespace Go
 			  int& num_in_lin, double& avdist_cub,
 			  int& num_in_cub, shared_ptr<Cone>& cone);
 
-    shared_ptr<Sphere> computeSphere(std::vector<RevEngPoint*>& points);
+    shared_ptr<Sphere> computeSphere(Point mainaxis[3], Point adj_axis,
+				     std::vector<RevEngPoint*>& points);
     shared_ptr<Cone> computeCone(std::vector<RevEngPoint*>& points, Point& apex);
     shared_ptr<Torus> computeTorus(std::vector<RevEngPoint*>& points,
 				   double tol, shared_ptr<Torus>& torus2);
@@ -858,7 +888,7 @@ namespace Go
 			double tol, double angtol, std::vector<size_t>& adjacent_ix,
 			int& plane_ix, int& cyl_ix, Point& pos, Point& axis,
 			Point& Cx, double& R1, double& R2, double cyl_dom[4],
-			bool& outer);
+			bool& outer, bool& analyse_rotated);
     bool
     analyseCylinderContext(std::vector<std::pair<shared_ptr<ElementarySurface>, RevEngRegion*> >& adj,
 			   double tol, double angtol, Point mainaxis[3],

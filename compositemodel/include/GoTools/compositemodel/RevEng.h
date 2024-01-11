@@ -361,6 +361,7 @@ namespace Go
 
     void adaptToMainAxis();
     void adaptToMainAxis(Point mainaxis[3]);
+    bool axisUpdate(HedgeSurface *hsurf, double max_ang, double angtol);
     
     void cylinderFit(std::vector<int>& sf_ix, Point normal);
     void cylinderFit(std::vector<size_t>& sf_ix, Point mainaxis[3], int ix);
@@ -387,7 +388,8 @@ namespace Go
     void readParams(std::istream& is);
     void setBoundingBox();
     
-    void writeRegionStage(std::ostream& of, std::ostream& ofs) const;
+    void writeRegionStage(std::ostream& of, std::ostream& ofm, std::ostream& ofs) const;
+    void writeRegionWithSurf(std::ostream& of) const;
     void checkConsistence(std::string text) const;
 
     void mergePlanes(size_t first, size_t last);

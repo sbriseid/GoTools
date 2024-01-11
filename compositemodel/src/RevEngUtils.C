@@ -1740,6 +1740,10 @@ void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
   double seed2[2];
   Point prev;
   double fac = 100.0;
+  double upar, vpar, dist;
+  Point close;
+  Point norm1, norm2, norm3;
+  double ang, ang2;
   for (auto it=start; it!=end; ++it)
     {
       Vector3D xyz = (*it)->getPoint();
@@ -1747,18 +1751,17 @@ void RevEngUtils::distToSurf(vector<RevEngPoint*>::iterator start,
       if (prev.dimension() == pnt.dimension() && prev.dist(pnt) < fac*tol)
 	seed = seed2;
       
-      double upar, vpar, dist;
-      Point close;
-      Point norm1, norm2;
       surf->closestPoint(pnt, upar, vpar, close, dist, eps, 0, seed);
       parvals.push_back(upar);
       parvals.push_back(vpar);
       surf->normal(norm1, upar, vpar);
       norm2 = (*it)->getMongeNormal();
+      norm3 = (*it)->getTriangNormal();
       maxdist = std::max(maxdist, dist);
       avdist += dist;
-      double ang = norm1.angle(norm2);
-      ang = std::min(M_PI-ang, ang);
+      ang = norm1.angle(norm2);
+      ang2 = norm1.angle(norm3);
+      ang = std::min(std::min(M_PI-ang, ang), std::min(M_PI-ang2,ang2));
       distang.push_back(std::make_pair(dist, ang));
       if (dist <= tol)
 	{
@@ -2106,4 +2109,95 @@ shared_ptr<SplineCurve> RevEngUtils::createCurve(vector<RevEngPoint*>& points,
   cv = approx.getApproxCurve(maxdist, avdist, maxiter);
 
   return cv;
+}
+
+//===========================================================================
+void RevEngUtils::extractLinearPoints(vector<RevEngPoint*>& points,
+				      vector<Point>& rotated, double len,
+				      Point& pos, Point& axis, double rad,
+				      Point& axis2, bool plane,
+				      double tol, double angtol,
+				      vector<RevEngPoint*>& linear, bool start,
+				      vector<RevEngPoint*>& remaining)
+//===========================================================================
+{
+  // Parametarize the points according to axis
+  vector<double> param(points.size());
+  vector<double> distance(points.size());
+  vector<int> perm(points.size());
+  shared_ptr<Line> line(new Line(pos, axis));
+  line->setParameterInterval(-len, len);
+
+  double tmin = -len;
+  double tmax = len;
+  for (size_t ki=0; ki<points.size(); ++ki)
+    {
+      double tpar, dist;
+      Point close;
+      line->closestPoint(rotated[ki], -len, len, tpar, close, dist);
+      param[ki] = tpar;
+      distance[ki] = dist;
+      perm[ki] = (int)ki;
+      tmin = std::min(tmin, tpar);
+      tmax = std::max(tmax, tpar);
+    }
+
+  // Sort
+  for (size_t ki=0; ki<perm.size(); ++ki)
+    for (size_t kj=ki+1; kj<perm.size(); ++kj)
+      if (param[perm[kj]] < param[perm[ki]])
+	std::swap(perm[ki], perm[kj]);
+
+  // Identify linear points
+  double pihalf = 0.5*M_PI;
+  int ix1 = (start) ? 0 : (int)perm.size()-1;
+  int ix2 = (start) ? (int)perm.size() : -1;
+  int sgn = (start) ? 1 : -1;
+  int lim1 = std::min(10, (int)points.size()/200);
+  int lim2 = std::min(100, (int)points.size()/50);
+  int ka, kb;
+  int num_out = 0;
+  for (ka=ix1; ka!=ix2; ka=kb)
+    {
+      Point norm = points[perm[ka]]->getMongeNormal();
+      Point norm2 = points[perm[ka]]->getTriangNormal();
+      double ang = norm.angle(axis2);
+      double ang2 = norm2.angle(axis2);
+      if (plane)
+	ang = std::min(std::min(ang,M_PI-ang), std::min(ang2,M_PI-ang2));
+      else
+	ang = std::min(fabs(pihalf-ang), fabs(pihalf-ang2));
+      double dd = fabs(distance[perm[ka]]-rad);
+      if (dd <= tol && ang <= angtol)
+	kb = ka+sgn;
+      else
+	{
+	  num_out++;
+	  for (kb=ka+sgn; kb!=ix2; kb+=sgn)
+	    {
+	      Point norm = points[perm[kb]]->getMongeNormal();
+	      Point norm2 = points[perm[kb]]->getTriangNormal();
+	      double ang = norm.angle(axis);
+	      double ang2 = norm2.angle(axis);
+	      ang = std::min(fabs(pihalf-ang), fabs(pihalf-ang2));
+	      double dd = fabs(distance[perm[kb]]-rad);
+	      if (dd <= tol && ang <= angtol)
+		break;
+	      num_out++;
+	      if (abs(kb-ka) > lim1 || num_out > lim2)
+		break;
+	    }
+	}
+      if (abs(kb-ka) > lim1 || num_out > lim2)
+	break;
+    }
+
+  // Extract linear points
+  if (ka == ix2)
+    ka+=sgn;
+  for (kb=ix1; kb!=ka; kb+=sgn)
+    linear.push_back(points[perm[kb]]);
+  for (; kb!=ix2; kb+=sgn)
+    remaining.push_back(points[perm[kb]]);
+  int stop_break = 1;
 }

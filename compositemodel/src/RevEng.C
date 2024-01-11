@@ -1584,8 +1584,9 @@ void RevEng::segmentIntoRegions()
     {
       std::cout << "Regions 1" << std::endl;
       std::ofstream of("regions1.g2");
+      std::ofstream ofm("mid_regions1.g2");
       std::ofstream ofs("small_regions1.g2");
-      writeRegionStage(of, ofs);
+      writeRegionStage(of, ofm, ofs);
     }
 #endif
 
@@ -1635,6 +1636,7 @@ void RevEng::segmentIntoRegions()
 						     grown_regions);
 	  if (grown_regions.size() > 0 || adj_surfs.size() > 0)
 	    updateRegionsAndSurfaces(ki, grown_regions, adj_surfs);
+	  regions_[ki]->updateRegionAdjacency();
 	}
     }
   
@@ -1647,8 +1649,9 @@ void RevEng::segmentIntoRegions()
     {
       std::cout << "Regions 1_2" << std::endl;
       std::ofstream of("regions1_2.g2");
+      std::ofstream ofm("mid_regions1_2.g2");
       std::ofstream ofs("small_regions1_2.g2");
-      writeRegionStage(of, ofs);
+      writeRegionStage(of, ofm, ofs);
      }
 #endif
   
@@ -1694,8 +1697,9 @@ void RevEng::segmentIntoRegions()
     {
       std::cout << "Regions 2" << std::endl;
       std::ofstream of("regions2.g2");
+      std::ofstream ofm("mid_regions2.g2");
       std::ofstream ofs("small_regions2.g2");
-      writeRegionStage(of, ofs);
+      writeRegionStage(of, ofm, ofs);
      }
 #endif
   
@@ -1774,8 +1778,9 @@ void RevEng::initialSurfaces()
     {
       std::cout << "Regions 3" << std::endl;
       std::ofstream of("regions3.g2");
+      std::ofstream ofm("mid_regions3.g2");
       std::ofstream ofs("small_regions3.g2");
-      writeRegionStage(of, ofs);
+      writeRegionStage(of, ofm, ofs);
      }
   
   if (single_points_.size() > 0)
@@ -1786,6 +1791,12 @@ void RevEng::initialSurfaces()
       for (size_t kr=0; kr<single_points_.size(); ++kr)
 	of_single << single_points_[kr]->getPoint() << std::endl;
      }
+
+  if (surfaces_.size() > 0)
+    {
+      std::ofstream of("regsurf3.g2");
+      writeRegionWithSurf(of);
+    }
 #endif
   
 #ifdef DEBUG
@@ -1794,10 +1805,9 @@ void RevEng::initialSurfaces()
       std::set<RevEngPoint*> tmpset(regions_[ki]->pointsBegin(), regions_[ki]->pointsEnd());
       if (tmpset.size() != regions_[ki]->numPoints())
 	std::cout << "Point number mismatch, regions 3. " << ki << " " << tmpset.size() << " " << regions_[ki]->numPoints() << std::endl;
-      RevEngRegion *first = regions_[ki]->getPoint(0)->region();
       int num = regions_[ki]->numPoints();
-      for (int ka=1; ka<num; ++ka)
-	if (regions_[ki]->getPoint(ka)->region() != first)
+      for (int ka=0; ka<num; ++ka)
+	if (regions_[ki]->getPoint(ka)->region() != regions_[ki].get())
 	  std::cout << "Inconsistent region pointers, post initPlaneCyl: " << ki << " " << ka << std::endl;
     }
 #endif
@@ -1820,6 +1830,14 @@ void RevEng::initialSurfaces()
   // Sort regions according to number of points
   std::sort(regions_.begin(), regions_.end(), sort_region);
 
+#ifdef DEBUG
+  if (surfaces_.size() > 0)
+    {
+      std::ofstream of("regsurf4_0.g2");
+      writeRegionWithSurf(of);
+    }
+#endif
+	  
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -1851,10 +1869,9 @@ void RevEng::initialSurfaces()
 	    {
 	      growSurface(ki);
 #ifdef DEBUG_CHECK
-	      RevEngRegion *first = regions_[ki]->getPoint(0)->region();
 	      int num = regions_[ki]->numPoints();
-	      for (int ka=1; ka<num; ++ka)
-		if (regions_[ki]->getPoint(ka)->region() != first)
+	      for (int ka=0; ka<num; ++ka)
+		if (regions_[ki]->getPoint(ka)->region() != regions_[ki].get())
 		  std::cout << "Inconsistent region pointers, post grow: " << ki << " " << ka << std::endl;
 #endif
 	    }
@@ -1895,18 +1912,23 @@ void RevEng::initialSurfaces()
 	{
 	  std::cout << "Regions 4" << std::endl;
 	  std::ofstream of("regions4.g2");
+	  std::ofstream ofm("mid_regions4.g2");
 	  std::ofstream ofs("small_regions4.g2");
-	  writeRegionStage(of, ofs);
+	  writeRegionStage(of, ofm, ofs);
+	  if (surfaces_.size() > 0)
+	    {
+	      std::ofstream of("regsurf4.g2");
+	      writeRegionWithSurf(of);
+	    }
 	}
 #endif
     }
 #ifdef DEBUG_CHECK
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
-      RevEngRegion *first = regions_[ki]->getPoint(0)->region();
       int num = regions_[ki]->numPoints();
-      for (int ka=1; ka<num; ++ka)
-	if (regions_[ki]->getPoint(ka)->region() != first)
+      for (int ka=0; ka<num; ++ka)
+	if (regions_[ki]->getPoint(ka)->region() != regions_[ki].get())
 	  std::cout << "Inconsistent region pointers, post grow: " << ki << " " << ka << std::endl;
     }
 
@@ -1946,10 +1968,9 @@ void RevEng::initialSurfaces()
 #ifdef DEBUG_CHECK
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
-      RevEngRegion *first = regions_[ki]->getPoint(0)->region();
       int num = regions_[ki]->numPoints();
-      for (int ka=1; ka<num; ++ka)
-	if (regions_[ki]->getPoint(ka)->region() != first)
+      for (int ka=0; ka<num; ++ka)
+	if (regions_[ki]->getPoint(ka)->region() != regions_[ki].get())
 	  std::cout << "Inconsistent region pointers, post mergeAdjacentSimilar: " << ki << " " << ka << std::endl;
     }
 
@@ -1970,8 +1991,14 @@ void RevEng::initialSurfaces()
 	{
 	  std::cout << "Regions 4_2" << std::endl;
 	  std::ofstream of("regions4_2.g2");
+	  std::ofstream ofm("mid_regions4_2.g2");
 	  std::ofstream ofs("small_regions4_2.g2");
-	  writeRegionStage(of, ofs);
+	  writeRegionStage(of, ofm, ofs);
+	}
+      if (surfaces_.size() > 0)
+	{
+	  std::ofstream of("regsurf4_2.g2");
+	  writeRegionWithSurf(of);
 	}
 #endif
       
@@ -2019,8 +2046,14 @@ void RevEng::initialSurfaces()
 	{
 	  std::cout << "Regions 4_3" << std::endl;
 	  std::ofstream of("regions4_3.g2");
+	  std::ofstream ofm("mid_regions4_3.g2");
 	  std::ofstream ofs("small_regions4_3.g2");
-	  writeRegionStage(of, ofs);
+	  writeRegionStage(of, ofm, ofs);
+	}
+      if (surfaces_.size() > 0)
+	{
+	  std::ofstream of("regsurf4_3.g2");
+	  writeRegionWithSurf(of);
 	}
 #endif
       
@@ -2063,8 +2096,14 @@ void RevEng::initialSurfaces()
     {
       std::cout << "Regions 5" << std::endl;
       std::ofstream of("regions5.g2");
+      std::ofstream ofm("mid_regions5.g2");
       std::ofstream ofs("small_regions5.g2");
-      writeRegionStage(of, ofs);
+      writeRegionStage(of, ofm, ofs);
+      if (surfaces_.size() > 0)
+	{
+	  std::ofstream of("regsurf5.g2");
+	  writeRegionWithSurf(of);
+	}
      }
 #endif
   
@@ -2151,33 +2190,9 @@ void RevEng::updateAxesAndSurfaces()
   // Update surfaces
   for (size_t ki=0; ki<surfaces_.size(); ++ki)
     {
-      shared_ptr<ElementarySurface> elem =
-	dynamic_pointer_cast<ElementarySurface,ParamSurface>(surfaces_[ki]->surface());
-      if (elem.get())
-	{
-#ifdef DEBUG_AXIS
-	  std::ofstream of("axis_adapt.g2");
-	  elem->writeStandardHeader(of);
-	  elem->write(of);
-	  RevEngRegion *reg = surfaces_[ki]->getRegion(0);
-	  reg->writeRegionPoints(of);
-#endif
-	  Point vec = elem->direction();
-	  for (int ka=0; ka<3; ++ka)
-	    {
-	      double ang = vec.angle(mainaxis_[ka]);
-	      ang = std::min(ang, M_PI-ang);
-	      if (ang < max_ang)
-		{
-		  bool updated = 
-		    surfaces_[ki]->updateSurfaceWithAxis(mainaxis_, ka,
-							 approx_tol_, angtol);
-		  if (updated)
-		    break;
-		  int stop_break0 = 1;
-		}
-	    }
-	}
+      bool updated = axisUpdate(surfaces_[ki].get(), max_ang, angtol);
+      if (!updated)
+	int stop_break0 = 1;
     }
   
   for (size_t ki=0; ki<regions_.size(); ++ki)
@@ -2189,8 +2204,13 @@ void RevEng::updateAxesAndSurfaces()
 	  regions_[ki]->mergeAdjacentSimilar(approx_tol_, angtol,
 					     grown_regions, adj_surfs);
 	if (grown_regions.size() > 0 || adj_surfs.size() > 0)
-	  updateRegionsAndSurfaces(ki, grown_regions, adj_surfs);
-
+	  {
+	    updateRegionsAndSurfaces(ki, grown_regions, adj_surfs);
+	    bool updated = axisUpdate(regions_[ki]->getSurface(0), max_ang,
+				      angtol);
+	    if (!updated)
+	      int stop_break1 = 1;
+	  }
 	}
     }
 #ifdef DEBUG
@@ -2202,8 +2222,14 @@ void RevEng::updateAxesAndSurfaces()
 	{
 	  std::cout << "Regions 5_2" << std::endl;
 	  std::ofstream of("regions5_2.g2");
+	  std::ofstream ofm("mid_regions5_2.g2");
 	  std::ofstream ofs("small_regions5_2.g2");
-	  writeRegionStage(of, ofs);
+	  writeRegionStage(of, ofm, ofs);
+      if (surfaces_.size() > 0)
+	{
+	  std::ofstream of("regsurf5_2.g2");
+	  writeRegionWithSurf(of);
+	}
 	}
 #endif
       
@@ -2219,6 +2245,41 @@ void RevEng::updateAxesAndSurfaces()
    int stop_break = 1;
 }
 
+
+//===========================================================================
+bool RevEng::axisUpdate(HedgeSurface *hsurf, double max_ang, double angtol)
+//===========================================================================
+{
+  shared_ptr<ElementarySurface> elem =
+    dynamic_pointer_cast<ElementarySurface,ParamSurface>(hsurf->surface());
+  int ka = 3;
+  if (elem.get())
+    {
+#ifdef DEBUG_AXIS
+      std::ofstream of("axis_adapt.g2");
+      elem->writeStandardHeader(of);
+      elem->write(of);
+      RevEngRegion *reg = hsurf->getRegion(0);
+      reg->writeRegionPoints(of);
+#endif
+      Point vec = elem->direction();
+      for (ka=0; ka<3; ++ka)
+	{
+	  double ang = vec.angle(mainaxis_[ka]);
+	  ang = std::min(ang, M_PI-ang);
+	  if (ang < max_ang)
+	    {
+	      bool updated = 
+		hsurf->updateSurfaceWithAxis(mainaxis_, ka,
+					     approx_tol_, angtol);
+	      if (updated)
+		break;
+	      return false;
+	    }
+	}
+    }
+  return (ka < 3) ? true : false;
+}
 
 //===========================================================================
 void RevEng::updateRegionStructure()
@@ -2304,8 +2365,9 @@ void RevEng::updateRegionStructure()
     {
       std::cout << "Regions6_2" << std::endl;
       std::ofstream of("regions6_2.g2");
+      std::ofstream ofm("mid_regions6_2.g2");
       std::ofstream ofs("small_regions6_2.g2");
-      writeRegionStage(of, ofs);
+      writeRegionStage(of, ofm, ofs);
      }
 #endif
    
@@ -2349,8 +2411,9 @@ void RevEng::updateRegionStructure()
     {
       std::cout << "Regions7" << std::endl;
       std::ofstream of("regions7.g2");
+      std::ofstream ofm("mid_regions7.g2");
       std::ofstream ofs("small_regions7.g2");
-      writeRegionStage(of, ofs);
+      writeRegionStage(of, ofm, ofs);
      }
 #endif   
   // Update adjacency between regions
@@ -2382,8 +2445,9 @@ void RevEng::updateRegionStructure()
     {
       std::cout << "Regions8" << std::endl;
       std::ofstream of("regions8.g2");
+      std::ofstream ofm("mid_regions8.g2");
       std::ofstream ofs("small_regions8.g2");
-      writeRegionStage(of, ofs);
+      writeRegionStage(of, ofm, ofs);
      }
 #endif
    
@@ -2653,8 +2717,8 @@ bool RevEng::recognizeOneSurface(int& ix, int min_point_in, double angtol,
       vector<shared_ptr<HedgeSurface> > sph_sfs;
       vector<HedgeSurface*> prev_surfs;
       vector<vector<RevEngPoint*> > out_groups;
-      bool found = regions_[ix]->extractSphere(approx_tol_, min_point_in,
-					       min_point_region_,
+      bool found = regions_[ix]->extractSphere(mainaxis_, approx_tol_,
+					       min_point_in, min_point_region_,
 					       angtol, prefer_elementary_,
 					       sph_sfs, prev_surfs,
 					       out_groups);
@@ -2744,13 +2808,27 @@ void RevEng::recognizeSurfaces(int min_point_in, int pass)
   double angtol = angfac*anglim_;
   int pass2 = pass + 1;
   std::sort(regions_.begin(), regions_.end(), sort_region);
+#ifdef DEBUG
+  for (int ki=0; ki<(int)regions_.size(); ++ki)
+    {
+      std::set<RevEngPoint*> tmpset(regions_[ki]->pointsBegin(), regions_[ki]->pointsEnd());
+      if (tmpset.size() != regions_[ki]->numPoints())
+	std::cout << "Point number mismatch, pre recognizeSurfaces. " << ki << " " << tmpset.size() << " " << regions_[ki]->numPoints() << std::endl;
+      int num = regions_[ki]->numPoints();
+      for (int ka=0; ka<num; ++ka)
+	if (regions_[ki]->getPoint(ka)->region() != regions_[ki].get())
+	  std::cout << "Inconsistent region pointers, pre recognizeSurfaces: " << ki << " " << ka << std::endl;
+    }
+#endif
+
   for (int ki=0; ki<(int)regions_.size(); ++ki)
     {
 #ifdef DEBUG_CHECK
       std::set<RevEngPoint*> tmpset(regions_[ki]->pointsBegin(), regions_[ki]->pointsEnd());
       if (tmpset.size() != regions_[ki]->numPoints())
 	std::cout << "Point number mismatch, pre. " << ki << " " << tmpset.size() << " " << regions_[ki]->numPoints() << std::endl;
-#endif
+      
+ #endif
     }
   for (int ki=0; ki<(int)regions_.size(); ++ki)
     {
@@ -2758,6 +2836,13 @@ void RevEng::recognizeSurfaces(int min_point_in, int pass)
       std::set<RevEngPoint*> tmpset(regions_[ki]->pointsBegin(), regions_[ki]->pointsEnd());
       if (tmpset.size() != regions_[ki]->numPoints())
 	std::cout << "Point number mismatch. " << ki << " " << tmpset.size() << " " << regions_[ki]->numPoints() << std::endl;
+      for (size_t kj=0; kj<regions_.size(); ++kj)
+	{
+	  int nump = regions_[kj]->numPoints();
+	  for (int ka=0; ka<nump; ++ka)
+	    if (regions_[kj]->getPoint(ka)->region() != regions_[kj].get())
+	      std::cout << "Inconsistent region pointers, recognizeSurfaces: " << ki << " " << kj << " " << ka << std::endl;
+	}
 #endif
       if (regions_[ki]->numPoints() < min_point_region_)
 	continue;
@@ -2785,19 +2870,38 @@ void RevEng::recognizeSurfaces(int min_point_in, int pass)
 	std::cout << "Point number mismatch 2. " << kj << " " << ki << " " << tmpset2.size() << " " << regions_[kj]->numPoints() << std::endl;
     }
 #endif
-      if (!regions_[ki]->hasSurface())
+  if ((!regions_[ki]->hasSurface()) ||
+      (regions_[ki]->hasSurface() &&
+       (regions_[ki]->getSurfaceFlag() == ACCURACY_POOR ||
+	regions_[ki]->getSurfaceFlag() == NOT_SET)))
 	{
 	  // Still no surface. Try to divide composite regions into smaller
 	  // pieces
 	  bool split = segmentComposite(ki, min_point_in, angtol);
 #ifdef DEBUG_CHECK
-      bool connect = regions_[ki]->isConnected();
-      if (!connect)
-	std::cout << "segmentComposite, disconnected region " << ki << std::endl;
+	  if (ki >= 0)
+	    {
+	      bool connect = regions_[ki]->isConnected();
+	      if (!connect)
+		std::cout << "segmentComposite, disconnected region " << ki << std::endl;
+	    }
 #endif
 	  int stop_split = 1;
 	}
    }
+
+#ifdef DEBUG
+  for (int ki=0; ki<(int)regions_.size(); ++ki)
+    {
+      std::set<RevEngPoint*> tmpset(regions_[ki]->pointsBegin(), regions_[ki]->pointsEnd());
+      if (tmpset.size() != regions_[ki]->numPoints())
+	std::cout << "Point number mismatch, post recognizeSurfaces. " << ki << " " << tmpset.size() << " " << regions_[ki]->numPoints() << std::endl;
+      int num = regions_[ki]->numPoints();
+      for (int ka=0; ka<num; ++ka)
+	if (regions_[ki]->getPoint(ka)->region() != regions_[ki].get())
+	  std::cout << "Inconsistent region pointers, post recognizeSurfaces: " << ki << " " << ka << std::endl;
+    }
+#endif
 
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
@@ -2823,7 +2927,9 @@ bool RevEng::segmentComposite(int& ix, int min_point_in, double angtol)
   if (regions_[ix]->numPoints() < min_point_region_)
     return false;
 
-  if (regions_[ix]->hasSurface())
+  if (regions_[ix]->hasSurface() &&
+      (!(regions_[ix]->getSurfaceFlag() == ACCURACY_POOR ||
+	 regions_[ix]->getSurfaceFlag() == NOT_SET)))
     return false;
 
   if (regions_[ix]->hasSweepInfo())
@@ -2868,6 +2974,20 @@ bool RevEng::segmentComposite(int& ix, int min_point_in, double angtol)
   vector<vector<RevEngPoint*> > separate_groups;
   vector<RevEngPoint*> single_points;
   vector<HedgeSurface*> prevsfs;
+
+  if (!segmented && regions_[ix]->hasDivideInfo())
+    {
+      for (size_t ki=0; ki<regions_[ix]->numDivideInfo(); ++ki)
+	{
+	  segmented = regions_[ix]->divideWithSegInfo((int)ki,
+						      min_point_region_,
+						      separate_groups,
+						      single_points);
+	  if (segmented)
+	    break;
+	}
+    }
+  
   if (!segmented)
     {
       // Check if a segmentation into several cylinder like
@@ -2964,7 +3084,7 @@ bool RevEng::segmentComposite(int& ix, int min_point_in, double angtol)
     {
       int num = 0;
       for (size_t ki=0; ki<separate_groups.size(); ++ki)
-	num += (int)separate_groups.size();
+	num += (int)separate_groups[ki].size();
       if (num > num_points/10)
 	repeat = true;
     }
@@ -3087,8 +3207,14 @@ void RevEng::surfaceCreation(int pass)
     {
       std::cout << "Regions9" << std::endl;
       std::ofstream of("regions9.g2");
+      std::ofstream ofm("mid_regions9.g2");
       std::ofstream ofs("small_regions9.g2");
-      writeRegionStage(of, ofs);
+      writeRegionStage(of, ofm, ofs);
+      if (surfaces_.size() > 0)
+	{
+	  std::ofstream of("regsurf9.g2");
+	  writeRegionWithSurf(of);
+	}
      }
 
    std::cout << "Merge adjacent regions, regions: " << regions_.size() << ", surfaces: " << surfaces_.size() << std::endl;
@@ -3115,8 +3241,14 @@ void RevEng::surfaceCreation(int pass)
     {
       std::cout << "Regions10" << std::endl;
       std::ofstream of("regions10.g2");
+      std::ofstream ofm("mid_regions10.g2");
       std::ofstream ofs("small_regions10.g2");
-      writeRegionStage(of, ofs);
+      writeRegionStage(of, ofm, ofs);
+      if (surfaces_.size() > 0)
+	{
+	  std::ofstream of("regsurf10.g2");
+	  writeRegionWithSurf(of);
+	}
      }
 #endif
   // Update adjacency between regions
@@ -3171,19 +3303,6 @@ void RevEng::surfaceCreation(int pass)
       // 	}
     }
       
-#ifdef DEBUG
-  checkConsistence("Regions11");
-
-   std::cout << "Finished grow with surf, regions: " << regions_.size() << ", surfaces: " << surfaces_.size() << std::endl;
-   if (regions_.size() > 0)
-    {
-      std::cout << "Regions11" << std::endl;
-      std::ofstream of("regions11.g2");
-      std::ofstream ofs("small_regions11.g2");
-      writeRegionStage(of, ofs);
-     }
-#endif
-   
   // Update adjacency between regions
   for (size_t ki=0; ki<regions_.size(); ++ki)
     {
@@ -3193,6 +3312,26 @@ void RevEng::surfaceCreation(int pass)
     {
       regions_[ki]->setRegionAdjacency();
     }
+
+#ifdef DEBUG
+  checkConsistence("Regions11");
+
+   std::cout << "Finished grow with surf, regions: " << regions_.size() << ", surfaces: " << surfaces_.size() << std::endl;
+   if (regions_.size() > 0)
+    {
+      std::cout << "Regions11" << std::endl;
+      std::ofstream of("regions11.g2");
+      std::ofstream ofm("mid_regions11.g2");
+      std::ofstream ofs("small_regions11.g2");
+      writeRegionStage(of, ofm, ofs);
+      if (surfaces_.size() > 0)
+	{
+	  std::ofstream of("regsurf11.g2");
+	  writeRegionWithSurf(of);
+	}
+     }
+#endif
+   
 }
 
 
@@ -6516,6 +6655,8 @@ void RevEng::readClassified(istream& is)
     }
     }
   
+  max_next_ = std::min(80, tri_sf_->size()/200);
+  max_next_ = std::max(2*min_next_, max_next_);
   setBoundingBox();
 }
 
@@ -6630,13 +6771,28 @@ void RevEng::readParams(istream& is)
 }
 
  //===========================================================================
-void RevEng::writeRegionStage(ostream& of, ostream& ofs) const
+void RevEng::writeRegionWithSurf(ostream& of) const
+//===========================================================================
+{
+  for (size_t kr=0; kr<regions_.size(); ++kr)
+    {
+      if (regions_[kr]->hasSurface())
+	{
+	  regions_[kr]->writeRegionPoints(of);
+	  regions_[kr]->writeSurface(of);
+	}
+    }
+}
+  
+ //===========================================================================
+void RevEng::writeRegionStage(ostream& of, ostream& ofm, ostream& ofs) const
 //===========================================================================
 {
   std::cout << "Num regions: " << regions_.size() << ", num surfaces: " << surfaces_.size() << std::endl;
   
   vector<Vector3D> small;
   int nmb_one = 0;
+  int low = min_point_region_/4;
   for (size_t kr=0; kr<regions_.size(); ++kr)
     {
       // BoundingBox bbox = regions_[kr]->boundingBox();
@@ -6646,10 +6802,21 @@ void RevEng::writeRegionStage(ostream& of, ostream& ofs) const
       // if (tmpset.size() != regions_[kr]->numPoints())
       // 	std::cout << "Point number mismatch. " << kr << " " << tmpset.size() << " " << regions_[kr]->numPoints() << std::endl;
       int nmb = regions_[kr]->numPoints();
-      if (nmb < min_point_region_)
+      if (nmb < low)
 	{
 	  for (int ki=0; ki<nmb; ++ki)
 	    small.push_back(regions_[kr]->getPoint(ki)->getPoint());
+	}
+      else if (nmb < min_point_region_)
+	{
+	  ofm << "400 1 0 0" << std::endl;
+	  ofm << nmb << std::endl;
+	  for (int ki=0; ki<nmb; ++ki)
+	    {
+	      ofm << regions_[kr]->getPoint(ki)->getPoint() << std::endl;
+	    }
+	  if (regions_[kr]->hasSurface())
+	    regions_[kr]->writeSurface(ofm);
 	}
       else
 	{

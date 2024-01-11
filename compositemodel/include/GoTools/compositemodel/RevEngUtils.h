@@ -199,6 +199,14 @@ namespace Go {
     
     shared_ptr<SplineCurve> createCurve(std::vector<RevEngPoint*>& points, int degree,
 					double tol, int maxiter);
+
+    void extractLinearPoints(std::vector<RevEngPoint*>& points, 
+			     std::vector<Point>& rotated, double len,
+			     Point& pos, Point& axis, double rad,
+			     Point& axis2, bool plane,
+			     double tol, double angtol,
+			     std::vector<RevEngPoint*>& linear, bool start,
+			     std::vector<RevEngPoint*>& remaining);
   }
   
 } // namespace Go
