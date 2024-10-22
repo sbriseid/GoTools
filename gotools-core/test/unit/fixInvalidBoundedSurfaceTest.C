@@ -72,7 +72,10 @@ public:
 
         infiles.push_back(datadir_priv +
                           "CaxMan/Mould_Final_Version_1/Stock_Cavity_AM_stage4_R8_8_Printing_colorised_model_2_obj_12233.g2");
-	//"CaxMan/Mould_Final_Version_1/12233.g2");
+        valid_model.push_back(true);
+
+        infiles.push_back(datadir_priv +
+                          "CaxMan/Mould_Final_Version_1/Stock_Cavity_AM_-_stage3_voids.stp_obj_15_ok.g2");
         valid_model.push_back(true);
 #endif
 
