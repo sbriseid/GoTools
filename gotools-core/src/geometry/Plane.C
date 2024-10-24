@@ -801,6 +801,7 @@ Plane::getElementaryParamCurve(ElementaryCurve* space_crv, double tol,
 
       param_cv = shared_ptr<ElementaryCurve>(new Line(pos, dir));
       param_cv->setParamBounds(t1, t2);
+
     }
   else
     {
@@ -927,6 +928,10 @@ Plane::getElementaryParamCurve(ElementaryCurve* space_crv, double tol,
   Point p2 = param_cv->ParamCurve::point(param_cv->endparam());
   int stop_break = 1;
 #endif
+
+  if (space_crv->isReversed()) {
+      param_cv->reverseParameterDirection();
+  }
 
   return param_cv;
 }
