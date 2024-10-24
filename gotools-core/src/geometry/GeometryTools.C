@@ -1076,21 +1076,22 @@ void GeometryTools::translateSplineCurve(const Point& trans_vec, SplineCurve& cv
 //-------------------------------------------------------------------
 {
     int ki;
-    ASSERT(trans_vec.dimension() == 3); // We're working in 3D space.
-    int dim = 3 + cv.rational();
+    //ASSERT(trans_vec.dimension() == 3); // We're working in 3D space.
+    int dim = cv.dimension();
+    int rdim = dim + cv.rational();
     std::vector<double>::iterator iter = cv.rational() ? cv.rcoefs_begin() : cv.coefs_begin();
     std::vector<double>::iterator end_iter = cv.rational() ? cv.rcoefs_end() : cv.coefs_end();
     std::vector<double>::iterator coef_iter = cv.coefs_begin();
     while (iter != end_iter) { // @@ A faster approach would be to use rotation matrix directly.
-	double weight = cv.rational() ? iter[3] : 1.0;
-	for (ki = 0; ki < 3; ++ki)
-	    iter[ki] = (iter[ki]/weight + trans_vec[ki])*weight;
-	if (cv.rational()) {
-	    for (ki = 0; ki < 3; ++ki)
-		coef_iter[ki] = iter[ki]/weight;
-	    coef_iter += dim - 1;
-	}
-	iter += dim;
+	    double weight = cv.rational() ? iter[dim] : 1.0;
+	    for (ki = 0; ki < dim; ++ki)
+	        iter[ki] = (iter[ki]/weight + trans_vec[ki])*weight;
+	    if (cv.rational()) {
+	        for (ki = 0; ki < dim; ++ki)
+		        coef_iter[ki] = iter[ki]/weight;
+	        coef_iter += dim;
+	    }
+	    iter += rdim;
     }
 }
 
