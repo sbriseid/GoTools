@@ -357,11 +357,23 @@ shared_ptr<Go::LineCloud> gvApplicationVolAndLR::getLineCloud(shared_ptr<Go::LRS
     // We extract all LRBSpline2D and corresponding coef*gamma. For each of them we run through all the adjacent
     // LRBSpline2D, creating lines with the corresponding coef_gamma.
 
+#if 1
+      BSplineMap::const_iterator iter_begin = basisFunctionsBegin();
+      BSplineMap::const_iterator iter_end = basisFunctionsEnd();
+      BSplineMap::const_iterator iter = iter_begin;
+      while (iter != iter_end) {
+
+
+          ++iter;
+      }
+
+#else
     std::vector<std::vector<double> > elem_lines = LRSplineUtils::elementLineClouds(*lr_spline_sf);
     std::vector<double> lines;
     for (auto elem_line: elem_lines) {
         lines.insert(lines.end(), elem_line.begin(), elem_line.end());
     }
+#endif
 
     int dim = lr_spline_sf->dimension();
     ASSERT(dim == 2 || dim == 3);
