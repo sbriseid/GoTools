@@ -137,7 +137,7 @@ public slots:
 
     // For a cv or surface we plot the 3D control net. If surface is
     // trimmed we plot the net of the underlying sf.
-    void show_control_nets();
+    virtual void show_control_nets();
 
     // Extract all boundary curves for selected BoundedSurface's and add to object list.
     void show_boundary_curves();

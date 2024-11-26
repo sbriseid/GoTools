@@ -42,6 +42,7 @@
 #include "GoTools/viewlib/gvView.h"
 #include "GoTools/geometry/SplineSurface.h"
 #include "GoTools/lrsplines2D/LRSplineSurface.h"
+#include "GoTools/lrsplines2D/LRSplineUtils.h"
 #include "GoTools/geometry/BoundedSurface.h"
 #include "GoTools/geometry/BoundedUtils.h"
 #include "GoTools/tesselator/GenericTriMesh.h"
@@ -243,6 +244,51 @@ void gvApplicationVolAndLR::move_vertices_to_origin()
 
 }
 
+//===========================================================================
+void gvApplicationVolAndLR::show_control_nets()
+//===========================================================================
+{
+    // Showing the control nets for spline sfs and cvs.
+    gvApplication::show_control_nets();
+
+    // The objects of type LRSplineSurface are handled below.
+
+    // We extract all objects currently selected.
+    vector<shared_ptr<Go::GeomObject> > sel_objs, not_sel_objs;
+    getSelectedObjects(sel_objs, not_sel_objs);
+
+    // We then extract those which are of the required types.
+    vector<shared_ptr<LRSplineSurface> > sel_geoms;
+    for (size_t ki = 0; ki < sel_objs.size(); ++ki) {
+	if (sel_objs[ki]->instanceType() == Class_LRSplineSurface) {
+	    sel_geoms.push_back(dynamic_pointer_cast<LRSplineSurface, GeomObject>(sel_objs[ki]));
+	} else if (sel_objs[ki]->instanceType() == Class_BoundedSurface) {
+	    shared_ptr<BoundedSurface> bd_sf =
+		dynamic_pointer_cast<BoundedSurface, GeomObject>(sel_objs[ki]);
+	    if (bd_sf->underlyingSurface()->instanceType() ==
+		Class_LRSplineSurface) {
+		sel_geoms.push_back(dynamic_pointer_cast<LRSplineSurface, GeomObject>(bd_sf->underlyingSurface()));
+	    } else {
+		not_sel_objs.push_back(sel_objs[ki]);
+	    }
+	}
+    }
+
+    vector<shared_ptr<GeomObject> > new_objs;
+    // We then proceed to update view with the control nets.
+    for (size_t ki = 0; ki < sel_geoms.size(); ++ki) {
+	// We create LineCloud
+	shared_ptr<LineCloud> lc = getLineCloud(sel_geoms[ki]);
+        if (lc) {
+            new_objs.push_back(lc);
+        }
+    }
+
+    // Finally we send the new objs to the tesselator.
+    vector<shared_ptr<gvColor> > new_cols(new_objs.size());
+    add_objects(new_objs, new_cols);
+}
+
 
 //===========================================================================
 void gvApplicationVolAndLR::buildExtraGUI()
@@ -302,4 +348,28 @@ GeneralMesh* gvApplicationVolAndLR::getMesh(int object_id)
     }
 
     return gen_mesh;
+}
+
+//===========================================================================
+shared_ptr<Go::LineCloud> gvApplicationVolAndLR::getLineCloud(shared_ptr<Go::LRSplineSurface>& lr_spline_sf)
+//===========================================================================
+{
+    // We extract all LRBSpline2D and corresponding coef*gamma. For each of them we run through all the adjacent
+    // LRBSpline2D, creating lines with the corresponding coef_gamma.
+
+    std::vector<std::vector<double> > elem_lines = LRSplineUtils::elementLineClouds(*lr_spline_sf);
+    std::vector<double> lines;
+    for (auto elem_line: elem_lines) {
+        lines.insert(lines.end(), elem_line.begin(), elem_line.end());
+    }
+
+    int dim = lr_spline_sf->dimension();
+    ASSERT(dim == 2 || dim == 3);
+    int nmb_lines = (int)(lines.size())/(2*dim);
+    shared_ptr<LineCloud> line_cloud;
+    if (nmb_lines > 0) {
+        line_cloud = shared_ptr<LineCloud>(new LineCloud(lines.begin(), nmb_lines));
+    }
+
+    return line_cloud;
 }

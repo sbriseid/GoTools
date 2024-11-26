@@ -43,6 +43,7 @@
 
 #include "GoTools/viewlib/gvApplication.h"
 #include "GoTools/tesselator/GeneralMesh.h"
+#include "GoTools/lrsplines2D/LRSplineSurface.h"
 
 
 class gvApplicationVolAndLR : public gvApplication
@@ -65,11 +66,15 @@ public slots:
     void translate_to_origin(); // All selected objects are translated by the center of their bounding box.
     void move_vertices_to_origin(); // All selected objects are translated by the center of their bounding box.
 
+    virtual void show_control_nets();
+
 protected:
     void buildExtraGUI();
 
 private:
     Go::GeneralMesh* getMesh(int object_id);
+
+    shared_ptr<Go::LineCloud> getLineCloud(shared_ptr<Go::LRSplineSurface>& lr_spline_sf);
 
 };
 
