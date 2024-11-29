@@ -66,7 +66,7 @@ public slots:
     void translate_to_origin(); // All selected objects are translated by the center of their bounding box.
     void move_vertices_to_origin(); // All selected objects are translated by the center of their bounding box.
 
-    virtual void show_control_nets();
+    void show_element_lines();
 
 protected:
     void buildExtraGUI();

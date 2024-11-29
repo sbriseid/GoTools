@@ -245,11 +245,11 @@ void gvApplicationVolAndLR::move_vertices_to_origin()
 }
 
 //===========================================================================
-void gvApplicationVolAndLR::show_control_nets()
+void gvApplicationVolAndLR::show_element_lines()
 //===========================================================================
 {
-    // Showing the control nets for spline sfs and cvs.
-    gvApplication::show_control_nets();
+    // Showing the element nets for spline sfs.
+    //gvApplication::show_control_nets();
 
     // The objects of type LRSplineSurface are handled below.
 
@@ -308,6 +308,10 @@ void gvApplicationVolAndLR::buildExtraGUI()
     object_menu_->addAction("Translate to origin", this, 
 			    SLOT(translate_to_origin()));
 
+
+    object_menu_->addAction("Show element lines", this, 
+                            SLOT(show_element_lines()));
+
 }
 
 //===========================================================================
@@ -354,26 +358,13 @@ GeneralMesh* gvApplicationVolAndLR::getMesh(int object_id)
 shared_ptr<Go::LineCloud> gvApplicationVolAndLR::getLineCloud(shared_ptr<Go::LRSplineSurface>& lr_spline_sf)
 //===========================================================================
 {
-    // We extract all LRBSpline2D and corresponding coef*gamma. For each of them we run through all the adjacent
-    // LRBSpline2D, creating lines with the corresponding coef_gamma.
-
-#if 1
-      BSplineMap::const_iterator iter_begin = basisFunctionsBegin();
-      BSplineMap::const_iterator iter_end = basisFunctionsEnd();
-      BSplineMap::const_iterator iter = iter_begin;
-      while (iter != iter_end) {
-
-
-          ++iter;
-      }
-
-#else
+    std::cout << "Inside getLineCloud()" << std::endl;
+    // We lift all the elements to the surface, return as linear segments.
     std::vector<std::vector<double> > elem_lines = LRSplineUtils::elementLineClouds(*lr_spline_sf);
     std::vector<double> lines;
     for (auto elem_line: elem_lines) {
         lines.insert(lines.end(), elem_line.begin(), elem_line.end());
     }
-#endif
 
     int dim = lr_spline_sf->dimension();
     ASSERT(dim == 2 || dim == 3);
@@ -381,6 +372,9 @@ shared_ptr<Go::LineCloud> gvApplicationVolAndLR::getLineCloud(shared_ptr<Go::LRS
     shared_ptr<LineCloud> line_cloud;
     if (nmb_lines > 0) {
         line_cloud = shared_ptr<LineCloud>(new LineCloud(lines.begin(), nmb_lines));
+    } else {
+        std::cout << "Empty line_cloud. Seems like LRSplineUtils::elementLineClouds() is not yet implemented." <<
+            std::endl;
     }
 
     return line_cloud;
