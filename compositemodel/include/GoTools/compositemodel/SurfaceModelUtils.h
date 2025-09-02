@@ -164,7 +164,8 @@ namespace Go
 				 shared_ptr<ftPointSet>& points);
     
     void performModelTriangulate(shared_ptr<SurfaceModel>& model, 
-				 shared_ptr<ftPointSet>& triang);
+				 shared_ptr<ftPointSet>& triang,
+				 double density);
     void 
       reduceUnderlyingSurface(shared_ptr<BoundedSurface>& bd_sf,
 			      std::vector<shared_ptr<CurveOnSurface> >& cvs);

@@ -2487,7 +2487,7 @@ void SurfaceModelUtils::triangulateModel(shared_ptr<SurfaceModel>& model, double
 //===========================================================================
 {
   samplePointsModel(model, density, triang);
-  performModelTriangulate(model, triang);
+  performModelTriangulate(model, triang, density);
 }
 
 //===========================================================================
@@ -2556,8 +2556,10 @@ void SurfaceModelUtils::getFaceInnerSamplePoints(shared_ptr<ftSurface>& face,
   shared_ptr<ftFaceBase> faceb = face;
 
   // Get resolution
-  int min_num = 3;
+  int min_num = 1;
   int max_num = 100;
+  double lenfac = 0.9;
+  double dfac = 0.4;
 
   RectDomain dom = surf->containingDomain();
   int cv_dir = 0;
@@ -2569,15 +2571,16 @@ void SurfaceModelUtils::getFaceInnerSamplePoints(shared_ptr<ftSurface>& face,
   GeometryTools::estimateIsoCurveLength(*surf, true, dom.vmax(), len_v2);
   double frac1 = std::min(len_u1, len_u2)/std::max(len_u1, len_u2);
   double frac2 = std::min(len_v1, len_v2)/std::max(len_v1, len_v2);
-  if (frac1 > frac2)
+  int bd = 0;  // Indicates inner point
+  double u_size, v_size;
+  surf->estimateSfSize(u_size, v_size);
+  
+  if (lenfac*v_size > u_size ||
+      (v_size > u_size &&  lenfac*v_size <= u_size && frac1 > frac2))
     {
       cv_dir = 1;
       pt_dir = 0;
     }
-  
-  int bd = 0;  // Indicates inner point
-  double u_size, v_size;
-  surf->estimateSfSize(u_size, v_size);
   
   // Fetch constant parameter curves in the selected curve direction
   double u1 = (cv_dir == 0) ? dom.umin() : dom.vmin();
@@ -2607,7 +2610,7 @@ void SurfaceModelUtils::getFaceInnerSamplePoints(shared_ptr<ftSurface>& face,
 	for (kr=0; kr<crvs.size(); ++kr)
 	  {
 	    double len2 = crvs[kr]->estimatedCurveLength();
-	    if (len2 < 0.9*density)
+	    if (len2 < dfac*density)
 	      continue;
 	    int nmb = (int)(len2/density) - 1;
 	    nmb = std::min(max_num, std::max(nmb, min_num));
@@ -2841,12 +2844,14 @@ ftFaceBase* commonFace(vector<ftSurfaceSetPoint*>& pol_pts)
 
 //===========================================================================
 void SurfaceModelUtils::performModelTriangulate(shared_ptr<SurfaceModel>& model, 
-						shared_ptr<ftPointSet>& points)
+						shared_ptr<ftPointSet>& points,
+						double density)
 //===========================================================================
 {
   double eps = 1.0e-9;
   double angtol = 0.01; //model->getTolerances().kink;
   double tol = model->getTolerances().gap;
+  double len_lim = 2.0*density;
   int num_faces = model->nmbEntities();
   vector<vector<ttlPoint*> > faces_points(num_faces);
   
@@ -2968,6 +2973,7 @@ void SurfaceModelUtils::performModelTriangulate(shared_ptr<SurfaceModel>& model,
 		    mid_par += fac*Vector2D(par[km][0], par[km][1]);
 		  }
 		double min_ang = M_PI;
+		double max_len = 0.0;
 		for (int km=0; km<3; ++km)
 		  {
 		    int kn1 = (km + 1)%3;
@@ -2977,8 +2983,9 @@ void SurfaceModelUtils::performModelTriangulate(shared_ptr<SurfaceModel>& model,
 		    double ang = vec1.angle(vec2);
 		    ang = std::min(ang, M_PI-ang);
 		    min_ang = std::min(min_ang, ang);
+		    max_len = std::max(max_len, vec1.length());
 		  }
-		if (min_ang < angtol)
+		if (min_ang < angtol || max_len > len_lim)
 		  inner = false;
 		// else
 		//   {
@@ -3097,7 +3104,7 @@ void SurfaceModelUtils::performModelTriangulate(shared_ptr<SurfaceModel>& model,
 	    // vertex with the number of neigbours
 	    shared_ptr<hetriang::Node> curr_node = curr_edge->getSourceNode();
 	    ftSamplePoint *curr_point = curr_node->pointIter();
-	    if (curr_point->isOnSubSurfaceBoundary())
+	    if (curr_point->isOnInnerBoundary())
 	      num_inner_edge++;
 	    curr_edge = curr_edge->getNextEdgeInFace();
 	  }

@@ -746,6 +746,53 @@ namespace Go
 #endif
   }
 
+  //===========================================================================
+  void SurfaceModel::closestBoundaryPoint(Point& pnt,     // Input point
+					  Point& clo_pnt, // Found closest point
+					  int& idx,           // Index of surface where the closest point is found
+					  double clo_par[],   // Parameter value corresponding to the closest point
+					  double& dist)       // Distance between input point and found closest point
+  //===========================================================================
+  {
+    idx = -1;
+    int loop_ix1 = -1, loop_ix2 = -1;
+    size_t cv_ix;
+    dist = std::numeric_limits<double>::max();
+    double cv_par;
+    for (size_t ki=0; ki<boundary_curves_.size(); ++ki)
+      {
+	for (size_t kj=0; kj<boundary_curves_[ki].size(); ++kj)
+	  {
+	    int cv_ind;
+	    double tpar, tdist;
+	    Point cv_close;
+	    boundary_curves_[ki][kj]->closestPoint(pnt, cv_ind, tpar,
+						   cv_close, tdist);
+	    if (tdist < dist)
+	      {
+		cv_ix = cv_ind;
+		loop_ix1 = (int)ki;
+		loop_ix2 = (int)kj;
+		cv_par = tpar;
+		dist = tdist;
+		clo_pnt = cv_close;
+	      }
+	  }
+      }
+
+    if (loop_ix1 >= 0)
+      {
+	shared_ptr<ftEdgeBase> edg0 =
+	  boundary_curves_[loop_ix1][loop_ix2]->getEdge(cv_ix);
+	ftEdge* edg = edg0->geomEdge();
+	ftFaceBase *face0 = edg->face();
+	ftSurface *face = face0->asFtSurface();
+	idx = getIndex(face);
+	Point fpar = edg->faceParameter(cv_par);
+	clo_par[0] = fpar[0];
+	clo_par[1] = fpar[1];
+      }
+  }
 
 
 
@@ -2244,7 +2291,8 @@ void SurfaceModel::swapFaces(int idx1, int idx2)
       }
   }
 
-//===========================================================================
+
+///===========================================================================
 vector<shared_ptr<ftEdge> > SurfaceModel::getBoundaryEdges() const
 //===========================================================================
 {
