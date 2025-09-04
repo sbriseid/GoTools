@@ -42,6 +42,7 @@
 
 
 #include "GoTools/trivariate/ParamVolume.h"
+#include "GoTools/trivariate/BasisEvalVol.h"
 #include "GoTools/geometry/BsplineBasis.h"
 #include "GoTools/geometry/SplineSurface.h"
 #include "GoTools/geometry/RectDomain.h"
@@ -54,126 +55,6 @@ namespace Go
 class Interpolator;
 class SplineCurve;
 class DirectionCone;
-
-/// Structure for storage of results of grid evaluation of the basis function of a spline volume.
-/// Positional evaluation information in one parameter value
-struct BasisPts
-{
-  /// Parameter tripple in which the basis functions are evaluated
-    double param[3];   
-  /// Index of the knot interval where the parameter value is situated for all
-  /// parameter directions. The indices of the non-zero basis functions are
-  /// left_idx[i]-order[i]+1, ..., left_idx[i] for i=0,1,2
-    int left_idx[3];   
-  /// The value of all basis functions, size equal to (degree_u+1)*(degree_v+1)*(degree_w+1)
-    std::vector< double > basisValues; 
-
-  /// Constructor
-    void preparePts(double u, double v, double w, int idx_u, int idx_v, int idx_w,
-		    int size)
-	{
-	    param[0] = u;
-	    param[1] = v;
-	    param[2] = w;
-	    left_idx[0] = idx_u;
-	    left_idx[1] = idx_v;
-	    left_idx[2] = idx_w;
-	    basisValues.resize(size);
-	}
-};
-
-/// Structure for storage of results of grid evaluation of the basis function of s spline volume.
-/// Evaluation of position and first derivatives in one parameter value
-struct BasisDerivs
-{
-  /// Parameter tripple in which the basis functions are evaluated
-    double param[3];
-  /// Index of the knot interval where the parameter value is situated for all
-  /// parameter directions. The indices of the non-zero basis functions are
-  /// left_idx[i]-order[i]+1, ..., left_idx[i] for i=0,1,2
-  int left_idx[3];   
-    /// The value of all basis functions, size equal to (degree_u+1)*(degree_v+1)*(degree_w+1)
-    std::vector< double > basisValues; 
-    /// the derivative of all basis functions in u direction, same size as previous
-    std::vector< double > basisDerivs_u; 
-    /// the derivative of all basis functions in v direction, same size as previous
-    std::vector< double > basisDerivs_v;
-    /// the derivative of all basis functions in w direction, same size as previous
-    std::vector< double > basisDerivs_w;
-
-  /// Constructor
-    void prepareDerivs(double u, double v, double w, int idx_u, int idx_v, int idx_w,
-		       int size)
-	{
-	    param[0] = u;
-	    param[1] = v;
-	    param[2] = w;
-	    left_idx[0] = idx_u;
-	    left_idx[1] = idx_v;
-	    left_idx[2] = idx_w;
-	    basisValues.resize(size);
-	    basisDerivs_u.resize(size);
-	    basisDerivs_v.resize(size);
-	    basisDerivs_w.resize(size);
-	}
-};
-
-/// Structure for storage of results of grid evaluation of the basis function of a 
-/// spline volume.
-/// Evaluation of position, first and second derivatives in one parameter value
-struct BasisDerivs2
-{   
-  /// Parameter tripple in which the basis functions are evaluated
-    double param[3];
-  /// Index of the knot interval where the parameter value is situated for all
-  /// parameter directions. The indices of the non-zero basis functions are
-  /// left_idx[i]-order[i]+1, ..., left_idx[i] for i=0,1,2
-     int left_idx[3];
-    /// The value of all basis functions, size equal to (degree_u+1)*(degree_v+1)*(degree_w+1)
-    std::vector< double > basisValues; 
-
-    /// the derivative of all basis functions in u direction, same size as previous
-    std::vector< double > basisDerivs_u;
-    /// the derivative of all basis functions in v direction, same size as previous
-    std::vector< double > basisDerivs_v;
-    /// the derivative of all basis functions in w direction, same size as previous
-    std::vector< double > basisDerivs_w;
-
-    /// the second derivative of all basis functions twice in u direction, same size as previous
-    std::vector< double > basisDerivs_uu;
-    /// the second derivative of all basis functions in u and v direction, same size as previous
-    std::vector< double > basisDerivs_uv;
-    /// the second derivative of all basis functions in u and w direction, same size as previous
-    std::vector< double > basisDerivs_uw;
-    /// the second derivative of all basis functions twice in v direction, same size as previous
-    std::vector< double > basisDerivs_vv;
-    /// the second derivative of all basis functions in v and w direction, same size as previous
-    std::vector< double > basisDerivs_vw;
-    /// the second derivative of all basis functions twice in w direction, same size as previous
-    std::vector< double > basisDerivs_ww;
-
-  /// Constructor
-    void prepareDerivs(double u, double v, double w, int idx_u, int idx_v, int idx_w,
-		       int size)
-	{
-	    param[0] = u;
-	    param[1] = v;
-	    param[2] = w;
-	    left_idx[0] = idx_u;
-	    left_idx[1] = idx_v;
-	    left_idx[2] = idx_w;
-	    basisValues.resize(size);
-	    basisDerivs_u.resize(size);
-	    basisDerivs_v.resize(size);
-	    basisDerivs_w.resize(size);
-	    basisDerivs_uu.resize(size);
-	    basisDerivs_uv.resize(size);
-	    basisDerivs_uw.resize(size);
-	    basisDerivs_vv.resize(size);
-	    basisDerivs_vw.resize(size);
-	    basisDerivs_ww.resize(size);
-	}
-};
 
 #define SPLINE_VOLUME_PERIOD_INFO_SIZE 3
 
@@ -874,24 +755,24 @@ public:
     void computeBasis(double param_u,
 		      double param_v,
 		      double param_w,
-		      BasisPts& result) const;
+		      BasisPtsVol& result) const;
 
     void computeBasis(double param_u,
 		      double param_v,
 		      double param_w,
-		      BasisDerivs& result,
+		      BasisDerivsVol& result,
 		      bool evaluate_from_right = true) const;
 
     void computeBasis(double param_u,
 		      double param_v,
 		      double param_w,
-		      BasisDerivs2& result,
+		      BasisDerivsVol2& result,
 		      bool evaluate_from_right = true) const;
 
     void computeBasisGrid(const Dvector& param_u,
 			  const Dvector& param_v,
 			  const Dvector& param_w,
-			  std::vector<BasisPts>& result) const; 
+			  std::vector<BasisPtsVol>& result) const; 
 
     /// Evaluate positions and first derivatives of all basis values in a specified
     /// grid.  For non-rationals this is an interface to BsplineBasis::computeBasisValues 
@@ -929,13 +810,13 @@ public:
     void computeBasisGrid(const Dvector& param_u,
 			  const Dvector& param_v,
 			  const Dvector& param_w,
-			  std::vector<BasisDerivs>& result,
+			  std::vector<BasisDerivsVol>& result,
 			  bool evaluate_from_right = true) const; 
 
     void computeBasisGrid(const Dvector& param_u,
 			  const Dvector& param_v,
 			  const Dvector& param_w,
-			  std::vector<BasisDerivs2>& result,
+			  std::vector<BasisDerivsVol2>& result,
 			  bool evaluate_from_right = true) const;
 
 

@@ -97,7 +97,7 @@ int main(int argc, char* argv[] )
 	int left2 = vol.basis(1).knotInterval(pt[3*j+1]) - kk2 + 1;
 	int left3 = vol.basis(2).knotInterval(pt[3*j+2]) - kk3 + 1;
 	
-	BasisPts res;
+	BasisPtsVol res;
 	vol.computeBasis(pt[3*j], pt[3*j+1], pt[3*j+2], res);
 
 	p2[0].setValue(0.0);

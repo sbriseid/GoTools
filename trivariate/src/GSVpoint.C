@@ -869,7 +869,7 @@ void SplineVolume::computeBasisGrid(const Dvector& param_u,
 void SplineVolume::computeBasis(double param_u,
 				double param_v,
 				double param_w,
-				BasisPts& result) const
+				BasisPtsVol& result) const
 //===========================================================================
 {
     int uorder = basis_u_.order();
@@ -919,7 +919,7 @@ void SplineVolume::computeBasis(double param_u,
 void SplineVolume::computeBasis(double param_u,
 				double param_v,
 				double param_w,
-				BasisDerivs& result,
+				BasisDerivsVol& result,
 				bool evaluate_from_right) const
 //===========================================================================
 {
@@ -982,7 +982,7 @@ void SplineVolume::computeBasis(double param_u,
 void SplineVolume::computeBasis(double param_u,
 				double param_v,
 				double param_w,
-				BasisDerivs2& result,
+				BasisDerivsVol2& result,
 				bool evaluate_from_right) const
 //===========================================================================
 {
@@ -1097,7 +1097,7 @@ void SplineVolume::computeBasis(const vector<double>::const_iterator& bas_vals_u
 void SplineVolume::computeBasisGrid(const Dvector& param_u,
 				    const Dvector& param_v,
 				    const Dvector& param_w,
-				    vector<BasisPts>& result) const
+				    vector<BasisPtsVol>& result) const
 //===========================================================================
 {
   int numu = (int)param_u.size();
@@ -1182,7 +1182,7 @@ void SplineVolume::computeBasisGrid(const Dvector& param_u,
 void SplineVolume::computeBasisGrid(const Dvector& param_u,
 				    const Dvector& param_v,
 				    const Dvector& param_w,
-				    vector<BasisDerivs>& result,
+				    vector<BasisDerivsVol>& result,
 				    bool evaluate_from_right) const
 //===========================================================================
 {
@@ -1284,7 +1284,7 @@ void SplineVolume::computeBasisGrid(const Dvector& param_u,
 void SplineVolume::computeBasisGrid(const Dvector& param_u,
 				    const Dvector& param_v,
 				    const Dvector& param_w,
-				    vector<BasisDerivs2>& result,
+				    vector<BasisDerivsVol2>& result,
 				    bool evaluate_from_right) const
 //===========================================================================
 {

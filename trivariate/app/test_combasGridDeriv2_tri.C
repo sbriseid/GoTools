@@ -136,7 +136,7 @@ int main(int argc, char* argv[] )
 
    bool from_right = atoi(argv[5]) ? true : false;
 
-    vector<BasisDerivs2> pts_with_derivs;
+    vector<BasisDerivsVol2> pts_with_derivs;
     vol.computeBasisGrid(pars[0], pars[1], pars[2],
 			 pts_with_derivs, from_right);
 
@@ -155,7 +155,7 @@ int main(int argc, char* argv[] )
 		vol.point(p, par_u, par_v, par_w, 2, 
 			  from_right, from_right, from_right);
 
-		BasisDerivs2 bd = pts_with_derivs[i+nmb_grid[0]*(j+k*nmb_grid[1])];
+		BasisDerivsVol2 bd = pts_with_derivs[i+nmb_grid[0]*(j+k*nmb_grid[1])];
 
 		test_pt(p, 0, bd.left_idx[0], bd.left_idx[1], bd.left_idx[2], bd.basisValues, vol);
 		test_pt(p, 1, bd.left_idx[0], bd.left_idx[1], bd.left_idx[2], bd.basisDerivs_u, vol);

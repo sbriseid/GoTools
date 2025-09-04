@@ -196,14 +196,14 @@ int main(int argc, char* argv[] )
 				points, derivs_u, derivs_v, derivs_w);
 
       // Basis functions including 1. derivatives
-      // See SplineVolume.h for the struct BasisDerivs
-      vector<BasisDerivs> basis_derivs1;
+      // See SplineVolume.h for the struct BasisDerivsVol
+      vector<BasisDerivsVol> basis_derivs1;
       spline_vol->computeBasisGrid(param_u, param_v, param_w,
 				   basis_derivs1);
 
       // Including 2. derivatives
-      // See SplineVolume.h for the struct BasisDerivs2
-      vector<BasisDerivs2> basis_derivs2;
+      // See SplineVolume.h for the struct BasisDerivsVol2
+      vector<BasisDerivsVol2> basis_derivs2;
       spline_vol->computeBasisGrid(param_u, param_v, param_w,
 				   basis_derivs2);
 

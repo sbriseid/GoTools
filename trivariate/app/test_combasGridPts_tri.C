@@ -101,8 +101,8 @@ int main(int argc, char* argv[] )
 
     cout << "Test 1 complete" << endl;
 
-    vector<BasisPts> bp_pts_only;
-    vector<BasisDerivs> bp_pts_with_derivs;
+    vector<BasisPtsVol> bp_pts_only;
+    vector<BasisDerivsVol> bp_pts_with_derivs;
     vol.computeBasisGrid(pars[0], pars[1], pars[2],
 			 bp_pts_only);
     vol.computeBasisGrid(pars[0], pars[1], pars[2],
@@ -116,8 +116,8 @@ int main(int argc, char* argv[] )
 
     for (size_t i = 0; i < bp_pts_only.size(); ++i)
       {
-	BasisPts pt1 = bp_pts_only[i];
-	BasisDerivs pt2 = bp_pts_with_derivs[i];
+	BasisPtsVol pt1 = bp_pts_only[i];
+	BasisDerivsVol pt2 = bp_pts_with_derivs[i];
 
 	for (int j = 0; j < 3; ++j)
 	  if (pt1.param[j] != pt2.param[j])

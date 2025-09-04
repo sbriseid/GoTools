@@ -76,7 +76,7 @@ int main(int argc, char* argv[] )
 		       par_u, par_v, par_w);
 
     // Evaluate basis functions
-    std::vector<BasisDerivs> result;
+    std::vector<BasisDerivsVol> result;
     vol.computeBasisGrid(par_u, par_v, par_w, result);
     
     // Altenative evaluation of basis functions
