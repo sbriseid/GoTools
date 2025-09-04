@@ -1376,6 +1376,23 @@ void LRSplineSurface::to3D()
   // }
 }
 
+//==============================================================================
+void LRSplineSurface::getEdgeElements(std::vector<Element2D*> &edge_elements, int edge_num) const
+//==============================================================================
+{
+    edge_elements.clear();
+    MESSAGE("LRSplineSurface::getEdgeElements() under construction");
+    ElementMap::const_iterator elem = elementsBegin();
+    while (elem != elementsEnd())
+    {
+        double umin = elem->second->umin();
+        double vmin = elem->second->vmin();
+        double umax = elem->second->umax();
+        double vmax = elem->second->vmax();
+
+        ++elem;
+    }
+}
 
 //==============================================================================
 LineCloud LRSplineSurface::getElementBds(int num_pts) const
