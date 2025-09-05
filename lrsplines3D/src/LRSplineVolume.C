@@ -3093,6 +3093,47 @@ void LRSplineVolume::to3D()
 }
 
 //==============================================================================
+void LRSplineVolume::getBdElements(std::vector<Element3D*> &bd_elements, int face_num) const
+//==============================================================================
+{
+    bd_elements.clear();
+
+    double umin = startparam_u();
+    double umax = endparam_u();
+    double vmin = startparam_v();
+    double vmax = endparam_v();
+    double wmin = startparam_w();
+    double wmax = endparam_w();
+
+    ElementMap::const_iterator elem = elementsBegin();
+    while (elem != elementsEnd())
+    {
+        double elem_umin = elem->second->umin();
+        double elem_umax = elem->second->umax();
+        double elem_vmin = elem->second->vmin();
+        double elem_vmax = elem->second->vmax();
+        double elem_wmin = elem->second->wmin();
+        double elem_wmax = elem->second->wmax();
+
+        if ((face_num == 0) && (elem_umin == umin)) {
+            bd_elements.push_back(elem->second.get());
+        } else if ((face_num == 1) && (elem_umax == umax)) {
+            bd_elements.push_back(elem->second.get());
+        } else if ((face_num == 2) && (elem_vmin == vmin)) {
+            bd_elements.push_back(elem->second.get());
+        } else if ((face_num == 3) && (elem_vmax == vmax)) {
+            bd_elements.push_back(elem->second.get());
+        } else if ((face_num == 4) && (elem_wmin == wmin)) {
+            bd_elements.push_back(elem->second.get());
+        } else if ((face_num == 5) && (elem_wmax == wmax)) {
+            bd_elements.push_back(elem->second.get());
+        }
+
+        ++elem;
+    }
+}
+
+//==============================================================================
    void LRSplineVolume::translate(const Point& vec)
 //==============================================================================
 {

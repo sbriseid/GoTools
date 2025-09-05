@@ -740,11 +740,11 @@ namespace Go
   /// Iterator to the end of the element map (mesh cell) corresponding to the surface
   ElementMap::const_iterator elementsEnd()   const { return emap_.end();}
 
-  /// Return all elements at a specific edge.
+  /// Return all elements at a specific edge (boundary).
   /// \param edge_elements: Vector of the elements at the specified edge.
-  /// \param edge_num: 0 = umin, 1 = umax, 2 = vmin, 3 = vmax
+  /// \param edge_num: 0 = umin, 1 = umax, 2 = vmin, 3 = vmax.
   /// If the edge_num is an illegal value an empty vector is returned.
-  void getEdgeElements(std::vector<Element2D*> &edge_elements, int edge_num) const;
+  void getBdElements(std::vector<Element2D*> &bd_elements, int edge_num) const;
 
   /// Set element to be used as first try in point evaluation
   void setCurrentElement(Element2D* curr_el) 

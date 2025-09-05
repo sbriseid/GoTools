@@ -741,6 +741,12 @@ class LRSplineVolume : public ParamVolume
   /// Iterator to the end of the element map (mesh cell) 
   ElementMap::const_iterator elementsEnd()   const { return emap_.end();}
 
+  /// Return all elements at a specific face (boundary).
+  /// \param bd_elements: Vector of the elements at the specified face.
+  /// \param face_num: 0 = umin, 1 = umax, 2 = vmin, 3 = vmax, 4 = wmin, 5 = wmax.
+  /// If the face_num is an illegal value an empty vector is returned.
+  void getBdElements(std::vector<Element3D*> &bd_elements, int face_num) const;
+
   /// Check if the volume is of type spline
   virtual bool isSpline() const
     {

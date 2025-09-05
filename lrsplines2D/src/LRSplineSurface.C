@@ -1377,18 +1377,33 @@ void LRSplineSurface::to3D()
 }
 
 //==============================================================================
-void LRSplineSurface::getEdgeElements(std::vector<Element2D*> &edge_elements, int edge_num) const
+void LRSplineSurface::getBdElements(std::vector<Element2D*> &bd_elements, int edge_num) const
 //==============================================================================
 {
-    edge_elements.clear();
-    MESSAGE("LRSplineSurface::getEdgeElements() under construction");
+    bd_elements.clear();
+
+    double umin = startparam_u();
+    double umax = endparam_u();
+    double vmin = startparam_v();
+    double vmax = endparam_v();
+
     ElementMap::const_iterator elem = elementsBegin();
     while (elem != elementsEnd())
     {
-        double umin = elem->second->umin();
-        double vmin = elem->second->vmin();
-        double umax = elem->second->umax();
-        double vmax = elem->second->vmax();
+        double elem_umin = elem->second->umin();
+        double elem_vmin = elem->second->vmin();
+        double elem_umax = elem->second->umax();
+        double elem_vmax = elem->second->vmax();
+
+        if ((edge_num == 0) && (elem_umin == umin)) {
+            bd_elements.push_back(elem->second.get());
+        } else if ((edge_num == 1) && (elem_umax == umax)) {
+            bd_elements.push_back(elem->second.get());
+        } else if ((edge_num == 2) && (elem_vmin == vmin)) {
+            bd_elements.push_back(elem->second.get());
+        } else if ((edge_num == 3) && (elem_vmax == vmax)) {
+            bd_elements.push_back(elem->second.get());
+        }
 
         ++elem;
     }
