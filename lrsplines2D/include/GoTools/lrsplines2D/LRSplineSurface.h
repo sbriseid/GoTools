@@ -576,7 +576,56 @@ namespace Go
   /// Total number of elements (mesh cells)
   int numElements() const {return (int)emap_.size();}
 
-#if 0
+#if 1
+
+    /// Compute basis values (position) in the parameter (param_u,param_v).
+    /// Store result in a BasisPtsSf entity
+    void computeBasis(double param_u,
+		      double param_v,
+		      BasisPtsSf& result) const;
+
+    /// Compute basis values (position and 1. derivatives) in the parameter 
+    /// (param_u,param_v). Store result in a BasisDerivSf entity
+    void computeBasis(double param_u,
+		      double param_v,
+		      BasisDerivsSf& result,
+		      bool evaluate_from_right = true) const;
+
+    /// Compute basis values (position and 1. and 2. derivatives) in the parameter 
+    /// (param_u,param_v). Store result in a BasisDerivSf2 entity
+     void computeBasis(double param_u,
+		      double param_v,
+		      BasisDerivsSf2& result,
+		      bool evaluate_from_right = true) const;
+
+    /// Compute basis values (position and 1., 2. and 3. derivatives) in the parameter
+    /// (param_u,param_v). Store result in a BasisDerivSf3 entity
+     void computeBasis(double param_u,
+                       double param_v,
+                       BasisDerivsSf3& result,
+                       bool evaluate_from_right = true) const;
+
+    /// Compute basis values (position and uni-directed derivatives) in the parameter
+    /// (param_u,param_v). Store result in a BasisDerivsSfU entity
+    void computeBasis(double param_u,
+		      double param_v,
+                      int derivs,
+		      BasisDerivsSfU& result,
+		      bool evaluate_from_right = true) const;
+
+    /// Compute basis values (position and uni-directed derivatives) in the parameter
+    /// (param_u,param_v).
+    /// \param[out] result All basis functions and derivatives of all Basisfunction
+    /// \param derivs The number of derivatives requested
+    /// \param iEl The element index which this point is contained in. If used it will speed up computational efficiency
+    void computeBasis (double param_u,
+                       double param_v,
+                       std::vector<std::vector<double> >& result,
+                       int derivs,
+                       int iEl ) const;
+
+#else
+
   // @@@ VSK. This functionality interface is fetched from the Trondheim code
   // We need a storage for last element evaluated. Index or reference?
   // Should the element be identified by index or reference?

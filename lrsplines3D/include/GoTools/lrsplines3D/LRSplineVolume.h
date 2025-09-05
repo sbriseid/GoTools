@@ -575,7 +575,29 @@ class LRSplineVolume : public ParamVolume
   /// Total number of elements (mesh cells)
   int numElements() const {return (int)emap_.size();}
 
-#if 0
+#if 1
+
+    /// Compute basis values (position) in the parameter (param_u,param_v).
+    /// Store result in a BasisPtsSf entity
+    void computeBasis(double param_u,
+		      double param_v,
+		      BasisPtsSf& result) const;
+
+    /// Compute basis values (position and 1. derivatives) in the parameter 
+    /// (param_u,param_v). Store result in a BasisDerivSf entity
+    void computeBasis(double param_u,
+		      double param_v,
+		      BasisDerivsSf& result,
+		      bool evaluate_from_right = true) const;
+
+    /// Compute basis values (position and 1. and 2. derivatives) in the parameter 
+    /// (param_u,param_v). Store result in a BasisDerivSf2 entity
+     void computeBasis(double param_u,
+		      double param_v,
+		      BasisDerivsSf2& result,
+		      bool evaluate_from_right = true) const;
+
+#else
   // @@@ VSK. This functionality interface is fetched from the Trondheim code
   // We need a storage for last element evaluated. Index or reference?
   // Should the element be identified by index or reference?
