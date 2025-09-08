@@ -624,6 +624,8 @@ namespace Go
                        int derivs,
                        int iEl ) const;
 
+    Element2D* getElementContaining(double u, double v) const;
+
 #else
 
   // @@@ VSK. This functionality interface is fetched from the Trondheim code
