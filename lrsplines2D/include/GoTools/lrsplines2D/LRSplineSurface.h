@@ -589,21 +589,23 @@ namespace Go
     void computeBasis(double param_u,
 		      double param_v,
 		      BasisDerivsSf& result,
-		      bool evaluate_from_right = true) const;
+		      Element2D* elem) const;
 
     /// Compute basis values (position and 1. and 2. derivatives) in the parameter 
     /// (param_u,param_v). Store result in a BasisDerivSf2 entity
      void computeBasis(double param_u,
-		      double param_v,
-		      BasisDerivsSf2& result,
-		      bool evaluate_from_right = true) const;
+                       double param_v,
+                       BasisDerivsSf2& result,
+                       Element2D* elem) const;
 
     /// Compute basis values (position and 1., 2. and 3. derivatives) in the parameter
     /// (param_u,param_v). Store result in a BasisDerivSf3 entity
      void computeBasis(double param_u,
                        double param_v,
                        BasisDerivsSf3& result,
-                       bool evaluate_from_right = true) const;
+                       Element2D* elem) const;
+
+
 
     /// Compute basis values (position and uni-directed derivatives) in the parameter
     /// (param_u,param_v). Store result in a BasisDerivsSfU entity
@@ -624,6 +626,8 @@ namespace Go
                        int derivs,
                        int iEl ) const;
 
+
+
     Element2D* getElementContaining(double u, double v) const;
 
 #else
@@ -635,6 +639,7 @@ namespace Go
   void computeBasis (double param_u, double param_v, BasisPtsSf     & result, int iEl=-1 ) const;
   void computeBasis (double param_u, double param_v, BasisDerivsSf  & result, int iEl=-1 ) const;
   void computeBasis (double param_u, double param_v, BasisDerivsSf2 & result, int iEl=-1 ) const;
+  void computeBasis (double param_u, double param_v, Go::BasisDerivsSf3 & result, int iEl=-1 ) const;
   void computeBasis (double param_u,
 		     double param_v,
 		     std::vector<std::vector<double> >& result,
