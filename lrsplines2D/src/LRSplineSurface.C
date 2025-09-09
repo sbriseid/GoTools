@@ -479,23 +479,13 @@ SplineSurface* LRSplineSurface::asSplineSurface()
   return splsf;
  }
 
-#if 0
-//==============================================================================
-void LRSplineSurface::computeBasis (double param_u, double param_v, BasisPtsSf     & result, int iEl ) const
-//==============================================================================
-{
-  MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
-}
+#if 1
 
 //==============================================================================
-void LRSplineSurface::computeBasis (double param_u, double param_v, BasisDerivsSf  & result, int iEl ) const
-//==============================================================================
-{
-  MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
-}
-
-//==============================================================================
-void LRSplineSurface::computeBasis (double param_u, double param_v, BasisDerivsSf2 & result, int iEl ) const
+void LRSplineSurface::computeBasis(double param_u,
+                                   double param_v,
+                                   BasisPtsSf& result,
+                                   Element2D* elem) const
 //==============================================================================
 {
   MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
@@ -503,23 +493,45 @@ void LRSplineSurface::computeBasis (double param_u, double param_v, BasisDerivsS
 
 //==============================================================================
 void LRSplineSurface::computeBasis(double param_u,
-				   double param_v,
-				   std::vector<std::vector<double> >& result,
-				   int derivs,
-				   int iEl) const
+                                   double param_v,
+                                   BasisDerivsSf& result,
+                                   Element2D* elem) const
 //==============================================================================
 {
   MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
 }
 
 //==============================================================================
-int LRSplineSurface::getElementContaining(double u, double v) const
+void LRSplineSurface::computeBasis(double param_u,
+                                   double param_v,
+                                   BasisDerivsSf2& result,
+                                   Element2D* elem) const
 //==============================================================================
 {
-  MESSAGE("LRSplineSurface::getElementContaining() not implemented yet");
-
-  return -1;
+  MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
 }
+
+//==============================================================================
+void LRSplineSurface::computeBasis(double param_u,
+                                   double param_v,
+                                   BasisDerivsSf3& result,
+                                   Element2D* elem) const
+//==============================================================================
+{
+  MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
+}
+
+//==============================================================================
+void LRSplineSurface::computeBasis(double param_u,
+                                   double param_v,
+                                   std::vector<std::vector<double> >& result,
+                                   int derivs,
+                                   Element2D* elem) const
+//==============================================================================
+{
+  MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
+}
+
 #endif
 
 //==============================================================================
