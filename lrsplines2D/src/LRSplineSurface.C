@@ -482,18 +482,35 @@ SplineSurface* LRSplineSurface::asSplineSurface()
 #if 1
 
 //==============================================================================
-void LRSplineSurface::computeBasis(double param_u,
-                                   double param_v,
+void LRSplineSurface::computeBasis(double u,
+                                   double v,
                                    BasisPtsSf& result,
                                    Element2D* elem) const
 //==============================================================================
 {
   MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
+
+  if (elem == nullptr)
+  {
+      elem = coveringElement(u, v); // If at an inner knot this will select the element to the right.
+      if (elem == nullptr)
+          THROW("Parameter (u, v) does not correspond to an element");
+  }
+
+  int num_pts = elem->nmbBasisFunctions();
+  result.preparePts(u, v, 0, -1, num_pts);
+
+  double end_u = endparam_u();
+  double end_v = endparam_v();
+  int ki = 0;
+  for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u != end_u, v != end_v);
+
 }
 
 //==============================================================================
-void LRSplineSurface::computeBasis(double param_u,
-                                   double param_v,
+void LRSplineSurface::computeBasis(double u,
+                                   double v,
                                    BasisDerivsSf& result,
                                    Element2D* elem) const
 //==============================================================================
@@ -502,8 +519,8 @@ void LRSplineSurface::computeBasis(double param_u,
 }
 
 //==============================================================================
-void LRSplineSurface::computeBasis(double param_u,
-                                   double param_v,
+void LRSplineSurface::computeBasis(double u,
+                                   double v,
                                    BasisDerivsSf2& result,
                                    Element2D* elem) const
 //==============================================================================
@@ -512,8 +529,8 @@ void LRSplineSurface::computeBasis(double param_u,
 }
 
 //==============================================================================
-void LRSplineSurface::computeBasis(double param_u,
-                                   double param_v,
+void LRSplineSurface::computeBasis(double u,
+                                   double v,
                                    BasisDerivsSf3& result,
                                    Element2D* elem) const
 //==============================================================================
@@ -522,8 +539,8 @@ void LRSplineSurface::computeBasis(double param_u,
 }
 
 //==============================================================================
-void LRSplineSurface::computeBasis(double param_u,
-                                   double param_v,
+void LRSplineSurface::computeBasis(double u,
+                                   double v,
                                    std::vector<std::vector<double> >& result,
                                    int derivs,
                                    Element2D* elem) const

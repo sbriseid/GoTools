@@ -584,41 +584,42 @@ namespace Go
   // Should the element be identified by index or reference?
   // How should the set of elements be traversed? Iterator?
 
-  /// Compute basis values (position) in the parameter (param_u,param_v).
+  /// Compute basis values (position) in the parameter (u, v).
   /// Store result in a BasisPtsSf entity
-  void computeBasis(double param_u,
-                    double param_v,
+  void computeBasis(double u,
+                    double v,
                     BasisPtsSf& result,
                     Element2D* elem) const;
 
   /// Compute basis values (position and 1. derivatives) in the parameter 
-  /// (param_u,param_v). Store result in a BasisDerivSf entity
-  void computeBasis(double param_u,
-                    double param_v,
+  /// (u, v). Store result in a BasisDerivSf entity
+  void computeBasis(double u,
+                    double v,
                     BasisDerivsSf& result,
                     Element2D* elem) const;
 
   /// Compute basis values (position and 1. and 2. derivatives) in the parameter 
-  /// (param_u,param_v). Store result in a BasisDerivSf2 entity
-  void computeBasis(double param_u,
-                    double param_v,
+  /// (u, v). Store result in a BasisDerivSf2 entity
+  void computeBasis(double u,
+                    double v,
                     BasisDerivsSf2& result,
                     Element2D* elem) const;
 
   /// Compute basis values (position and 1., 2. and 3. derivatives) in the parameter
-  /// (param_u,param_v). Store result in a BasisDerivSf3 entity
-  void computeBasis(double param_u,
-                    double param_v,
+  /// (u, v). Store result in a BasisDerivSf3 entity
+  void computeBasis(double u,
+                    double v,
                     BasisDerivsSf3& result,
                     Element2D* elem) const;
 
   /// Compute basis values (position and uni-directed derivatives) in the parameter
-  /// (param_u,param_v).
+  /// (u, v).
   /// \param[out] result All basis functions and derivatives of all Basisfunction
   /// \param derivs The number of derivatives requested
-  /// \param iEl The element index which this point is contained in. If used it will speed up computational efficiency
-  void computeBasis (double param_u,
-                     double param_v,
+  /// \param elem Pointer to the element which this point is contained in. If used it will speed up computational
+  /// efficiency.
+  void computeBasis (double u,
+                     double v,
                      std::vector<std::vector<double> >& result,
                      int derivs,
                      Element2D* elem) const;
@@ -628,13 +629,7 @@ namespace Go
 
 #endif
   
-  // Returns a pair.  
-  // The first element of this pair is a pair of doubles representing the lower-left
-  // corner of the element in which the point at (u, v) is located.  
-  // The second element of this pair is a vector of pointers to the LRBSpline2Ds that cover
-  // this element. (Ownership of the pointed-to LRBSpline2Ds is retained by the LRSplineSurface).
-//  const ElementMap::value_type&
-  /// Identify element (mesh cell) in which the given parameter pair is situated
+  /// Return pointer to element containing the parameter (u, v).
   Element2D*  coveringElement(double u, double v) const;
 
   /// Construct a mesh of pointers to elements. The mesh has one entry for
