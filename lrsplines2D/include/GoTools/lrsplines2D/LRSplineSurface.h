@@ -627,6 +627,12 @@ namespace Go
   // /// Return pointer to element containing the parameter point.
   // Element2D* getElementContaining(double u, double v) const;
 
+    /// Compute basis grid (position) in the parameter pairs combined from param_u
+    /// and param_v. Store result in a vector of BasisPtsSf.
+    void computeBasisGrid(const Dvector& param_u,
+			  const Dvector& param_v,
+			  std::vector<BasisPtsSf>& result) const;
+
 #endif
   
   /// Return pointer to element containing the parameter (u, v).
