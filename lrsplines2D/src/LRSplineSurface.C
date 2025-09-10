@@ -488,8 +488,6 @@ void LRSplineSurface::computeBasis(double u,
                                    Element2D* elem) const
 //==============================================================================
 {
-  MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
-
   if (elem == nullptr)
   {
       elem = coveringElement(u, v); // If at an inner knot this will select the element to the right.
@@ -515,7 +513,27 @@ void LRSplineSurface::computeBasis(double u,
                                    Element2D* elem) const
 //==============================================================================
 {
-  MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
+  if (elem == nullptr)
+  {
+      elem = coveringElement(u, v); // If at an inner knot this will select the element to the right.
+      if (elem == nullptr)
+          THROW("Parameter (u, v) does not correspond to an element");
+  }
+
+  //std::vector<double> values;
+  int num_pts = elem->nmbBasisFunctions();
+  result.prepareDerivs(u, v, 0, -1, num_pts);
+
+  double end_u = endparam_u();
+  double end_v = endparam_v();
+  int ki = 0;
+  for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
+  {
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u != end_u, v != end_v);
+      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, 1, 0, u != end_u, v != end_v);
+      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, 0, 1, u != end_u, v != end_v);
+  }
+
 }
 
 //==============================================================================
@@ -525,7 +543,30 @@ void LRSplineSurface::computeBasis(double u,
                                    Element2D* elem) const
 //==============================================================================
 {
-  MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
+  if (elem == nullptr)
+  {
+      elem = coveringElement(u, v); // If at an inner knot this will select the element to the right.
+      if (elem == nullptr)
+          THROW("Parameter (u, v) does not correspond to an element");
+  }
+
+  //std::vector<double> values;
+  int num_pts = elem->nmbBasisFunctions();
+  result.prepareDerivs(u, v, 0, -1, num_pts);
+
+  double end_u = endparam_u();
+  double end_v = endparam_v();
+  int ki = 0;
+  for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
+  {
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u != end_u, v != end_v);
+      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, 1, 0, u != end_u, v != end_v);
+      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, 0, 1, u != end_u, v != end_v);
+      result.basisDerivs_uu[ki] = (*iter)->evalBasisFunction(u, v, 2, 0, u != end_u, v != end_v);
+      result.basisDerivs_uv[ki] = (*iter)->evalBasisFunction(u, v, 1, 1, u != end_u, v != end_v);
+      result.basisDerivs_vv[ki] = (*iter)->evalBasisFunction(u, v, 0, 2, u != end_u, v != end_v);
+  }
+
 }
 
 //==============================================================================
@@ -535,7 +576,34 @@ void LRSplineSurface::computeBasis(double u,
                                    Element2D* elem) const
 //==============================================================================
 {
-  MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
+  if (elem == nullptr)
+  {
+      elem = coveringElement(u, v); // If at an inner knot this will select the element to the right.
+      if (elem == nullptr)
+          THROW("Parameter (u, v) does not correspond to an element");
+  }
+
+  //std::vector<double> values;
+  int num_pts = elem->nmbBasisFunctions();
+  result.prepareDerivs(u, v, 0, -1, num_pts);
+
+  double end_u = endparam_u();
+  double end_v = endparam_v();
+  int ki = 0;
+  for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
+  {
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u != end_u, v != end_v);
+      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, 1, 0, u != end_u, v != end_v);
+      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, 0, 1, u != end_u, v != end_v);
+      result.basisDerivs_uu[ki] = (*iter)->evalBasisFunction(u, v, 2, 0, u != end_u, v != end_v);
+      result.basisDerivs_uv[ki] = (*iter)->evalBasisFunction(u, v, 1, 1, u != end_u, v != end_v);
+      result.basisDerivs_vv[ki] = (*iter)->evalBasisFunction(u, v, 0, 2, u != end_u, v != end_v);
+      result.basisDerivs_uuu[ki] = (*iter)->evalBasisFunction(u, v, 3, 0, u != end_u, v != end_v);
+      result.basisDerivs_uuv[ki] = (*iter)->evalBasisFunction(u, v, 2, 1, u != end_u, v != end_v);
+      result.basisDerivs_uvv[ki] = (*iter)->evalBasisFunction(u, v, 1, 2, u != end_u, v != end_v);
+      result.basisDerivs_vvv[ki] = (*iter)->evalBasisFunction(u, v, 0, 3, u != end_u, v != end_v);
+  }
+
 }
 
 //==============================================================================
@@ -548,6 +616,16 @@ void LRSplineSurface::computeBasis(double u,
 {
   MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
 }
+
+//==============================================================================
+void LRSplineSurface::computeBasisGrid(const Dvector& param_u,
+                                       const Dvector& param_v,
+                                       std::vector<BasisPtsSf>& result) const
+//==============================================================================
+{
+  MESSAGE("LRSplineSurface::computeBasisGrid() not implemented yet");
+}
+
 
 #endif
 
