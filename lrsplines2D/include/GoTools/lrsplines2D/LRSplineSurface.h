@@ -632,8 +632,8 @@ namespace Go
 
     /// Compute basis grid (position) in the parameter pairs combined from param_u
     /// and param_v. Store result in a vector of BasisPtsSf.
-    void computeBasisGrid(const Dvector& param_u,
-			  const Dvector& param_v,
+    void computeBasisGrid(const Dvector& u_pars,
+			  const Dvector& v_pars,
 			  std::vector<BasisPtsSf>& result) const;
 
 #endif

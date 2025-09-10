@@ -618,12 +618,37 @@ void LRSplineSurface::computeBasis(double u,
 }
 
 //==============================================================================
-void LRSplineSurface::computeBasisGrid(const Dvector& param_u,
-                                       const Dvector& param_v,
+void LRSplineSurface::computeBasisGrid(const Dvector& u_pars,
+                                       const Dvector& v_pars,
                                        std::vector<BasisPtsSf>& result) const
 //==============================================================================
 {
   MESSAGE("LRSplineSurface::computeBasisGrid() not implemented yet");
+
+  int num_eval = (u_pars.size())*(v_pars.size());
+  result.clear();
+
+  double end_u = endparam_u();
+  double end_v = endparam_v();
+
+  for (double v : v_pars)
+      for (double u : u_pars)
+      {
+          Element2D* elem = coveringElement(u, v); // If at an inner knot this will select the element to the right.
+          if (elem == nullptr)
+              THROW("Parameter (u, v) does not correspond to an element");
+
+          int num_pts = elem->nmbBasisFunctions();
+          BasisPtsSf curr_result;
+          curr_result.preparePts(u, v, 0, -1, num_pts);
+
+          int ki = 0;
+          for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
+              curr_result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u != end_u, v != end_v);
+
+          result.push_back(curr_result);
+      }
+
 }
 
 
