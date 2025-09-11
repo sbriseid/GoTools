@@ -597,6 +597,23 @@ class LRSplineVolume : public ParamVolume
 		      BasisDerivsSf2& result,
 		      bool evaluate_from_right = true) const;
 
+    void computeBasis (double u,
+                       double v,
+                       double w,
+                       std::vector<std::vector<double> >& result,
+                       int derivs,
+                       Element3D* elem) const;
+
+    /// Convenience to be used in computations of basis grids
+    typedef std::vector<double>  Dvector; 
+
+#if 0
+    void computeBasisGrid(const Dvector& u_pars,
+                          const Dvector& v_pars,
+                          const Dvector& w_pars,
+                          std::vector<BasisPtsSVol>& result) const;
+#endif
+
 #else
   // @@@ VSK. This functionality interface is fetched from the Trondheim code
   // We need a storage for last element evaluated. Index or reference?
