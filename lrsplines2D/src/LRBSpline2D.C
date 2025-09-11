@@ -265,18 +265,27 @@ double LRBSpline2D::evalBasisFunction(double u,
 }
 
 //==============================================================================
-void LRBSpline2D::evalBasisFunctions(vector<double> &results,
+void LRBSpline2D::evalBasisFunctions(vector<double> &result,
                                      double u, double v, int derivs,
                                      bool u_at_end, bool v_at_end) const
 //==============================================================================
 {
   MESSAGE("LRBSpline2D::evalBasisFunctions() not implemented yet");
 
+  // Order for computed derivatives: pos, du, dv, d2u, dudv, d2v, d3u, d2udv, dud2v, d3v, ...
+
+  // Calculating the univariate derivatives.
+
   vector<double> res_u, res_v;
+  result.resize((derivs+1)*(derivs+2)/2);
 #if 0
   evalBasisFunctions(u, derivs, double der[],
                      bool at_end = false) const;
 #endif
+
+
+  // Combining the derivatives.
+
 }
 
 

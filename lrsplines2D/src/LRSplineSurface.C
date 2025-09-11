@@ -612,10 +612,7 @@ void LRSplineSurface::computeBasis(double u,
                                    Element2D* elem) const
 //==============================================================================
 {
-  MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
-
-  // Order for computed derivatives: pos, du, dv, d2u, dudv, d2v, d3u, d2udv, dud2v, d3v, ...
-
+  result.clear();
   if (elem == nullptr)
   {
       elem = coveringElement(u, v); // If at an inner knot this will select the element to the right.
@@ -623,18 +620,14 @@ void LRSplineSurface::computeBasis(double u,
           THROW("Parameter (u, v) does not correspond to an element");
   }
 
-  // int num_pts = elem->nmbBasisFunctions();
-  // result.prepareDerivs(u, v, 0, -1, num_pts);
-
   double end_u = endparam_u();
   double end_v = endparam_v();
   int ki = 0;
   for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
   {
       std::vector<double> curr_result;
-#if 0
-      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u != end_u, v != end_v);
-#endif
+      (*iter)->evalBasisFunctions(curr_result, u, v, derivs, u != end_u, v != end_v);
+
       result.push_back(curr_result);
   }
 

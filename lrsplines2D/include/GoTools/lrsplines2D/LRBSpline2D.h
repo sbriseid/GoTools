@@ -158,7 +158,8 @@ class LRBSpline2D : public Streamable
   /// Evaluate value and a number of derivatives in the parameter par.
   /// Note that the function is tested only up to and including deriv=3.
   /// For higher order derivatives use evalBasisFunction
-  void evalBasisFunctions(std::vector<double> &results,
+  /// Order for computed derivatives: pos, du, dv, d2u, dudv, d2v, d3u, d2udv, dud2v, d3v, ...
+  void evalBasisFunctions(std::vector<double> &result,
                          double u, double v, int derivs,
                          bool u_at_end = false, bool v_at_end = false) const;
 
