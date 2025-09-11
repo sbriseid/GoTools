@@ -155,6 +155,13 @@ class LRBSpline2D : public Streamable
 			   int u_deriv = 0, int v_deriv = 0,
 			   bool u_at_end = false, bool v_at_end = false) const;
 
+  /// Evaluate value and a number of derivatives in the parameter par.
+  /// Note that the function is tested only up to and including deriv=3.
+  /// For higher order derivatives use evalBasisFunction
+  void evalBasisFunctions(std::vector<double> &results,
+                         double u, double v, int derivs,
+                         bool u_at_end = false, bool v_at_end = false) const;
+
   /// Evaluate the LRBSpline2D or its derivative in (u, v), looking
   /// up the knot values from the arrays pointed to by 'kvals_u' and
   /// 'kvals_v' (the actual indices to the relevant knots are already

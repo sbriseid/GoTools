@@ -264,6 +264,21 @@ double LRBSpline2D::evalBasisFunction(double u,
   return bval1*bval2*weight_;
 }
 
+//==============================================================================
+void LRBSpline2D::evalBasisFunctions(vector<double> &results,
+                                     double u, double v, int derivs,
+                                     bool u_at_end, bool v_at_end) const
+//==============================================================================
+{
+  MESSAGE("LRBSpline2D::evalBasisFunctions() not implemented yet");
+
+  vector<double> res_u, res_v;
+#if 0
+  evalBasisFunctions(u, derivs, double der[],
+                     bool at_end = false) const;
+#endif
+}
+
 
 //==============================================================================
   void LRBSpline2D::evalder_add(double u, double v, 
