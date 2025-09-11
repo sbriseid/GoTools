@@ -264,28 +264,38 @@ double LRBSpline2D::evalBasisFunction(double u,
   return bval1*bval2*weight_;
 }
 
+
 //==============================================================================
 void LRBSpline2D::evalBasisFunctions(vector<double> &result,
                                      double u, double v, int derivs,
                                      bool u_at_end, bool v_at_end) const
 //==============================================================================
 {
-  MESSAGE("LRBSpline2D::evalBasisFunctions() not implemented yet");
-
   // Order for computed derivatives: pos, du, dv, d2u, dudv, d2v, d3u, d2udv, dud2v, d3v, ...
 
+  // Triangular index for (a, b).
+  auto deriv_index = [&](int a, int b) {
+      int k = a + b;
+      return k*(k+1)/2 + a;  // triangular number offset + a
+  };
+
   // Calculating the univariate derivatives.
-
-  vector<double> res_u, res_v;
-  result.resize((derivs+1)*(derivs+2)/2);
-#if 0
-  evalBasisFunctions(u, derivs, double der[],
-                     bool at_end = false) const;
-#endif
-
+  vector<double> der_u(derivs + 1, 0.0), der_v(derivs + 1, 0.0);
+  for (size_t ki = 0; ki <= derivs; ++ki)
+  {
+      der_u[ki] = bspline_u_->evalBasisFunction(u, ki, u_at_end);
+      der_v[ki] = bspline_v_->evalBasisFunction(v, ki, v_at_end);
+  }
 
   // Combining the derivatives.
-
+  for (int a = 0; a <= derivs; ++a)
+  {
+      for (int b = 0; b <= derivs - a; ++b)
+      {
+          int idx = deriv_index(a,b);
+          result[idx] = der_u[a]*der_v[b];
+      }
+  }
 }
 
 
