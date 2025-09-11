@@ -576,14 +576,6 @@ namespace Go
   /// Total number of elements (mesh cells)
   int numElements() const {return (int)emap_.size();}
 
-#if 1
-
-  // Old comment:
-  // @@@ VSK. This functionality interface is fetched from the Trondheim code
-  // We need a storage for last element evaluated. Index or reference?
-  // Should the element be identified by index or reference?
-  // How should the set of elements be traversed? Iterator?
-
   /// Compute basis values (position) in the parameter (u, v).
   /// Store result in a BasisPtsSf entity
   void computeBasis(double u,
@@ -614,7 +606,8 @@ namespace Go
 
   /// Compute basis values (position and uni-directed derivatives) in the parameter
   /// (u, v).
-  /// \param[out] result All basis functions and derivatives of all Basisfunction
+  /// \param[out] result All basis functions and derivatives of all Basisfunction. Order for computed derivatives: pos,
+  /// du, dv, d2u, dudv, d2v, d3u, d2udv, dud2v, d3v, ...
   /// \param derivs The number of derivatives requested
   /// \param elem Pointer to the element which this point is contained in. If used it will speed up computational
   /// efficiency.
@@ -627,16 +620,14 @@ namespace Go
   // /// Return pointer to element containing the parameter point.
   // Element2D* getElementContaining(double u, double v) const;
 
-    /// Convenience to be used in computations of basis grids
-    typedef std::vector<double>  Dvector; 
+  /// Convenience to be used in computations of basis grids
+  typedef std::vector<double>  Dvector; 
 
-    /// Compute basis grid (position) in the parameter pairs combined from param_u
-    /// and param_v. Store result in a vector of BasisPtsSf.
-    void computeBasisGrid(const Dvector& u_pars,
-			  const Dvector& v_pars,
-			  std::vector<BasisPtsSf>& result) const;
-
-#endif
+  /// Compute basis grid (position) in the parameter pairs combined from param_u
+  /// and param_v. Store result in a vector of BasisPtsSf.
+  void computeBasisGrid(const Dvector& u_pars,
+                        const Dvector& v_pars,
+                        std::vector<BasisPtsSf>& result) const;
   
   /// Return pointer to element containing the parameter (u, v).
   Element2D*  coveringElement(double u, double v) const;

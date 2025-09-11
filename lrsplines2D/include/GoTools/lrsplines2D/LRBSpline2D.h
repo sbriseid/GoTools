@@ -470,8 +470,7 @@ class LRBSpline2D : public Streamable
 
   Point coef_times_gamma_;
   double weight_; // For rational case.
-  bool rational_; // @@sbr201301 Should this also be part of the LRSplineSurface? It seems
-                  // best suited for this class since it is here we use the rational part.
+  bool rational_;
   double gamma_; // normalizing weight to ensure partition of unity, c.f. Section 7 of paper
   BSplineUniLR *bspline_u_;
   BSplineUniLR *bspline_v_;

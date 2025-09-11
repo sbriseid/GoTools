@@ -479,8 +479,6 @@ SplineSurface* LRSplineSurface::asSplineSurface()
   return splsf;
  }
 
-#if 1
-
 //==============================================================================
 void LRSplineSurface::computeBasis(double u,
                                    double v,
@@ -615,6 +613,10 @@ void LRSplineSurface::computeBasis(double u,
 //==============================================================================
 {
   MESSAGE("LRSplineSurface::computeBasis() not implemented yet");
+
+  // Order for computed derivatives: pos, du, dv, d2u, dudv, d2v, d3u, d2udv, dud2v, d3v, ...
+
+
 }
 
 //==============================================================================
@@ -623,8 +625,6 @@ void LRSplineSurface::computeBasisGrid(const Dvector& u_pars,
                                        std::vector<BasisPtsSf>& result) const
 //==============================================================================
 {
-  MESSAGE("LRSplineSurface::computeBasisGrid() not implemented yet");
-
   int num_eval = (u_pars.size())*(v_pars.size());
   result.clear();
 
@@ -650,9 +650,6 @@ void LRSplineSurface::computeBasisGrid(const Dvector& u_pars,
       }
 
 }
-
-
-#endif
 
 //==============================================================================
 //const LRSplineSurface::ElementMap::value_type& 

@@ -246,7 +246,7 @@ double LRBSpline2D::evalBasisFunc(double u,
 //==============================================================================
 {
   return 
-    bspline_u_->evalBasisFunc(u)*bspline_v_->evalBasisFunc(v);
+    bspline_u_->evalBasisFunc(u)*bspline_v_->evalBasisFunc(v)*weight_;
 }
 
 
@@ -261,7 +261,7 @@ double LRBSpline2D::evalBasisFunction(double u,
 {
   double bval1 = bspline_u_->evalBasisFunction(u, u_deriv, u_at_end);
   double bval2 = bspline_v_->evalBasisFunction(v, v_deriv, v_at_end);
-  return bval1*bval2;
+  return bval1*bval2*weight_;
 }
 
 
