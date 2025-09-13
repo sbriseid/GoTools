@@ -575,6 +575,7 @@ class LRSplineVolume : public ParamVolume
   /// Total number of elements (mesh cells)
   int numElements() const {return (int)emap_.size();}
 
+#if 1
   /// Compute basis values (position) in the parameter (param_u,param_v).
   /// Store result in a BasisPtsSf entity
   void computeBasis(double param_u,
@@ -604,13 +605,12 @@ class LRSplineVolume : public ParamVolume
                      Element3D* elem) const;
 
   /// Convenience to be used in computations of basis grids
-  typedef std::vector<double>  Dvector; 
+  typedef std::vector<double> Dvector; 
 
-#if 0
   void computeBasisGrid(const Dvector& u_pars,
                         const Dvector& v_pars,
                         const Dvector& w_pars,
-                        std::vector<BasisPtsSVol>& result) const;
+                        std::vector<BasisPtsVol>& result) const;
 #endif
   
   /// Identify element (mesh cell) in which the given parameter tripple is situated
