@@ -617,9 +617,6 @@ namespace Go
                      int derivs,
                      Element2D* elem) const;
 
-  // /// Return pointer to element containing the parameter point.
-  // Element2D* getElementContaining(double u, double v) const;
-
   /// Convenience to be used in computations of basis grids
   typedef std::vector<double>  Dvector; 
 
@@ -628,9 +625,10 @@ namespace Go
   void computeBasisGrid(const Dvector& u_pars,
                         const Dvector& v_pars,
                         std::vector<BasisPtsSf>& result) const;
-  
+
   /// Return pointer to element containing the parameter (u, v).
   Element2D*  coveringElement(double u, double v) const;
+  // Element2D* getElementContaining(double u, double v) const;
 
   /// Construct a mesh of pointers to elements. The mesh has one entry for
   /// each possible knot domain. If a knot has multiplicity zero in an area

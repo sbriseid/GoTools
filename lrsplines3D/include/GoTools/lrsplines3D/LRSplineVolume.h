@@ -575,67 +575,47 @@ class LRSplineVolume : public ParamVolume
   /// Total number of elements (mesh cells)
   int numElements() const {return (int)emap_.size();}
 
-#if 1
+  /// Compute basis values (position) in the parameter (param_u,param_v).
+  /// Store result in a BasisPtsSf entity
+  void computeBasis(double param_u,
+                    double param_v,
+                    BasisPtsVol& result,
+                    Element3D* elem) const;
 
-    /// Compute basis values (position) in the parameter (param_u,param_v).
-    /// Store result in a BasisPtsSf entity
-    void computeBasis(double param_u,
-		      double param_v,
-		      BasisPtsSf& result) const;
+  /// Compute basis values (position and 1. derivatives) in the parameter 
+  /// (param_u,param_v). Store result in a BasisDerivSf entity
+  void computeBasis(double param_u,
+                    double param_v,
+                    BasisDerivsVol& result,
+                    Element3D* elem) const;
 
-    /// Compute basis values (position and 1. derivatives) in the parameter 
-    /// (param_u,param_v). Store result in a BasisDerivSf entity
-    void computeBasis(double param_u,
-		      double param_v,
-		      BasisDerivsSf& result,
-		      bool evaluate_from_right = true) const;
+  /// Compute basis values (position and 1. and 2. derivatives) in the parameter 
+  /// (param_u,param_v). Store result in a BasisDerivSf2 entity
+  void computeBasis(double param_u,
+                    double param_v,
+                    BasisDerivsVol2& result,
+                    Element3D* elem) const;
 
-    /// Compute basis values (position and 1. and 2. derivatives) in the parameter 
-    /// (param_u,param_v). Store result in a BasisDerivSf2 entity
-     void computeBasis(double param_u,
-		      double param_v,
-		      BasisDerivsSf2& result,
-		      bool evaluate_from_right = true) const;
+  void computeBasis (double u,
+                     double v,
+                     double w,
+                     std::vector<std::vector<double> >& result,
+                     int derivs,
+                     Element3D* elem) const;
 
-    void computeBasis (double u,
-                       double v,
-                       double w,
-                       std::vector<std::vector<double> >& result,
-                       int derivs,
-                       Element3D* elem) const;
-
-    /// Convenience to be used in computations of basis grids
-    typedef std::vector<double>  Dvector; 
+  /// Convenience to be used in computations of basis grids
+  typedef std::vector<double>  Dvector; 
 
 #if 0
-    void computeBasisGrid(const Dvector& u_pars,
-                          const Dvector& v_pars,
-                          const Dvector& w_pars,
-                          std::vector<BasisPtsSVol>& result) const;
-#endif
-
-#else
-  // @@@ VSK. This functionality interface is fetched from the Trondheim code
-  // We need a storage for last element evaluated. Index or reference?
-  // Should the element be identified by index or reference?
-  // How should the set of elements be traversed? Iterator?
-  void computeBasis (double param_u, double param_v, double param_w,
-		     BasisPtsSf     & result, int iEl=-1 ) const;
-  void computeBasis (double param_u, double param_v, double param_w,
-		     BasisDerivsSf  & result, int iEl=-1 ) const;
-  void computeBasis (double param_u, double param_v, double param_w,
-		     BasisDerivsSf2 & result, int iEl=-1 ) const;
-  void computeBasis (double param_u,
-		     double param_v,
-		     double param_w,
-		     std::vector<std::vector<double> >& result,
-		     int derivs=0,
-		     int iEl=-1 ) const;
-  int getElementContaining(double u, double v, double w) const;
+  void computeBasisGrid(const Dvector& u_pars,
+                        const Dvector& v_pars,
+                        const Dvector& w_pars,
+                        std::vector<BasisPtsSVol>& result) const;
 #endif
   
   /// Identify element (mesh cell) in which the given parameter tripple is situated
   Element3D* coveringElement(double u, double v, double w) const;
+  // int getElementContaining(double u, double v, double w) const;
 
   /// Construct a mesh of pointers to elements. The mesh has one entry for
   /// each possible knot domain. If a knot has multiplicity zero in an area
