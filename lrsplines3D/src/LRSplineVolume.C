@@ -1814,10 +1814,13 @@ Point LRSplineVolume::operator()(double u, double v, double w, int u_deriv, int 
     return result;
 }
 
-#if 0
+#if 1
+
 //==============================================================================
-  void LRSplineVolume::computeBasis (double param_u, double param_v, double param_w,
-				     BasisPtsSf& result, int iEl ) const
+void LRSplineVolume::computeBasis(double param_u,
+                                  double param_v,
+                                  BasisPtsVol& result,
+                                  Element3D* elem) const
 //==============================================================================
 {
    MESSAGE("LRSplineVolume:: Not implemented yet.");
@@ -1825,45 +1828,55 @@ Point LRSplineVolume::operator()(double u, double v, double w, int u_deriv, int 
 }
 
 //==============================================================================
-  void LRSplineVolume::computeBasis (double param_u, double param_v, double param_w,
-				     BasisDerivsSf& result, int iEl ) const
+void LRSplineVolume::computeBasis(double param_u,
+                                  double param_v,
+                                  BasisDerivsVol& result,
+                                  Element3D* elem) const
 //==============================================================================
 {
-  MESSAGE("LRSplineVolume:: Not implemented yet.");
-  throw;
+   MESSAGE("LRSplineVolume:: Not implemented yet.");
+   throw;
 }
 
 //==============================================================================
-  void LRSplineVolume::computeBasis (double param_u, double param_v, double param_w,
-				     BasisDerivsSf2& result, int iEl ) const
+void LRSplineVolume::computeBasis(double param_u,
+                                  double param_v,
+                                  BasisDerivsVol2& result,
+                                  Element3D* elem) const
 //==============================================================================
 {
-  MESSAGE("LRSplineVolume:: Not implemented yet.");
-  throw;
+   MESSAGE("LRSplineVolume:: Not implemented yet.");
+   throw;
 }
 
 //==============================================================================
-  void LRSplineVolume::computeBasis (double param_u, double param_v, double param_w,
-				     std::vector<std::vector<double> >& result,
-				     int derivs,
-				     int iEl ) const
+void LRSplineVolume::computeBasis (double u,
+                                   double v,
+                                   double w,
+                                   std::vector<std::vector<double> >& result,
+                                   int derivs,
+                                   Element3D* elem) const
 //==============================================================================
 {
-  MESSAGE("LRSplineVolume:: Not implemented yet.");
-  throw;
+   MESSAGE("LRSplineVolume:: Not implemented yet.");
+   throw;
 }
 
 //==============================================================================
-  int LRSplineVolume::getElementContaining(double u, double v, double w) const
+void LRSplineVolume::computeBasisGrid(const Dvector& u_pars,
+                                      const Dvector& v_pars,
+                                      const Dvector& w_pars,
+                                      std::vector<BasisPtsVol>& result) const
 //==============================================================================
 {
-  MESSAGE("LRSplineVolume:: Not implemented yet.");
-  throw;
+   MESSAGE("LRSplineVolume:: Not implemented yet.");
+   throw;
 }
+
 #endif
 
 //==============================================================================
-Go::Element3D* LRSplineVolume::coveringElement(double u, double v, double w) const
+Element3D* LRSplineVolume::coveringElement(double u, double v, double w) const
 //==============================================================================
 {
   // First check if a current element exists
@@ -1938,7 +1951,7 @@ Go::Element3D* LRSplineVolume::coveringElement(double u, double v, double w) con
 
 
 //==============================================================================
- void LRSplineVolume::constructElementMesh(vector<Element3D*>& elements) const
+void LRSplineVolume::constructElementMesh(vector<Element3D*>& elements) const
 //==============================================================================
 {
   double eps = 1.0e-12;
@@ -2092,8 +2105,8 @@ void LRSplineVolume::evalGrid(int num_u, int num_v, int num_w,
 
 
 //==============================================================================
-  std::vector<LRBSpline3D*>
-  LRSplineVolume::basisFunctionsWithSupportAt(double u, double v, double w) const
+std::vector<LRBSpline3D*>
+LRSplineVolume::basisFunctionsWithSupportAt(double u, double v, double w) const
 //==============================================================================
 {
   vector<LRBSpline3D*> support_functions;
@@ -2110,7 +2123,7 @@ void LRSplineVolume::evalGrid(int num_u, int num_v, int num_w,
 }
 
 //==============================================================================
-  bool LRSplineVolume::isFullTensorProduct() const
+bool LRSplineVolume::isFullTensorProduct() const
 //==============================================================================
 {
     return (LRSpline3DUtils::all_meshlines_uniform(XDIR, mesh_) &&
@@ -2119,10 +2132,10 @@ void LRSplineVolume::evalGrid(int num_u, int num_v, int num_w,
 }
 
 //==============================================================================
-  void LRSplineVolume::refine(Direction3D d, double fixed_val,
-			      double start1, double end1,
-			      double start2, double end2,
-			      int mult, bool absolute)
+void LRSplineVolume::refine(Direction3D d, double fixed_val,
+                            double start1, double end1,
+                            double start2, double end2,
+                            int mult, bool absolute)
 //==============================================================================
 {
   // vector<LRBSpline3D*> bvec0;
@@ -2464,7 +2477,7 @@ void LRSplineVolume::evalGrid(int num_u, int num_v, int num_w,
 
 
 //==============================================================================
-  void LRSplineVolume::refine(const Refinement3D& ref, bool absolute)
+void LRSplineVolume::refine(const Refinement3D& ref, bool absolute)
 //==============================================================================
 {
     refine(ref.d, ref.kval,
@@ -2495,7 +2508,7 @@ void LRSplineVolume::evalGrid(int num_u, int num_v, int num_w,
   }
 
 //==============================================================================
-  void LRSplineVolume::refine(const std::vector<Refinement3D>& refs, bool absolute)
+void LRSplineVolume::refine(const std::vector<Refinement3D>& refs, bool absolute)
 //==============================================================================
 {
   doRefine(refs, absolute);
@@ -2505,7 +2518,7 @@ void LRSplineVolume::evalGrid(int num_u, int num_v, int num_w,
 }
 
 //==============================================================================
-  void LRSplineVolume::doRefine(const std::vector<Refinement3D>& refs, bool absolute)
+void LRSplineVolume::doRefine(const std::vector<Refinement3D>& refs, bool absolute)
 //==============================================================================
 {
 
@@ -2857,7 +2870,7 @@ void LRSplineVolume::zero_knot(Direction3D d, double knotval)
 }
 
 //==============================================================================
-  void LRSplineVolume::refineBasisFunction(int index)
+void LRSplineVolume::refineBasisFunction(int index)
 //==============================================================================
 {
   MESSAGE("LRSplineVolume:: Not implemented yet.");
@@ -2865,7 +2878,7 @@ void LRSplineVolume::zero_knot(Direction3D d, double knotval)
 }
 
 //==============================================================================
-  void LRSplineVolume::refineBasisFunction(const std::vector<int> &indices)
+void LRSplineVolume::refineBasisFunction(const std::vector<int> &indices)
 //==============================================================================
 {
   MESSAGE("LRSplineVolume:: Not implemented yet.");
@@ -2873,7 +2886,7 @@ void LRSplineVolume::zero_knot(Direction3D d, double knotval)
 }
 
 //==============================================================================
-  void LRSplineVolume::refineElement(int index)
+void LRSplineVolume::refineElement(int index)
 //==============================================================================
 {
   MESSAGE("LRSplineVolume:: Not implemented yet.");
@@ -2881,7 +2894,7 @@ void LRSplineVolume::zero_knot(Direction3D d, double knotval)
 }
 
 //==============================================================================
-  void LRSplineVolume::refineElement(const std::vector<int> &indices)
+void LRSplineVolume::refineElement(const std::vector<int> &indices)
 //==============================================================================
 {
   MESSAGE("LRSplineVolume:: Not implemented yet.");
@@ -2890,7 +2903,7 @@ void LRSplineVolume::zero_knot(Direction3D d, double knotval)
 #endif
 
 //==============================================================================  
-  void LRSplineVolume::setCoef(const Point& value, const LRBSpline3D* target)
+void LRSplineVolume::setCoef(const Point& value, const LRBSpline3D* target)
 //==============================================================================
 {
   const auto it = bsplines_.find(generate_key(*target, mesh_));
@@ -2906,9 +2919,9 @@ void LRSplineVolume::zero_knot(Direction3D d, double knotval)
 }
 
 //==============================================================================
-  void LRSplineVolume::setCoef(const Point& value,
-			       int umin_ix, int vmin_ix, int wmin_ix, int umax_ix, int vmax_ix, int wmax_ix,
-			       int u_mult, int v_mult, int w_mult)
+void LRSplineVolume::setCoef(const Point& value,
+                             int umin_ix, int vmin_ix, int wmin_ix, int umax_ix, int vmax_ix, int wmax_ix,
+                             int u_mult, int v_mult, int w_mult)
 //==============================================================================
 {
    MESSAGE("LRSplineVolume:: Not implemented yet.");
@@ -3134,7 +3147,7 @@ void LRSplineVolume::getBdElements(std::vector<Element3D*> &bd_elements, int fac
 }
 
 //==============================================================================
-   void LRSplineVolume::translate(const Point& vec)
+void LRSplineVolume::translate(const Point& vec)
 //==============================================================================
 {
   MESSAGE("LRSplineVolume:: Not implemented yet.");
@@ -3142,7 +3155,7 @@ void LRSplineVolume::getBdElements(std::vector<Element3D*> &bd_elements, int fac
 }
 
 //==============================================================================
-  bool LRSplineVolume::isLeftHanded()
+bool LRSplineVolume::isLeftHanded()
 //==============================================================================
 {
   MESSAGE("LRSplineVolume:: Not implemented yet.");
@@ -3150,10 +3163,10 @@ void LRSplineVolume::getBdElements(std::vector<Element3D*> &bd_elements, int fac
 }
 
 //==============================================================================
-  LRSplineVolume::LRSplineVolume(double knot_tol, bool rational,
-				 Mesh3D& mesh, 
-				 std::vector<LRBSpline3D*> b_splines,
-				 int first_ixu, int first_ixv, int first_ixw)
+LRSplineVolume::LRSplineVolume(double knot_tol, bool rational,
+                               Mesh3D& mesh, 
+                               std::vector<LRBSpline3D*> b_splines,
+                               int first_ixu, int first_ixv, int first_ixw)
 //==============================================================================
   : knot_tol_(knot_tol), rational_(rational), mesh_(mesh), curr_element_(NULL)
 {
@@ -3214,7 +3227,7 @@ void LRSplineVolume::getBdElements(std::vector<Element3D*> &bd_elements, int fac
 }
 
 //==============================================================================
-  LRSplineVolume::ElementMap LRSplineVolume::construct_element_map_(const Mesh3D& m, const BSplineMap& bmap)
+LRSplineVolume::ElementMap LRSplineVolume::construct_element_map_(const Mesh3D& m, const BSplineMap& bmap)
 //==============================================================================
 {
   ElementMap emap = LRSpline3DUtils::identify_elements_from_mesh(m);
@@ -3233,9 +3246,9 @@ void LRSplineVolume::getBdElements(std::vector<Element3D*> &bd_elements, int fac
 }
 
 //==============================================================================
-std::vector<Go::LRBSpline3D *> LRSplineVolume::collect_basis(int from_u, int to_u,
-				int from_v, int to_v,
-				int from_w, int to_w) const
+std::vector<LRBSpline3D *> LRSplineVolume::collect_basis(int from_u, int to_u,
+                                                         int from_v, int to_v,
+                                                         int from_w, int to_w) const
 //==============================================================================
 {
   vector<LRBSpline3D*> b_splines;
