@@ -1814,8 +1814,6 @@ Point LRSplineVolume::operator()(double u, double v, double w, int u_deriv, int 
     return result;
 }
 
-#if 1
-
 //==============================================================================
 void LRSplineVolume::computeBasis(double u,
                                   double v,
@@ -1939,12 +1937,7 @@ void LRSplineVolume::computeBasis (double u,
   for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
   {
       std::vector<double> curr_result;
-#if 1
-   MESSAGE("LRSplineVolume:: Not implemented yet.");
-   throw;
-#else
       (*iter)->evalBasisFunctions(curr_result, u, v, w, derivs, u != end_u, v != end_v, w != end_w);
-#endif
 
       result.push_back(curr_result);
   }
@@ -1985,8 +1978,6 @@ void LRSplineVolume::computeBasisGrid(const Dvector& u_pars,
       }
 
 }
-
-#endif
 
 //==============================================================================
 Element3D* LRSplineVolume::coveringElement(double u, double v, double w) const

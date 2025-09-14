@@ -191,6 +191,13 @@ class LRBSpline3D : public Streamable
   // derivatives, but it is not top level. What about mixed derivatives?
   // What about rationals? Should maybe look at SplineSurface for interface.
 
+  /// Evaluate value and a number of derivatives in the parameter par.
+  /// Note that the function is tested only up to and including deriv=3.
+  /// For higher order derivatives use evalBasisFunction
+  /// Order for computed derivatives: pos, du, dv, dw, d2u, dudv, dudw, d2v, dvdw, d2w, d3u, ...
+  void evalBasisFunctions(std::vector<double> &result,
+                         double u, double v, double w, int derivs,
+                         bool u_at_end = false, bool v_at_end = false, bool w_at_end = false) const;
 
   Point eval(double u, double v, double w,
              int u_deriv = 0, int v_deriv = 0, int w_deriv = 0,

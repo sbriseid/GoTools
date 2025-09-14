@@ -254,6 +254,57 @@ LRBSpline3D::LRBSpline3D(const LRBSpline3D& rhs)
   }
 
 //==============================================================================
+void LRBSpline3D::evalBasisFunctions(std::vector<double>& result,
+                                     double u, double v, double w,
+                                     int derivs,
+                                     bool u_at_end, bool v_at_end, bool w_at_end) const
+//==============================================================================
+{
+  // tetrahedral index for (a,b,c) with k = a+b+c
+  auto binom3 = [](int n) -> int { return n*(n-1)*(n-2)/6; }; // = C(n,3)
+  auto deriv_index3 = [&](int a, int b, int c) -> int {
+    int k = a + b + c;
+    // base offset = sum_{t=0}^{k-1} C(t+2,2) = C(k+2,3)
+    int base = binom3(k + 3 - 1); // C(k+2,3) = binom3(k+2)
+    // within layer (a major, then b): offset_layer = sum_{a'=0}^{a-1} (k - a' + 1) + b
+    int offset_layer = a * (k + 1) - (a * (a - 1)) / 2 + b;
+    return base + offset_layer;
+  };
+
+  const int total = (derivs + 1) * (derivs + 2) * (derivs + 3) / 6; // C(derivs+3,3)
+  result.assign(total, 0.0);
+
+  // univariate derivative tables (0..derivs)
+  std::vector<double> du(derivs + 1, 0.0),
+                      dv(derivs + 1, 0.0),
+                      dw(derivs + 1, 0.0);
+
+  // Evaluate the univariate functions.
+  for (int ki = 0; ki <= derivs; ++ki) {
+    du[ki] = bspline_u_->evalBasisFunction(u, ki, u_at_end);
+    dv[ki] = bspline_v_->evalBasisFunction(v, ki, v_at_end);
+    dw[ki] = bspline_w_->evalBasisFunction(w, ki, w_at_end);
+  }
+
+  // Combine the results.
+  for (int a = 0; a <= derivs; ++a) {
+    const double Nu = du[a];
+    if (Nu == 0.0) continue;
+    for (int b = 0; b <= derivs - a; ++b) {
+      const double Mv = dv[b];
+      if (Mv == 0.0) continue;
+      for (int c = 0; c <= derivs - a - b; ++c) {
+        const double Lw = dw[c];
+        if (Lw == 0.0) continue;
+        int idx = deriv_index3(a, b, c);
+        result[idx] = Nu * Mv * Lw;
+      }
+    }
+  }
+}
+    
+
+//==============================================================================
   void LRBSpline3D::evalder_add(double u, double v, double w, 
 				int deriv,
 				Point der[],
