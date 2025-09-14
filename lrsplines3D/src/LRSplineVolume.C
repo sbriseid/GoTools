@@ -1924,8 +1924,31 @@ void LRSplineVolume::computeBasis (double u,
                                    Element3D* elem) const
 //==============================================================================
 {
+  result.clear();
+  if (elem == nullptr)
+  {
+      elem = coveringElement(u, v, w); // If at an inner knot this will select the element to the right.
+      if (elem == nullptr)
+          THROW("Parameter (u, v, w) does not correspond to an element");
+  }
+
+  double end_u = endparam_u();
+  double end_v = endparam_v();
+  double end_w = endparam_w();
+  int ki = 0;
+  for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
+  {
+      std::vector<double> curr_result;
+#if 1
    MESSAGE("LRSplineVolume:: Not implemented yet.");
    throw;
+#else
+      (*iter)->evalBasisFunctions(curr_result, u, v, w, derivs, u != end_u, v != end_v, w != end_w);
+#endif
+
+      result.push_back(curr_result);
+  }
+
 }
 
 //==============================================================================
@@ -1935,8 +1958,32 @@ void LRSplineVolume::computeBasisGrid(const Dvector& u_pars,
                                       std::vector<BasisPtsVol>& result) const
 //==============================================================================
 {
-   MESSAGE("LRSplineVolume:: Not implemented yet.");
-   throw;
+  int num_eval = (u_pars.size())*(v_pars.size())*(w_pars.size());
+  result.clear();
+
+  double end_u = endparam_u();
+  double end_v = endparam_v();
+  double end_w = endparam_w();
+
+  for (double w : w_pars)
+    for (double v : v_pars)
+      for (double u : u_pars)
+      {
+        Element3D* elem = coveringElement(u, v, w); // If at an inner knot this will select the element to the right.
+        if (elem == nullptr)
+          THROW("Parameter (u, v) does not correspond to an element");
+
+        int num_pts = elem->nmbBasisFunctions();
+        BasisPtsVol curr_result;
+        curr_result.preparePts(u, v, w, -1, -1, -1, num_pts);
+
+        int ki = 0;
+        for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
+          curr_result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u != end_u, v != end_v, w != end_w);
+
+        result.push_back(curr_result);
+      }
+
 }
 
 #endif
