@@ -69,9 +69,9 @@ public:
 
     /// Creates a DirectionCone covering all tangents to 
     /// this volume along a given parameter direction.
-    /// \param pardir if 1, the DirectionCone will be defined on basis 
-    ///        of the volume's tangents along the first parameter direction. If 2,
-    ///        the second parameter direction will be used. If 3, the third
+    /// \param pardir if 0, the DirectionCone will be defined on basis 
+    ///        of the volume's tangents along the first parameter direction. If 1,
+    ///        the second parameter direction will be used. If 2, the third
     ///        parameter direction will be used.
     /// \return a DirectionCone (not necessarily the smallest) containing all tangents
     ///         to this volume along the specified parameter direction.
