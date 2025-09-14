@@ -578,22 +578,25 @@ class LRSplineVolume : public ParamVolume
 #if 1
   /// Compute basis values (position) in the parameter (param_u,param_v).
   /// Store result in a BasisPtsSf entity
-  void computeBasis(double param_u,
-                    double param_v,
+  void computeBasis(double u,
+                    double v,
+                    double w,
                     BasisPtsVol& result,
                     Element3D* elem) const;
 
   /// Compute basis values (position and 1. derivatives) in the parameter 
   /// (param_u,param_v). Store result in a BasisDerivSf entity
-  void computeBasis(double param_u,
-                    double param_v,
+  void computeBasis(double u,
+                    double v,
+                    double w,
                     BasisDerivsVol& result,
                     Element3D* elem) const;
 
   /// Compute basis values (position and 1. and 2. derivatives) in the parameter 
   /// (param_u,param_v). Store result in a BasisDerivSf2 entity
-  void computeBasis(double param_u,
-                    double param_v,
+  void computeBasis(double u,
+                    double v,
+                    double w,
                     BasisDerivsVol2& result,
                     Element3D* elem) const;
 

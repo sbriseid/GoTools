@@ -1817,19 +1817,36 @@ Point LRSplineVolume::operator()(double u, double v, double w, int u_deriv, int 
 #if 1
 
 //==============================================================================
-void LRSplineVolume::computeBasis(double param_u,
-                                  double param_v,
+void LRSplineVolume::computeBasis(double u,
+                                  double v,
+                                  double w,
                                   BasisPtsVol& result,
                                   Element3D* elem) const
 //==============================================================================
 {
-   MESSAGE("LRSplineVolume:: Not implemented yet.");
-   throw;
+  if (elem == nullptr)
+  {
+      elem = coveringElement(u, v, w); // If at an inner knot this will select the element to the right.
+      if (elem == nullptr)
+          THROW("Parameter (u, v, w) does not correspond to an element");
+  }
+
+  int num_pts = elem->nmbBasisFunctions();
+  result.preparePts(u, v, w, -1, -1, -1, num_pts);
+
+  double end_u = endparam_u();
+  double end_v = endparam_v();
+  double end_w = endparam_v();
+  int ki = 0;
+  for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u != end_u, v != end_v, w != end_w);
+
 }
 
 //==============================================================================
-void LRSplineVolume::computeBasis(double param_u,
-                                  double param_v,
+void LRSplineVolume::computeBasis(double u,
+                                  double v,
+                                  double w,
                                   BasisDerivsVol& result,
                                   Element3D* elem) const
 //==============================================================================
@@ -1839,8 +1856,9 @@ void LRSplineVolume::computeBasis(double param_u,
 }
 
 //==============================================================================
-void LRSplineVolume::computeBasis(double param_u,
-                                  double param_v,
+void LRSplineVolume::computeBasis(double u,
+                                  double v,
+                                  double w,
                                   BasisDerivsVol2& result,
                                   Element3D* elem) const
 //==============================================================================
