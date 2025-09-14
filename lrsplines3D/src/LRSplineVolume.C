@@ -1851,8 +1851,29 @@ void LRSplineVolume::computeBasis(double u,
                                   Element3D* elem) const
 //==============================================================================
 {
-   MESSAGE("LRSplineVolume:: Not implemented yet.");
-   throw;
+  if (elem == nullptr)
+  {
+      elem = coveringElement(u, v, w); // If at an inner knot this will select the element to the right.
+      if (elem == nullptr)
+          THROW("Parameter (u, v, w) does not correspond to an element");
+  }
+
+  //std::vector<double> values;
+  int num_pts = elem->nmbBasisFunctions();
+  result.prepareDerivs(u, v, w, -1, -1, -1, num_pts);
+
+  double end_u = endparam_u();
+  double end_v = endparam_v();
+  double end_w = endparam_w();
+  int ki = 0;
+  for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
+  {
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 0, 0, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 1, 0, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_w[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 1, u != end_u, v != end_v, w != end_w);
+  }
+
 }
 
 //==============================================================================
@@ -1863,8 +1884,35 @@ void LRSplineVolume::computeBasis(double u,
                                   Element3D* elem) const
 //==============================================================================
 {
-   MESSAGE("LRSplineVolume:: Not implemented yet.");
-   throw;
+  if (elem == nullptr)
+  {
+      elem = coveringElement(u, v, w); // If at an inner knot this will select the element to the right.
+      if (elem == nullptr)
+          THROW("Parameter (u, v, w) does not correspond to an element");
+  }
+
+  //std::vector<double> values;
+  int num_pts = elem->nmbBasisFunctions();
+  result.prepareDerivs(u, v, w, -1, -1, -1, num_pts);
+
+  double end_u = endparam_u();
+  double end_v = endparam_v();
+  double end_w = endparam_w();
+  int ki = 0;
+  for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
+  {
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 0, 0, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 1, 0, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_w[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 1, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_uu[ki] = (*iter)->evalBasisFunction(u, v, w, 2, 0, 0, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_uv[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 1, 0, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_uw[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 0, 1, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_vv[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 2, 0, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_vw[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 1, 1, u != end_u, v != end_v, w != end_w);
+      result.basisDerivs_ww[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 2, u != end_u, v != end_v, w != end_w);
+  }
+
 }
 
 //==============================================================================
