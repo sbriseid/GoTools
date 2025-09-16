@@ -319,7 +319,8 @@ namespace Go
   /// \param derivs number of derivatives to compute (0 = only point)
      /// \param Output: Partial derivatives up to order derivs (pts[0]=S(u,v),
     /// pts[1]=dS/du=S_u, pts[2]=S_v, pts[3]=S_uu, pts[4]=S_uv, pts[5]=S_vv, ...)
-    /// inherited from ParamSurface
+    /// inherited from ParamSurface. Note: The caller must set the approriate size
+    /// for pts.
     virtual void point(std::vector<Point>& pts, 
 		       double upar, double vpar,
 		       int derivs,

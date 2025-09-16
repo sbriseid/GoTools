@@ -528,7 +528,7 @@ public:
 	     vpar >= start_v_ && vpar <= stop_v_);
    }
 
-   /// Accsess one specified B-spline with this element in the
+   /// Access one specified B-spline with this element in the
    LRBSpline2D* supportFunction(int i) { return support_[i];   };
    /// Number of B-splines having this element in their support
    int nmbBasisFunctions() const       { return (int)support_.size(); };

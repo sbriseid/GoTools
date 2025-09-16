@@ -107,3 +107,76 @@ BOOST_FIXTURE_TEST_CASE(subSurface, Config)
 	BOOST_CHECK_LT(dist, tol);
     }
 }
+
+
+BOOST_FIXTURE_TEST_CASE(computeBasis, Config)
+{
+    std::cout << "\nInside computeBasis test." << std::endl;
+    // Assuming all infiles are LRSplineSurface. Otherwise the fixture must be changed.
+    for (auto iter = infiles.begin(); iter != infiles.end(); ++iter)
+    {
+	ifstream in1(iter->c_str());
+        BOOST_CHECK_MESSAGE(in1.good(), "Input file not found or file corrupt");
+
+	shared_ptr<LRSplineSurface> lr_sf(new LRSplineSurface());
+	header.read(in1);
+	lr_sf->read(in1);
+
+        const double u = 0.5;
+        const double v = 0.5;
+        BasisDerivsSf3 result;
+        Element2D* elem = nullptr;
+        lr_sf->computeBasis(u, v, result, elem);
+
+        // Fetch coefs from element basis functions.
+        elem = lr_sf->coveringElement(u, v);
+        BOOST_CHECK(elem != nullptr); 
+
+        const std::vector<LRBSpline2D*>& support = elem->getSupport();
+        BOOST_CHECK_EQUAL(result.basisValues.size(), support.size());
+
+        Point sum_pt(lr_sf->dimension());
+        Point sum_pt_u(lr_sf->dimension());
+        Point sum_pt_v(lr_sf->dimension());
+        for (int ki = 0; ki < result.basisValues.size(); ++ki)
+        {
+            double val = result.basisValues[ki];
+            double val_u = result.basisDerivs_u[ki];
+            double val_v = result.basisDerivs_v[ki];
+            Point coef = support[ki]->coefTimesGamma();
+            //std::cout << "val: " << val << std::endl;
+            //BOOST_CHECK_CLOSE(val, 0.0, tol);
+
+            sum_pt += val*coef;
+            sum_pt_u += val_u*coef;
+            sum_pt_v += val_v*coef;
+        }
+
+        int derivs = 3;
+        int num_pts = (derivs+1)*(derivs+2)/2;
+        vector<Point> lr_sf_pt(num_pts);
+        lr_sf->point(lr_sf_pt, u, v, derivs);
+
+        double eval_dist = lr_sf_pt[0].dist(sum_pt);
+        double eval_dist_u = lr_sf_pt[1].dist(sum_pt_u);
+        double eval_dist_v = lr_sf_pt[2].dist(sum_pt_v);
+
+#if 0
+        std::cout << "sum_pt: " << sum_pt << std::endl;
+        std::cout << "sum_pt_u: " << sum_pt_u << std::endl;
+        std::cout << "sum_pt_v: " << sum_pt_v << std::endl;
+        std::cout << "lr_sf_pt.size(): " << lr_sf_pt.size() << std::endl;
+        std::cout << "lr_sf_pt[0]: " << lr_sf_pt[0] << std::endl;
+#endif
+
+        std::cout << "eval_dist: " << eval_dist << std::endl;
+        std::cout << "eval_dist_u: " << eval_dist_u << std::endl;
+        std::cout << "eval_dist_v: " << eval_dist_v << std::endl;
+
+        const double tol = 1e-14;
+        BOOST_CHECK_SMALL(eval_dist, tol);
+        BOOST_CHECK_SMALL(eval_dist_u, tol);
+        BOOST_CHECK_SMALL(eval_dist_v, tol);
+
+    }
+}
