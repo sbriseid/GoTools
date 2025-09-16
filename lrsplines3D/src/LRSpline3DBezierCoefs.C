@@ -191,7 +191,7 @@ void LRSpline3DBezierCoefs::getBezierCoefs() {
   for(auto it=eval_grid.elements_begin(); it!=eval_grid.elements_end(); it++, i++) {
     
     // Print percentage
-    static int printedPercentage = 0;
+    thread_local int printedPercentage = 0;
     int currPercentage = (int)(100 * (float)i / ((float)eval_grid.numElements() - 1));
     if (currPercentage > printedPercentage) {
       std::cout<< currPercentage <<"\% done    \r" << std::flush;

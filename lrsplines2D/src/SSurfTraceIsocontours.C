@@ -75,7 +75,7 @@ CurveVec compute_levelset(const SplineSurface& ss,
 inline double value_at(const SplineSurface& s, const Point& par)
 // ----------------------------------------------------------------------------
 {
-  static Point tmp;
+  thread_local Point tmp;
   s.point(tmp, par[0], par[1]);
   return tmp[0];
 }
@@ -270,7 +270,7 @@ PointIterationOutcome move_point_to_isocontour(const SplineSurface& surf,
   double eps2 = 1.0e-10;  // A very small tolerance
   const double SING_TOL = std::min(tol*tol, 1e-8); //std::min(tol*tol, 1e-7); // @@ passed as parameter?
   const int MAX_ITER = 10;
-  static vector<Point> cur_val(3);
+  thread_local vector<Point> cur_val(3);
   surf.point(cur_val, uv[0], uv[1], 1);
   Point uv2 = uv;
 
@@ -352,7 +352,7 @@ inline bool is_point_on_boundary(const SplineSurface& surf, const Point& uv)
   // If the parameter domain is described by (u, v) and the arc length
   // parameterization of the curve represented by 't', then the entries of the
   // returned array will be: [du/dt, dv/dt, d2u/dt2, d2v/dt2].
-  static vector<Point> tmp(6, {0.0, 0.0});
+  thread_local vector<Point> tmp(6, {0.0, 0.0});
     
   surf.point(tmp, p[0], p[1], 2);  // evaluate surface and its first and second
 				   // derivatives
