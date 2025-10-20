@@ -711,12 +711,16 @@ void SplineVolume::computeBasisGrid(const Dvector& param_u,
 		  // Collect relevant weights
 		  vector<double>::iterator wgt = weights.begin() + (wleft*vcoefs + vleft)*ucoefs;
 		  vector<double>::iterator currwgt = currw.begin();
-		  for (kw=0; kw<worder; ++kw, wgt += (vcoefs-vorder)*ucoefs)
+		  for (kw=0; kw<worder; ++kw)
 		  {
 		      for (kv=0; kv<vorder; ++kv, wgt+=ucoefs, currwgt+=uorder)
 		      {
 			  std::copy(wgt+uleft, wgt+uleft+uorder, currwgt);
 		      }
+                      if (kw < worder - 1) // Avoiding increment outside valid range.
+                      {
+                          wgt += (vcoefs-vorder)*ucoefs;
+                      }
 		  }
 	      }
       
@@ -832,12 +836,16 @@ void SplineVolume::computeBasisGrid(const Dvector& param_u,
 		  // Collect relevant weights
 		  vector<double>::iterator wgt = weights.begin() + (wleft*vcoefs + vleft)*ucoefs;
 		  vector<double>::iterator currwgt = currw.begin();
-		  for (kw=0; kw<worder; ++kw, wgt += (vcoefs-vorder)*ucoefs)
+		  for (kw=0; kw<worder; ++kw)
 		  {
 		      for (kv=0; kv<vorder; ++kv, wgt+=ucoefs, currwgt+=uorder)
 		      {
 			  std::copy(wgt+uleft, wgt+uleft+uorder, currwgt);
 		      }
+                      if (kw < worder - 1) // Avoiding increment outside valid range.
+                      {
+                          wgt += (vcoefs-vorder)*ucoefs;
+                      }
 		  }
 	      }
       
@@ -1159,12 +1167,16 @@ void SplineVolume::computeBasisGrid(const Dvector& param_u,
 		  int wleft = left_w[kr] - worder + 1;
 		  vector<double>::iterator wgt = weights.begin() + (wleft*vcoefs + vleft)*ucoefs;
 		  vector<double>::iterator currwgt = currw.begin();
-		  for (kw=0; kw<worder; ++kw, wgt += (vcoefs-vorder)*ucoefs)
+		  for (kw=0; kw<worder; ++kw)
 		  {
 		      for (kv=0; kv<vorder; ++kv, wgt+=ucoefs, currwgt+=uorder)
 		      {
 			  std::copy(wgt+uleft, wgt+uleft+uorder, currwgt);
 		      }
+                      if (kw < worder - 1) // Avoiding increment outside valid range.
+                      {
+                          wgt += (vcoefs-vorder)*ucoefs;
+                      }
 		  }
 	      }
       
@@ -1258,12 +1270,16 @@ void SplineVolume::computeBasisGrid(const Dvector& param_u,
 		  int wleft = left_w[kr] - worder + 1;
 		  vector<double>::iterator wgt = weights.begin() + (wleft*vcoefs + vleft)*ucoefs;
 		  vector<double>::iterator currwgt = currw.begin();
-		  for (kw=0; kw<worder; ++kw, wgt += (vcoefs-vorder)*ucoefs)
+		  for (kw=0; kw<worder; ++kw)
 		  {
 		      for (kv=0; kv<vorder; ++kv, wgt+=ucoefs, currwgt+=uorder)
 		      {
 			  std::copy(wgt+uleft, wgt+uleft+uorder, currwgt);
 		      }
+                      if (kw < worder - 1) // Avoiding increment outside valid range.
+                      {
+                          wgt += (vcoefs-vorder)*ucoefs;
+                      }
 		  }
 	      }
       
@@ -1359,12 +1375,16 @@ void SplineVolume::computeBasisGrid(const Dvector& param_u,
 		  int wleft = left_w[kr] - worder + 1;
 		  vector<double>::iterator wgt = weights.begin() + (wleft*vcoefs + vleft)*ucoefs;
 		  vector<double>::iterator currwgt = currw.begin();
-		  for (kw=0; kw<worder; ++kw, wgt += (vcoefs-vorder)*ucoefs)
+		  for (kw=0; kw<worder; ++kw)
 		  {
 		      for (kv=0; kv<vorder; ++kv, wgt+=ucoefs, currwgt+=uorder)
 		      {
 			  std::copy(wgt+uleft, wgt+uleft+uorder, currwgt);
 		      }
+                      if (kw < worder - 1) // Avoiding increment outside valid range.
+                      {
+                          wgt += (vcoefs-vorder)*ucoefs;
+                      }
 		  }
 	      }
       
