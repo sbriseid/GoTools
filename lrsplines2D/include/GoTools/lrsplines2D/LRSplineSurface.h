@@ -582,28 +582,28 @@ namespace Go
   void computeBasis(double u,
                     double v,
                     BasisPtsSf& result,
-                    Element2D* elem) const;
+                    const Element2D* elem) const;
 
   /// Compute basis values (position and 1. derivatives) in the parameter 
   /// (u, v). Store result in a BasisDerivSf entity
   void computeBasis(double u,
                     double v,
                     BasisDerivsSf& result,
-                    Element2D* elem) const;
+                    const Element2D* elem) const;
 
   /// Compute basis values (position and 1. and 2. derivatives) in the parameter 
   /// (u, v). Store result in a BasisDerivSf2 entity
   void computeBasis(double u,
                     double v,
                     BasisDerivsSf2& result,
-                    Element2D* elem) const;
+                    const Element2D* elem) const;
 
   /// Compute basis values (position and 1., 2. and 3. derivatives) in the parameter
   /// (u, v). Store result in a BasisDerivSf3 entity
   void computeBasis(double u,
                     double v,
                     BasisDerivsSf3& result,
-                    Element2D* elem) const;
+                    const Element2D* elem) const;
 
   /// Compute basis values (position and uni-directed derivatives) in the parameter
   /// (u, v).
@@ -616,7 +616,7 @@ namespace Go
                      double v,
                      std::vector<std::vector<double> >& result,
                      int derivs,
-                     Element2D* elem) const;
+                     const Element2D* elem) const;
 
   /// Convenience to be used in computations of basis grids
   typedef std::vector<double>  Dvector; 

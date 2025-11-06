@@ -483,7 +483,7 @@ SplineSurface* LRSplineSurface::asSplineSurface()
 void LRSplineSurface::computeBasis(double u,
                                    double v,
                                    BasisPtsSf& result,
-                                   Element2D* elem) const
+                                   const Element2D* elem) const
 //==============================================================================
 {
   if (elem == nullptr)
@@ -511,7 +511,7 @@ void LRSplineSurface::computeBasis(double u,
 void LRSplineSurface::computeBasis(double u,
                                    double v,
                                    BasisDerivsSf& result,
-                                   Element2D* elem) const
+                                   const Element2D* elem) const
 //==============================================================================
 {
   if (elem == nullptr)
@@ -542,7 +542,7 @@ void LRSplineSurface::computeBasis(double u,
 void LRSplineSurface::computeBasis(double u,
                                    double v,
                                    BasisDerivsSf2& result,
-                                   Element2D* elem) const
+                                   const Element2D* elem) const
 //==============================================================================
 {
   if (elem == nullptr)
@@ -576,7 +576,7 @@ void LRSplineSurface::computeBasis(double u,
 void LRSplineSurface::computeBasis(double u,
                                    double v,
                                    BasisDerivsSf3& result,
-                                   Element2D* elem) const
+                                   const Element2D* elem) const
 //==============================================================================
 {
   if (elem == nullptr)
@@ -615,7 +615,7 @@ void LRSplineSurface::computeBasis(double u,
                                    double v,
                                    std::vector<std::vector<double> >& result,
                                    int derivs,
-                                   Element2D* elem) const
+                                   const Element2D* elem) const
 //==============================================================================
 {
   result.clear();
