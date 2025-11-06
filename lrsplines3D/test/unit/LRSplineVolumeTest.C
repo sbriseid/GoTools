@@ -362,68 +362,93 @@ BOOST_FIXTURE_TEST_CASE(computeBasis, Config)
         const double knot_tol = 1.0e-06;
         LRSplineVolume lr_vol(spline_vol.get(), knot_tol);
 
-        const double u = 0.5;
-        const double v = 0.5;
-        const double w = 0.5;
-        BasisDerivsVol2 result;
-        Element3D* elem = nullptr;
-        lr_vol.computeBasis(u, v, w, result, elem);
+        vector<double> upars;
+        upars.push_back(0.0);
+        upars.push_back(0.25);
+        upars.push_back(0.5);
+        upars.push_back(1.0);
 
-        // Fetch coefs from element basis functions.
-        elem = lr_vol.coveringElement(u, v, w);
-        BOOST_CHECK(elem != nullptr); 
+        vector<double> vpars;
+        vpars.push_back(0.0);
+        vpars.push_back(0.25);
+        vpars.push_back(0.5);
+        vpars.push_back(0.75);
+        vpars.push_back(1.0);
 
-        const std::vector<LRBSpline3D*>& support = elem->getSupport();
-        BOOST_CHECK_EQUAL(result.basisValues.size(), support.size());
+        vector<double> wpars;
+        wpars.push_back(0.0);
+        wpars.push_back(0.5);
+        wpars.push_back(0.75);
+        wpars.push_back(1.0);
 
-        Point sum_pt(lr_vol.dimension());
-        Point sum_pt_u(lr_vol.dimension());
-        Point sum_pt_v(lr_vol.dimension());
-        Point sum_pt_w(lr_vol.dimension());
-        for (int ki = 0; ki < result.basisValues.size(); ++ki)
+        for (auto w : wpars)
         {
-            double val = result.basisValues[ki];
-            double val_u = result.basisDerivs_u[ki];
-            double val_v = result.basisDerivs_v[ki];
-            double val_w = result.basisDerivs_w[ki];
-            Point coef = support[ki]->coefTimesGamma();
-            //std::cout << "val: " << val << std::endl;
-            //BOOST_CHECK_CLOSE(val, 0.0, tol);
+            for (auto v : vpars)
+            {
+                for (auto u : upars)
+                {
+                    BasisDerivsVol2 result;
+                    Element3D* elem = nullptr;
+                    lr_vol.computeBasis(u, v, w, result, elem);
 
-            sum_pt += val*coef;
-            sum_pt_u += val_u*coef;
-            sum_pt_v += val_v*coef;
-            sum_pt_w += val_w*coef;
-        }
+                    // Fetch coefs from element basis functions.
+                    elem = lr_vol.coveringElement(u, v, w);
+                    BOOST_CHECK(elem != nullptr); 
 
-        int derivs = 3;
-        int num_pts = (derivs+1)*(derivs+2)*(2*derivs+6)/12;
-        vector<Point> lr_vol_pt(num_pts);
-        lr_vol.point(lr_vol_pt, u, v, w, derivs);
+                    const std::vector<LRBSpline3D*>& support = elem->getSupport();
+                    BOOST_CHECK_EQUAL(result.basisValues.size(), support.size());
 
-        double eval_dist = lr_vol_pt[0].dist(sum_pt);
-        double eval_dist_u = lr_vol_pt[1].dist(sum_pt_u);
-        double eval_dist_v = lr_vol_pt[2].dist(sum_pt_v);
-        double eval_dist_w = lr_vol_pt[3].dist(sum_pt_w);
+                    Point sum_pt(lr_vol.dimension());
+                    Point sum_pt_u(lr_vol.dimension());
+                    Point sum_pt_v(lr_vol.dimension());
+                    Point sum_pt_w(lr_vol.dimension());
+                    for (int ki = 0; ki < result.basisValues.size(); ++ki)
+                    {
+                        double val = result.basisValues[ki];
+                        double val_u = result.basisDerivs_u[ki];
+                        double val_v = result.basisDerivs_v[ki];
+                        double val_w = result.basisDerivs_w[ki];
+                        Point coef = support[ki]->coefTimesGamma();
+                        //std::cout << "val: " << val << std::endl;
+                        //BOOST_CHECK_CLOSE(val, 0.0, tol);
+
+                        sum_pt += val*coef;
+                        sum_pt_u += val_u*coef;
+                        sum_pt_v += val_v*coef;
+                        sum_pt_w += val_w*coef;
+                    }
+
+                    int derivs = 3;
+                    int num_pts = (derivs+1)*(derivs+2)*(2*derivs+6)/12;
+                    vector<Point> lr_vol_pt(num_pts);
+                    lr_vol.point(lr_vol_pt, u, v, w, derivs);
+
+                    double eval_dist = lr_vol_pt[0].dist(sum_pt);
+                    double eval_dist_u = lr_vol_pt[1].dist(sum_pt_u);
+                    double eval_dist_v = lr_vol_pt[2].dist(sum_pt_v);
+                    double eval_dist_w = lr_vol_pt[3].dist(sum_pt_w);
 
 #if 0
-        std::cout << "sum_pt: " << sum_pt << std::endl;
-        std::cout << "sum_pt_u: " << sum_pt_u << std::endl;
-        std::cout << "sum_pt_v: " << sum_pt_v << std::endl;
-        std::cout << "lr_vol_pt.size(): " << lr_vol_pt.size() << std::endl;
-        std::cout << "lr_vol_pt[0]: " << lr_vol_pt[0] << std::endl;
+                    std::cout << "sum_pt: " << sum_pt << std::endl;
+                    std::cout << "sum_pt_u: " << sum_pt_u << std::endl;
+                    std::cout << "sum_pt_v: " << sum_pt_v << std::endl;
+                    std::cout << "lr_vol_pt.size(): " << lr_vol_pt.size() << std::endl;
+                    std::cout << "lr_vol_pt[0]: " << lr_vol_pt[0] << std::endl;
 #endif
 
-        std::cout << "eval_dist: " << eval_dist << std::endl;
-        std::cout << "eval_dist_u: " << eval_dist_u << std::endl;
-        std::cout << "eval_dist_v: " << eval_dist_v << std::endl;
-        std::cout << "eval_dist_w: " << eval_dist_w << std::endl;
+                    std::cout << "eval_dist: " << eval_dist << std::endl;
+                    std::cout << "eval_dist_u: " << eval_dist_u << std::endl;
+                    std::cout << "eval_dist_v: " << eval_dist_v << std::endl;
+                    std::cout << "eval_dist_w: " << eval_dist_w << std::endl;
 
-        const double tol = 1e-14;
-        BOOST_CHECK_SMALL(eval_dist, tol);
-        BOOST_CHECK_SMALL(eval_dist_u, tol);
-        BOOST_CHECK_SMALL(eval_dist_v, tol);
-        BOOST_CHECK_SMALL(eval_dist_w, tol);
+                    const double tol = 1e-14;
+                    BOOST_CHECK_SMALL(eval_dist, tol);
+                    BOOST_CHECK_SMALL(eval_dist_u, tol);
+                    BOOST_CHECK_SMALL(eval_dist_v, tol);
+                    BOOST_CHECK_SMALL(eval_dist_w, tol);
 
+                }
+            }
+        }
     }
 }

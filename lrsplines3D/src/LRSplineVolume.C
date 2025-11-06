@@ -1832,12 +1832,13 @@ void LRSplineVolume::computeBasis(double u,
   int num_pts = elem->nmbBasisFunctions();
   result.preparePts(u, v, w, -1, -1, -1, num_pts);
 
-  double end_u = endparam_u();
-  double end_v = endparam_v();
-  double end_w = endparam_v();
+  double eps = 1.0e-12;
+  const bool u_on_end = (u >= mesh_.maxParam(XDIR)-eps); //(u == (*b)->umax());
+  const bool v_on_end = (v >= mesh_.maxParam(YDIR)-eps); // (v == (*b)->vmax());
+  const bool w_on_end = (w >= mesh_.maxParam(ZDIR)-eps); 
   int ki = 0;
   for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
-      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u != end_u, v != end_v, w != end_w);
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u_on_end, v_on_end, w_on_end);
 
 }
 
@@ -1860,16 +1861,17 @@ void LRSplineVolume::computeBasis(double u,
   int num_pts = elem->nmbBasisFunctions();
   result.prepareDerivs(u, v, w, -1, -1, -1, num_pts);
 
-  double end_u = endparam_u();
-  double end_v = endparam_v();
-  double end_w = endparam_w();
+  double eps = 1.0e-12;
+  const bool u_on_end = (u >= mesh_.maxParam(XDIR)-eps); //(u == (*b)->umax());
+  const bool v_on_end = (v >= mesh_.maxParam(YDIR)-eps); // (v == (*b)->vmax());
+  const bool w_on_end = (w >= mesh_.maxParam(ZDIR)-eps); 
   int ki = 0;
   for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
   {
-      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 0, 0, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 1, 0, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_w[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 1, u != end_u, v != end_v, w != end_w);
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 0, 0, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 1, 0, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_w[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 1, u_on_end, v_on_end, w_on_end);
   }
 
 }
@@ -1893,22 +1895,23 @@ void LRSplineVolume::computeBasis(double u,
   int num_pts = elem->nmbBasisFunctions();
   result.prepareDerivs(u, v, w, -1, -1, -1, num_pts);
 
-  double end_u = endparam_u();
-  double end_v = endparam_v();
-  double end_w = endparam_w();
+  double eps = 1.0e-12;
+  const bool u_on_end = (u >= mesh_.maxParam(XDIR)-eps); //(u == (*b)->umax());
+  const bool v_on_end = (v >= mesh_.maxParam(YDIR)-eps); // (v == (*b)->vmax());
+  const bool w_on_end = (w >= mesh_.maxParam(ZDIR)-eps); 
   int ki = 0;
   for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
   {
-      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 0, 0, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 1, 0, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_w[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 1, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_uu[ki] = (*iter)->evalBasisFunction(u, v, w, 2, 0, 0, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_uv[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 1, 0, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_uw[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 0, 1, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_vv[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 2, 0, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_vw[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 1, 1, u != end_u, v != end_v, w != end_w);
-      result.basisDerivs_ww[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 2, u != end_u, v != end_v, w != end_w);
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 0, 0, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 1, 0, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_w[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 1, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_uu[ki] = (*iter)->evalBasisFunction(u, v, w, 2, 0, 0, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_uv[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 1, 0, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_uw[ki] = (*iter)->evalBasisFunction(u, v, w, 1, 0, 1, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_vv[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 2, 0, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_vw[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 1, 1, u_on_end, v_on_end, w_on_end);
+      result.basisDerivs_ww[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 2, u_on_end, v_on_end, w_on_end);
   }
 
 }
@@ -1930,14 +1933,15 @@ void LRSplineVolume::computeBasis (double u,
           THROW("Parameter (u, v, w) does not correspond to an element");
   }
 
-  double end_u = endparam_u();
-  double end_v = endparam_v();
-  double end_w = endparam_w();
+  double eps = 1.0e-12;
+  const bool u_on_end = (u >= mesh_.maxParam(XDIR)-eps); //(u == (*b)->umax());
+  const bool v_on_end = (v >= mesh_.maxParam(YDIR)-eps); // (v == (*b)->vmax());
+  const bool w_on_end = (w >= mesh_.maxParam(ZDIR)-eps); 
   int ki = 0;
   for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
   {
       std::vector<double> curr_result;
-      (*iter)->evalBasisFunctions(curr_result, u, v, w, derivs, u != end_u, v != end_v, w != end_w);
+      (*iter)->evalBasisFunctions(curr_result, u, v, w, derivs, u_on_end, v_on_end, w_on_end);
 
       result.push_back(curr_result);
   }
@@ -1954,14 +1958,16 @@ void LRSplineVolume::computeBasisGrid(const Dvector& u_pars,
   int num_eval = (u_pars.size())*(v_pars.size())*(w_pars.size());
   result.clear();
 
-  double end_u = endparam_u();
-  double end_v = endparam_v();
-  double end_w = endparam_w();
-
+  double eps = 1.0e-12;
   for (double w : w_pars)
+  {
+    const bool w_on_end = (w >= mesh_.maxParam(ZDIR)-eps); 
     for (double v : v_pars)
+    {
+      const bool v_on_end = (v >= mesh_.maxParam(YDIR)-eps); // (v == (*b)->vmax());
       for (double u : u_pars)
       {
+        const bool u_on_end = (u >= mesh_.maxParam(XDIR)-eps); //(u == (*b)->umax());
         Element3D* elem = coveringElement(u, v, w); // If at an inner knot this will select the element to the right.
         if (elem == nullptr)
           THROW("Parameter (u, v) does not correspond to an element");
@@ -1972,10 +1978,12 @@ void LRSplineVolume::computeBasisGrid(const Dvector& u_pars,
 
         int ki = 0;
         for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
-          curr_result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u != end_u, v != end_v, w != end_w);
+          curr_result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, w, 0, 0, 0, u_on_end, v_on_end, w_on_end);
 
         result.push_back(curr_result);
       }
+    }
+  }
 
 }
 
