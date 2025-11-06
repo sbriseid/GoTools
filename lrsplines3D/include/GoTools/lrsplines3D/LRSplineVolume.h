@@ -186,8 +186,57 @@ class LRSplineVolume : public ParamVolume
   // Function for generating the key to use when storing elemen 'elem'.  (This is an 
   // implementation detail that should not worry users).
 
-    static ElemKey generate_key(const double&, const double&, const double&);
+  static ElemKey generate_key(const double&, const double&, const double&);
 
+  struct ElementConstRange {
+      struct iterator {
+          using iterator_category = std::forward_iterator_tag;
+          using value_type        = Element3D;
+          using difference_type   = std::ptrdiff_t;
+          using pointer           = const Element3D*;
+          using reference         = const Element3D&;
+
+          ElementMap::const_iterator it;
+
+          iterator() = default;
+          explicit iterator(ElementMap::const_iterator i) : it(i) {}
+          iterator& operator++() { ++it; return *this; }
+          iterator operator++(int) { iterator tmp(*this); ++it; return tmp; }
+          reference operator*()  const { return *(it->second); }
+          pointer   operator->() const { return it->second.get(); }
+          bool operator==(const iterator& rhs) const { return it == rhs.it; }
+          bool operator!=(const iterator& rhs) const { return it != rhs.it; }
+      };
+
+      iterator b, e;
+      iterator begin() const { return b; }
+      iterator end()   const { return e; }
+  };
+
+  struct BasisConstRange {
+      struct iterator {
+          using iterator_category = std::forward_iterator_tag;
+          using value_type        = LRBSpline3D;
+          using difference_type   = std::ptrdiff_t;
+          using pointer           = const LRBSpline3D*;
+          using reference         = const LRBSpline3D&;
+
+          BSplineMap::const_iterator it;
+
+          iterator() = default;
+          explicit iterator(BSplineMap::const_iterator i) : it(i) {}
+          iterator& operator++() { ++it; return *this; }
+          iterator operator++(int) { iterator tmp(*this); ++it; return tmp; }
+          reference operator*()  const { return *(it->second); }
+          pointer   operator->() const { return it->second.get(); }
+          bool operator==(const iterator& rhs) const { return it == rhs.it; }
+          bool operator!=(const iterator& rhs) const { return it != rhs.it; }
+      };
+
+      iterator b, e;
+      iterator begin() const { return b; }
+      iterator end()   const { return e; }
+  };
 
   // ----------------------------------------------------
   // ---- CONSTRUCTORS, COPY, SWAP AND ASSIGNMENT -------
@@ -643,6 +692,13 @@ class LRSplineVolume : public ParamVolume
   /// Return an iterator to the end of the map storing the LRBSpline3Ds
   BSplineMap::const_iterator basisFunctionsEnd()   const {return bsplines_.end();}
 
+  BasisConstRange basisFunctions() const {
+      return BasisConstRange{
+          BasisConstRange::iterator{ bsplines_.cbegin() },
+          BasisConstRange::iterator{ bsplines_.cend() }
+      };
+  }
+
 #if 1
   /// Return an iterator to the beginning of the map storing the LRBSpline3Ds
   BSplineMap::iterator basisFunctionsBeginNonconst() {return bsplines_.begin();}
@@ -762,6 +818,13 @@ class LRSplineVolume : public ParamVolume
   ElementMap::const_iterator elementsBegin() const { return emap_.begin();}
   /// Iterator to the end of the element map (mesh cell) 
   ElementMap::const_iterator elementsEnd()   const { return emap_.end();}
+
+  ElementConstRange elements() const {
+    return ElementConstRange{
+      ElementConstRange::iterator{ emap_.cbegin() },
+      ElementConstRange::iterator{ emap_.cend() }
+    };
+  }
 
   /// Return all elements at a specific face (boundary).
   /// \param bd_elements: Vector of the elements at the specified face.
