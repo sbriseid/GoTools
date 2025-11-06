@@ -496,11 +496,14 @@ void LRSplineSurface::computeBasis(double u,
   int num_pts = elem->nmbBasisFunctions();
   result.preparePts(u, v, 0, -1, num_pts);
 
-  double end_u = endparam_u();
-  double end_v = endparam_v();
+  double eps = 1.0e-12;
+  const bool u_on_end = (u >= mesh_.maxParam(XFIXED)-eps); //(u == (*b)->umax());
+  const bool v_on_end = (v >= mesh_.maxParam(YFIXED)-eps); // (v == (*b)->vmax());
   int ki = 0;
   for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
-      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u != end_u, v != end_v);
+  {
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u_on_end, v_on_end);
+  }
 
 }
 
@@ -522,14 +525,15 @@ void LRSplineSurface::computeBasis(double u,
   int num_pts = elem->nmbBasisFunctions();
   result.prepareDerivs(u, v, 0, -1, num_pts);
 
-  double end_u = endparam_u();
-  double end_v = endparam_v();
+  double eps = 1.0e-12;
+  const bool u_on_end = (u >= mesh_.maxParam(XFIXED)-eps); //(u == (*b)->umax());
+  const bool v_on_end = (v >= mesh_.maxParam(YFIXED)-eps); // (v == (*b)->vmax());
   int ki = 0;
   for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
   {
-      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u != end_u, v != end_v);
-      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, 1, 0, u != end_u, v != end_v);
-      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, 0, 1, u != end_u, v != end_v);
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u_on_end, v_on_end);
+      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, 1, 0, u_on_end, v_on_end);
+      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, 0, 1, u_on_end, v_on_end);
   }
 
 }
@@ -552,17 +556,18 @@ void LRSplineSurface::computeBasis(double u,
   int num_pts = elem->nmbBasisFunctions();
   result.prepareDerivs(u, v, 0, -1, num_pts);
 
-  double end_u = endparam_u();
-  double end_v = endparam_v();
+  double eps = 1.0e-12;
+  const bool u_on_end = (u >= mesh_.maxParam(XFIXED)-eps); //(u == (*b)->umax());
+  const bool v_on_end = (v >= mesh_.maxParam(YFIXED)-eps); // (v == (*b)->vmax());
   int ki = 0;
   for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
   {
-      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u != end_u, v != end_v);
-      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, 1, 0, u != end_u, v != end_v);
-      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, 0, 1, u != end_u, v != end_v);
-      result.basisDerivs_uu[ki] = (*iter)->evalBasisFunction(u, v, 2, 0, u != end_u, v != end_v);
-      result.basisDerivs_uv[ki] = (*iter)->evalBasisFunction(u, v, 1, 1, u != end_u, v != end_v);
-      result.basisDerivs_vv[ki] = (*iter)->evalBasisFunction(u, v, 0, 2, u != end_u, v != end_v);
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u_on_end, v_on_end);
+      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, 1, 0, u_on_end, v_on_end);
+      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, 0, 1, u_on_end, v_on_end);
+      result.basisDerivs_uu[ki] = (*iter)->evalBasisFunction(u, v, 2, 0, u_on_end, v_on_end);
+      result.basisDerivs_uv[ki] = (*iter)->evalBasisFunction(u, v, 1, 1, u_on_end, v_on_end);
+      result.basisDerivs_vv[ki] = (*iter)->evalBasisFunction(u, v, 0, 2, u_on_end, v_on_end);
   }
 
 }
@@ -585,21 +590,22 @@ void LRSplineSurface::computeBasis(double u,
   int num_pts = elem->nmbBasisFunctions();
   result.prepareDerivs(u, v, 0, -1, num_pts);
 
-  double end_u = endparam_u();
-  double end_v = endparam_v();
+  double eps = 1.0e-12;
+  const bool u_on_end = (u >= mesh_.maxParam(XFIXED)-eps); //(u == (*b)->umax());
+  const bool v_on_end = (v >= mesh_.maxParam(YFIXED)-eps); // (v == (*b)->vmax());
   int ki = 0;
   for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
   {
-      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u != end_u, v != end_v);
-      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, 1, 0, u != end_u, v != end_v);
-      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, 0, 1, u != end_u, v != end_v);
-      result.basisDerivs_uu[ki] = (*iter)->evalBasisFunction(u, v, 2, 0, u != end_u, v != end_v);
-      result.basisDerivs_uv[ki] = (*iter)->evalBasisFunction(u, v, 1, 1, u != end_u, v != end_v);
-      result.basisDerivs_vv[ki] = (*iter)->evalBasisFunction(u, v, 0, 2, u != end_u, v != end_v);
-      result.basisDerivs_uuu[ki] = (*iter)->evalBasisFunction(u, v, 3, 0, u != end_u, v != end_v);
-      result.basisDerivs_uuv[ki] = (*iter)->evalBasisFunction(u, v, 2, 1, u != end_u, v != end_v);
-      result.basisDerivs_uvv[ki] = (*iter)->evalBasisFunction(u, v, 1, 2, u != end_u, v != end_v);
-      result.basisDerivs_vvv[ki] = (*iter)->evalBasisFunction(u, v, 0, 3, u != end_u, v != end_v);
+      result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u_on_end, v_on_end);
+      result.basisDerivs_u[ki] = (*iter)->evalBasisFunction(u, v, 1, 0, u_on_end, v_on_end);
+      result.basisDerivs_v[ki] = (*iter)->evalBasisFunction(u, v, 0, 1, u_on_end, v_on_end);
+      result.basisDerivs_uu[ki] = (*iter)->evalBasisFunction(u, v, 2, 0, u_on_end, v_on_end);
+      result.basisDerivs_uv[ki] = (*iter)->evalBasisFunction(u, v, 1, 1, u_on_end, v_on_end);
+      result.basisDerivs_vv[ki] = (*iter)->evalBasisFunction(u, v, 0, 2, u_on_end, v_on_end);
+      result.basisDerivs_uuu[ki] = (*iter)->evalBasisFunction(u, v, 3, 0, u_on_end, v_on_end);
+      result.basisDerivs_uuv[ki] = (*iter)->evalBasisFunction(u, v, 2, 1, u_on_end, v_on_end);
+      result.basisDerivs_uvv[ki] = (*iter)->evalBasisFunction(u, v, 1, 2, u_on_end, v_on_end);
+      result.basisDerivs_vvv[ki] = (*iter)->evalBasisFunction(u, v, 0, 3, u_on_end, v_on_end);
   }
 
 }
@@ -620,13 +626,14 @@ void LRSplineSurface::computeBasis(double u,
           THROW("Parameter (u, v) does not correspond to an element");
   }
 
-  double end_u = endparam_u();
-  double end_v = endparam_v();
+  double eps = 1.0e-12;
+  const bool u_on_end = (u >= mesh_.maxParam(XFIXED)-eps); //(u == (*b)->umax());
+  const bool v_on_end = (v >= mesh_.maxParam(YFIXED)-eps); // (v == (*b)->vmax());
   int ki = 0;
   for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
   {
       std::vector<double> curr_result;
-      (*iter)->evalBasisFunctions(curr_result, u, v, derivs, u != end_u, v != end_v);
+      (*iter)->evalBasisFunctions(curr_result, u, v, derivs, u_on_end, v_on_end);
 
       result.push_back(curr_result);
   }
@@ -642,12 +649,14 @@ void LRSplineSurface::computeBasisGrid(const Dvector& u_pars,
   int num_eval = (u_pars.size())*(v_pars.size());
   result.clear();
 
-  double end_u = endparam_u();
-  double end_v = endparam_v();
+  double eps = 1.0e-12;
 
   for (double v : v_pars)
+  {
+      const bool v_on_end = (v >= mesh_.maxParam(YFIXED)-eps); // (v == (*b)->vmax());
       for (double u : u_pars)
       {
+          const bool u_on_end = (u >= mesh_.maxParam(XFIXED)-eps); //(u == (*b)->umax());
           Element2D* elem = coveringElement(u, v); // If at an inner knot this will select the element to the right.
           if (elem == nullptr)
               THROW("Parameter (u, v) does not correspond to an element");
@@ -658,11 +667,11 @@ void LRSplineSurface::computeBasisGrid(const Dvector& u_pars,
 
           int ki = 0;
           for (auto iter = elem->supportBegin(); iter != elem->supportEnd(); ++iter, ++ki)
-              curr_result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u != end_u, v != end_v);
+              curr_result.basisValues[ki] = (*iter)->evalBasisFunction(u, v, 0, 0, u_on_end, v_on_end);
 
           result.push_back(curr_result);
       }
-
+  }
 }
 
 //==============================================================================
