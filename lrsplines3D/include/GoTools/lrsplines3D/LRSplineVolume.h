@@ -582,7 +582,7 @@ class LRSplineVolume : public ParamVolume
                     double v,
                     double w,
                     BasisPtsVol& result,
-                    Element3D* elem) const;
+                    const Element3D* elem) const;
 
   /// Compute basis values (position and 1. derivatives) in the parameter 
   /// (param_u,param_v). Store result in a BasisDerivSf entity
@@ -590,7 +590,7 @@ class LRSplineVolume : public ParamVolume
                     double v,
                     double w,
                     BasisDerivsVol& result,
-                    Element3D* elem) const;
+                    const Element3D* elem) const;
 
   /// Compute basis values (position and 1. and 2. derivatives) in the parameter 
   /// (param_u,param_v). Store result in a BasisDerivSf2 entity
@@ -598,14 +598,14 @@ class LRSplineVolume : public ParamVolume
                     double v,
                     double w,
                     BasisDerivsVol2& result,
-                    Element3D* elem) const;
+                    const Element3D* elem) const;
 
   void computeBasis (double u,
                      double v,
                      double w,
                      std::vector<std::vector<double> >& result,
                      int derivs,
-                     Element3D* elem) const;
+                     const Element3D* elem) const;
 
   /// Convenience to be used in computations of basis grids
   typedef std::vector<double> Dvector; 

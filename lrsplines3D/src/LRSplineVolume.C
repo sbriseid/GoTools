@@ -1819,7 +1819,7 @@ void LRSplineVolume::computeBasis(double u,
                                   double v,
                                   double w,
                                   BasisPtsVol& result,
-                                  Element3D* elem) const
+                                  const Element3D* elem) const
 //==============================================================================
 {
   if (elem == nullptr)
@@ -1847,7 +1847,7 @@ void LRSplineVolume::computeBasis(double u,
                                   double v,
                                   double w,
                                   BasisDerivsVol& result,
-                                  Element3D* elem) const
+                                  const Element3D* elem) const
 //==============================================================================
 {
   if (elem == nullptr)
@@ -1881,7 +1881,7 @@ void LRSplineVolume::computeBasis(double u,
                                   double v,
                                   double w,
                                   BasisDerivsVol2& result,
-                                  Element3D* elem) const
+                                  const Element3D* elem) const
 //==============================================================================
 {
   if (elem == nullptr)
@@ -1922,7 +1922,7 @@ void LRSplineVolume::computeBasis (double u,
                                    double w,
                                    std::vector<std::vector<double> >& result,
                                    int derivs,
-                                   Element3D* elem) const
+                                   const Element3D* elem) const
 //==============================================================================
 {
   result.clear();
