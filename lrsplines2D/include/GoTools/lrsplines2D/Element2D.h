@@ -475,7 +475,7 @@ public:
    void addSupportFunction(LRBSpline2D *f);
    
    /// Check if a B-spline has this element in its support
-   bool hasSupportFunction(LRBSpline2D *f);
+   bool hasSupportFunction(LRBSpline2D *f) const;
    
    /// Split element in the given direction and value. Called from surface refinement.
    Element2D *split(bool split_u, double par_value);

@@ -156,7 +156,7 @@ void Element2D::addSupportFunction(LRBSpline2D *f)
   is_modified_ = true;
 }
 
-bool Element2D::hasSupportFunction(LRBSpline2D *f) 
+bool Element2D::hasSupportFunction(LRBSpline2D *f) const
 {
   for (size_t i=0; i<support_.size(); i++) {
     if(f == support_[i]) 

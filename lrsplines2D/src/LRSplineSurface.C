@@ -657,7 +657,7 @@ void LRSplineSurface::computeBasisGrid(const Dvector& u_pars,
       for (double u : u_pars)
       {
           const bool u_on_end = (u >= mesh_.maxParam(XFIXED)-eps); //(u == (*b)->umax());
-          Element2D* elem = coveringElement(u, v); // If at an inner knot this will select the element to the right.
+          const Element2D* elem = coveringElement(u, v); // If at an inner knot this will select the element to the right.
           if (elem == nullptr)
               THROW("Parameter (u, v) does not correspond to an element");
 
@@ -676,7 +676,7 @@ void LRSplineSurface::computeBasisGrid(const Dvector& u_pars,
 
 //==============================================================================
 //const LRSplineSurface::ElementMap::value_type& 
-Element2D*
+const Element2D*
 LRSplineSurface::coveringElement(double u, double v) const
 //==============================================================================
 {
@@ -716,6 +716,18 @@ LRSplineSurface::coveringElement(double u, double v) const
   return el->second.get();
 }
 
+//==============================================================================
+Element2D*
+LRSplineSurface::coveringElement(double u, double v)
+//==============================================================================
+{
+    // Call the const version
+    const Element2D* constResult = 
+        static_cast<const LRSplineSurface&>(*this).coveringElement(u, v);
+
+    // Safe to cast back because we know '*this' is non-const in this context
+    return const_cast<Element2D*>(constResult);
+}
 
 //==============================================================================
  void LRSplineSurface::constructElementMesh(vector<Element2D*>& elements) const
@@ -3862,7 +3874,7 @@ LRSplineSurface::checkSupport(LRBSpline2D* basis) const
   int v2_ix = basis->suppMax(YFIXED);
 
   // Collect elements
-  std::set<Element2D*> elem1;
+  std::set<const Element2D*> elem1;
   double v1 = mesh_.kval(YFIXED, v1_ix);
   double v2, u1, u2;
   for (int kj=v1_ix+1; kj<=v2_ix; ++kj)
@@ -3874,14 +3886,14 @@ LRSplineSurface::checkSupport(LRBSpline2D* basis) const
 	{
 	  u2 =  mesh_.kval(XFIXED, ki);
 	  double upar = 0.5*(u1 + u2);
-	  Element2D *el = coveringElement(upar, vpar);
+	  const Element2D *el = coveringElement(upar, vpar);
 	  elem1.insert(elem1.end(), el);
 	  u1 = u2;
 	}
       v1 = v2;
     }
 
-  vector<Element2D*> elem2(elem1.begin(), elem1.end());
+  vector<const Element2D*> elem2(elem1.begin(), elem1.end());
 
   // Compare with the elements in the bspline support
   for (size_t kr=0; kr<elem2.size(); ++kr)

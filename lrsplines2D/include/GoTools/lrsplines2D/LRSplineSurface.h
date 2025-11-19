@@ -678,7 +678,8 @@ namespace Go
                         std::vector<BasisPtsSf>& result) const;
 
   /// Return pointer to element containing the parameter (u, v).
-  Element2D*  coveringElement(double u, double v) const;
+  const Element2D*  coveringElement(double u, double v) const;
+  Element2D*  coveringElement(double u, double v);
   // Element2D* getElementContaining(double u, double v) const;
 
   /// Construct a mesh of pointers to elements. The mesh has one entry for
