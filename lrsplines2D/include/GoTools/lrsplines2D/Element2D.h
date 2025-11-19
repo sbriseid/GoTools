@@ -511,7 +511,7 @@ public:
    }
 
    /// Check if the parameter pair is contained in the element domain
-   bool contains(double upar, double vpar)
+   bool contains(double upar, double vpar) const
    {
      return (upar >= start_u_ && upar <= stop_u_ && 
 	     vpar >= start_v_ && vpar <= stop_v_);

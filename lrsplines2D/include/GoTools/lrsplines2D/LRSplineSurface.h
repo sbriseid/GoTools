@@ -360,7 +360,7 @@ namespace Go
   /// \param elem if set, points to the element for the previous
   /// evaluation of this surface (set by the evaluator, not to be changed
   /// between subsequant evaluations)
-    void point(Point& pt, double upar, double vpar, Element2D* elem) const;
+    void point(Point& pt, double upar, double vpar, const Element2D* elem) const;
 
   /// Evaluator
   /// \param pt evaluation result
@@ -392,7 +392,7 @@ namespace Go
     void point(std::vector<Point>& pts, 
 	       double upar, double vpar,
 	       int derivs,
-	       Element2D* elem,
+	       const Element2D* elem,
 	       bool u_from_right = true,
 	       bool v_from_right = true,
 	       double resolution = 1.0e-12) const;
@@ -438,7 +438,7 @@ namespace Go
      // inherited from ParamSurface
     virtual void normal(Point& n, double upar, double vpar) const;
 
-    void normal(Point& n, double upar, double vpar, Element2D* elem) const;
+    void normal(Point& n, double upar, double vpar, const Element2D* elem) const;
 
     /// Function that calls normalCone(NormalConeMethod) with method =
     /// SederbergMeyers. Needed because normalCone() is virtual! 
@@ -606,7 +606,7 @@ namespace Go
   /* 		     int derivs, int iEl=-1) const; */
   /// Point evaluation
   Point operator()(double u, double v, int u_deriv, int v_deriv, 
-		   Element2D* elem) const; // evaluation
+		   const Element2D* elem) const; // evaluation
 
 
   /// Query start of parametric domain (along first (x) parameter: d = XFIXED; along second (y) parameter: YFIXED)
@@ -896,7 +896,7 @@ namespace Go
 
   // Generated data
   mutable RectDomain domain_;
-  mutable Element2D* curr_element_;
+  mutable const Element2D* curr_element_;
 
 
 #if 0

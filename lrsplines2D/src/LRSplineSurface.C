@@ -1785,7 +1785,7 @@ Point LRSplineSurface::operator()(double u, double v, int u_deriv, int v_deriv) 
   // const bool v_on_end = (v == mesh_.maxParam(YFIXED));
   // vector<LRBSpline2D*> covering_B_functions = 
   //   basisFunctionsWithSupportAt(u, v);
-  Element2D* elem;
+  const Element2D* elem;
   if (curr_element_ && curr_element_->contains(u, v))
     elem = curr_element_;
   else
@@ -1824,7 +1824,7 @@ Point LRSplineSurface::operator()(double u, double v, int u_deriv, int v_deriv) 
 
 //==============================================================================
   Point LRSplineSurface::operator()(double u, double v, int u_deriv, int v_deriv,
-				    Element2D* elem) const
+				    const Element2D* elem) const
 //==============================================================================
 {
   // Check element
@@ -2308,7 +2308,7 @@ const RectDomain& LRSplineSurface::parameterDomain() const
 
   //===========================================================================
 void LRSplineSurface::point(Point& pt, double upar, double vpar,
-			    Element2D* elem) const
+			    const Element2D* elem) const
   //===========================================================================
   {
     pt = operator()(upar, vpar, 0, 0, elem);
@@ -2323,7 +2323,7 @@ void LRSplineSurface::point(Point& pt, double upar, double vpar,
 
    //===========================================================================
   void LRSplineSurface::normal(Point& pt, double upar, double vpar,
-			    Element2D* elem) const
+                               const Element2D* elem) const
   //===========================================================================
   {
     double tol = DEFAULT_SPACE_EPSILON;
@@ -2490,7 +2490,7 @@ double LRSplineSurface::endparam_v() const
   void LRSplineSurface::point(vector<Point>& pts, 
 			      double upar, double vpar,
 			      int derivs,
-			      Element2D* elem,
+			      const Element2D* elem,
 			      bool u_from_right,
 			      bool v_from_right,
 			      double resolution) const
