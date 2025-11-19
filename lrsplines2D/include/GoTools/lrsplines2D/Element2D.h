@@ -510,17 +510,6 @@ public:
      return support_;
    }
 
-   /// Number of B-splines with this element in their support
-   int nmbSupport() const
-   {
-     return (int)support_.size();
-   }
-
-   /* std::vector<LRBSpline2D*> getSupport()  */
-   /* { */
-   /*   return support_; */
-   /* } */
-
    /// Check if the parameter pair is contained in the element domain
    bool contains(double upar, double vpar)
    {
@@ -531,7 +520,8 @@ public:
    /// Access one specified B-spline with this element in the
    LRBSpline2D* supportFunction(int i) { return support_[i];   };
    /// Number of B-splines having this element in their support
-   int nmbBasisFunctions() const       { return (int)support_.size(); };
+   int nmbSupport() const       { return (int)support_.size(); }
+   int nmbBasisFunctions() const       { return (int)support_.size(); }
    /// Modify the start of the element domain in the first parameter direction
    void setUmin(double u)                           { start_u_ = u; };
    /// Modify the start of the element domain in the second parameter direction

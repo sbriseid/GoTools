@@ -282,10 +282,10 @@ class Element3D
             wpar >= start_w_ && wpar <= stop_w_);
   }
 
-
    /// Accsess one specified B-spline with this element in the support
   LRBSpline3D* supportFunction(int i) { return support_[i];   }
    /// Number of B-splines having this element in their support
+  int nmbSupport() const       { return (int)support_.size(); }
   int nmbBasisFunctions() const       { return (int)support_.size(); }
    /// Modify the start of the element domain in the first parameter direction
   void setUmin(double u)                           { start_u_ = u; }
