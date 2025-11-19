@@ -367,7 +367,7 @@ class LRSplineVolume : public ParamVolume
   /// \param elem if set, points to the element for the previous
   /// evaluation of this surface (set by the evaluator, not to be changed
   /// between subsequant evaluations)
-  void point(Point& pt, double upar, double vpar, double wpar, Element3D* elem) const;
+  void point(Point& pt, double upar, double vpar, double wpar, const Element3D* elem) const;
 
   /// Evaluator
   /// \param pt evaluation result
@@ -403,7 +403,7 @@ class LRSplineVolume : public ParamVolume
   void point(std::vector<Point>& pts, 
 	     double upar, double vpar, double wpar,
 	     int derivs,
-	     Element3D* elem,
+	     const Element3D* elem,
 	     bool u_from_right = true,
 	     bool v_from_right = true,
 	     bool w_from_right = true,
@@ -604,7 +604,7 @@ class LRSplineVolume : public ParamVolume
   /* 		     int derivs, int iEl=-1) const; */
 
   /// point evaluation
-  Point operator()(double u, double v, double w, int u_deriv, int v_deriv, int w_deriv, Element3D* elem) const;
+  Point operator()(double u, double v, double w, int u_deriv, int v_deriv, int w_deriv, const Element3D* elem) const;
 
   /// Query start of parametric domain (along first (x) parameter: d = XDIR; along second (y) parameter: YDIR; third parameter ZDIR)
   double paramMin(Direction3D d) const;
@@ -666,7 +666,8 @@ class LRSplineVolume : public ParamVolume
 #endif
   
   /// Identify element (mesh cell) in which the given parameter tripple is situated
-  Element3D* coveringElement(double u, double v, double w) const;
+  const Element3D* coveringElement(double u, double v, double w) const;
+  Element3D* coveringElement(double u, double v, double w);
   // int getElementContaining(double u, double v, double w) const;
 
   /// Construct a mesh of pointers to elements. The mesh has one entry for
@@ -877,7 +878,7 @@ private:
 
   // Generated data
   mutable Array<double,6> domain_;
-  mutable Element3D* curr_element_;
+  mutable const Element3D* curr_element_;
 
   // Private constructor given mesh and LR B-splines
   LRSplineVolume(double knot_tol, bool rational,

@@ -391,7 +391,7 @@ const LRSplineVolume& LRSplineVolume::operator= (const LRSplineVolume& other)
     pt = operator()(upar, vpar, wpar, 0, 0, 0);
   else
     {
-      Element3D* elem;
+      const Element3D* elem;
       if (curr_element_ && curr_element_->contains(upar, vpar, wpar))
   	elem = curr_element_;
       else
@@ -406,7 +406,7 @@ const LRSplineVolume& LRSplineVolume::operator= (const LRSplineVolume& other)
 
 //===========================================================================
    void LRSplineVolume::point(Point& pt, double upar, double vpar, double wpar,
-                              Element3D* elem) const
+                              const Element3D* elem) const
 //===========================================================================
 {
   if (rational_)
@@ -488,7 +488,7 @@ const LRSplineVolume& LRSplineVolume::operator= (const LRSplineVolume& other)
   void LRSplineVolume::point(vector<Point>& pts, 
 			     double upar, double vpar, double wpar,
 			     int derivs,
-			     Element3D* elem,
+			     const Element3D* elem,
 			     bool u_from_right,
 			     bool v_from_right,
 			     bool w_from_right,
@@ -1539,7 +1539,7 @@ Point LRSplineVolume::operator()(double u, double v, double w, int u_deriv, int 
   // const bool v_on_end = (v == mesh_.maxParam(YFIXED));
   // vector<LRBSpline2D*> covering_B_functions = 
   //   basisFunctionsWithSupportAt(u, v);
-  Element3D* elem;
+  const Element3D* elem;
   if (curr_element_ && curr_element_->contains(u, v, w))
     elem = curr_element_;
   else
@@ -1661,7 +1661,7 @@ Point LRSplineVolume::operator()(double u, double v, double w, int u_deriv, int 
 //==============================================================================
   Point LRSplineVolume::operator()(double u, double v, double w,
                                    int u_deriv, int v_deriv, int w_deriv,
-                                   Element3D* elem) const
+                                   const Element3D* elem) const
 //==============================================================================
 {
   // Check element
@@ -1968,7 +1968,7 @@ void LRSplineVolume::computeBasisGrid(const Dvector& u_pars,
       for (double u : u_pars)
       {
         const bool u_on_end = (u >= mesh_.maxParam(XDIR)-eps); //(u == (*b)->umax());
-        Element3D* elem = coveringElement(u, v, w); // If at an inner knot this will select the element to the right.
+        const Element3D* elem = coveringElement(u, v, w); // If at an inner knot this will select the element to the right.
         if (elem == nullptr)
           THROW("Parameter (u, v) does not correspond to an element");
 
@@ -1988,7 +1988,7 @@ void LRSplineVolume::computeBasisGrid(const Dvector& u_pars,
 }
 
 //==============================================================================
-Element3D* LRSplineVolume::coveringElement(double u, double v, double w) const
+const Element3D* LRSplineVolume::coveringElement(double u, double v, double w) const
 //==============================================================================
 {
   // First check if a current element exists
@@ -2061,6 +2061,18 @@ Element3D* LRSplineVolume::coveringElement(double u, double v, double w) const
   return el->second.get();
 }
 
+
+//==============================================================================
+Element3D* LRSplineVolume::coveringElement(double u, double v, double w)
+//==============================================================================
+{
+    // Call the const version
+    const Element3D* constResult = 
+        static_cast<const LRSplineVolume&>(*this).coveringElement(u, v, w);
+
+    // Safe to cast back because we know '*this' is non-const in this context
+    return const_cast<Element3D*>(constResult);
+}
 
 //==============================================================================
 void LRSplineVolume::constructElementMesh(vector<Element3D*>& elements) const
