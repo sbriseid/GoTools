@@ -707,6 +707,13 @@ class LRSplineVolume : public ParamVolume
   BSplineMap::iterator basisFunctionsEndNonconst() {return bsplines_.end();}
 #endif
 
+  /// Return all B-splines with support covering one boundary of the surface domain
+  /// \param d direction of boundary (along first (x) parameter: d = XDIR;
+  /// along second (y) parameter: YDIR); along third (z) parameter: ZDIR)
+  /// \param atstart specifies if the curve is in the start or end of the
+  /// other parameter direction
+  std::vector<LRBSpline3D*> getBoundaryBsplines(Direction3D d, bool atstart);
+
   /// The following function returns 'true' if the underlying mesh is a regular grid, i.e. 
   /// the volume is a tensor product spline volume.
   bool isFullTensorProduct() const;

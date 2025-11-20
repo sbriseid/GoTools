@@ -739,7 +739,7 @@ namespace Go
   /// \param d direction of boundary (along first (x) parameter: d = XFIXED;
   /// along second (y) parameter: YFIXED)
   /// \param atstart specifies if the curve is in the start or end of the
-  /// other parameer direction
+  /// other parameter direction
   std::vector<LRBSpline2D*> getBoundaryBsplines(Direction2D d, bool atstart);
 
   /// Returns 'true' if the underlying mesh is a regular grid, i.e. 

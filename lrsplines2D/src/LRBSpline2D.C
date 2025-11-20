@@ -521,6 +521,13 @@ int LRBSpline2D::endmult_v(bool atstart) const
 }
 
 //==============================================================================
+int LRBSpline2D::endmult(Direction2D dir, bool atstart) const
+//==============================================================================
+{
+  return getUnivariate(dir)->endmult(atstart);
+}
+
+//==============================================================================
 Point LRBSpline2D::getGrevilleParameter() const
 {
   double upar = bspline_u_->getGrevilleParameter();

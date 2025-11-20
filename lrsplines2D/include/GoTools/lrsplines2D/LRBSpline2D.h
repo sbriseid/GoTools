@@ -329,6 +329,8 @@ class LRBSpline2D : public Streamable
   int endmult_u(bool atstart) const;
   /// Count multiplicity in the ends of the B-spline, second parameter direction
   int endmult_v(bool atstart) const;
+  /// Count multiplicity in the start/end of the B-spline, specified parameter direction
+  int endmult(Direction2D dir, bool atstart) const;
 
   /// Query whether the parameter point speficied by the knots indexed by 'u_ix' and 'v_ix' 
   /// is covered by the support of this LRBSpline2D.
