@@ -132,6 +132,8 @@ ENDIF(GoTools_COMPILE_TESTS)
 IF(GoTools_COPY_DATA)
   FILE(COPY ${GoLRspline3D_SOURCE_DIR}/data
     DESTINATION ${GoLRspline3D_BINARY_DIR})
+  FILE(COPY ${GoLRspline3D_SOURCE_DIR}/../gotools-data/lrsplines3D/examples/data
+    DESTINATION ${GoLRspline3D_BINARY_DIR}/examples)
 ENDIF()
 
 # Create a tmp directory.

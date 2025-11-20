@@ -57,15 +57,18 @@ public:
     {
 
         datadir = "data/"; // Relative to build/lrsplines3D
-
         infiles.push_back(datadir + "vol.g2");
-        infiles.push_back(datadir + "tpvol.g2");
+
+        datadir2 = "examples/data/"; // Relative to build/lrsplines3D
+        infiles.push_back(datadir2 + "vol.g2");
+        infiles.push_back(datadir2 + "tpvol.g2");
 
     }
 
 public:
     ObjectHeader header;
     string datadir;
+    string datadir2;
     vector<string> infiles;
     vector<int> numobjects;
 
@@ -363,24 +366,32 @@ BOOST_FIXTURE_TEST_CASE(computeBasis, Config)
         const double knot_tol = 1.0e-06;
         LRSplineVolume lr_vol(spline_vol.get(), knot_tol);
 
+        double umin = lr_vol.startparam_u();
+        double umax = lr_vol.endparam_u();
         vector<double> upars;
-        upars.push_back(0.0);
-        upars.push_back(0.25);
-        upars.push_back(0.5);
-        upars.push_back(1.0);
+        upars.push_back(umin);
+        upars.push_back(0.75*umin + 0.25*umax);
+        upars.push_back(0.5*umin + 0.5*umax);
+        upars.push_back(0.25*umin + 0.75*umax);
+        upars.push_back(umax);
 
+        double vmin = lr_vol.startparam_v();
+        double vmax = lr_vol.endparam_v();
         vector<double> vpars;
-        vpars.push_back(0.0);
-        vpars.push_back(0.25);
-        vpars.push_back(0.5);
-        vpars.push_back(0.75);
-        vpars.push_back(1.0);
+        vpars.push_back(vmin);
+        vpars.push_back(0.75*vmin + 0.25*vmax);
+        vpars.push_back(0.5*vmin + 0.5*vmax);
+        vpars.push_back(0.25*vmin + 0.75*vmax);
+        vpars.push_back(vmax);
 
+        double wmin = lr_vol.startparam_w();
+        double wmax = lr_vol.endparam_w();
         vector<double> wpars;
-        wpars.push_back(0.0);
-        wpars.push_back(0.5);
-        wpars.push_back(0.75);
-        wpars.push_back(1.0);
+        wpars.push_back(wmin);
+        wpars.push_back(0.75*wmin + 0.25*wmax);
+        wpars.push_back(0.5*wmin + 0.5*wmax);
+        wpars.push_back(0.2*wmin + 0.8*wmax);
+        wpars.push_back(wmax);
 
         for (auto w : wpars)
         {
