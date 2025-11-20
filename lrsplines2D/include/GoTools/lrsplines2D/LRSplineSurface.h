@@ -84,6 +84,23 @@ namespace Go
     Direction2D d;    // direction of the meshrectangle (XFIXED or YFIXED) YCONSTANT & XCONSTANT?
     int multiplicity; // multiplicity of the meshrectangle 
 
+    Refinement2D()
+      : kval(0.0)
+      , start(0.0)
+      , end(0.0)
+      , d(XFIXED)
+      , multiplicity(-1)
+    {}
+
+    Refinement2D(double val, double st, double e,
+                 Direction2D dir, int mult)
+      : kval(val)
+      , start(st)
+      , end(e)
+      , d(dir)
+      , multiplicity(mult)
+    {}
+
     void setVal(double val, double st, double e, Direction2D dir, int mult)
     {
       kval = val;
