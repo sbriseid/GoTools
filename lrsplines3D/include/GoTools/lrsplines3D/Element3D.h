@@ -311,6 +311,11 @@ class Element3D
   /* // @@sbr201302 This must be extended to 3D case. Swap two dirs or rotate? */
   /* void swapParameterDirection(); */
 
+   /// Fetch neighbouring elements based on information on
+   /// supporting B-splines. Vertex and edge touches are excluded
+   /// (returns only face-connected neighbours).
+   void fetchNeighbours(std::vector<Element3D*>& neighbours) const;
+
   /// Check if the element is associated data points to be used in 
   /// least squares approximation
   bool hasDataPoints()

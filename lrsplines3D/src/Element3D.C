@@ -40,6 +40,8 @@
 #include "GoTools/lrsplines3D/Element3D.h"
 #include "GoTools/lrsplines3D/LRBSpline3D.h"
 
+#include <set>
+
 namespace Go {
 
 Element3D::Element3D() {
@@ -194,6 +196,48 @@ bool Element3D::isOverloaded()  const {
 			return true;
 	}
 	return false;
+}
+
+void Element3D::fetchNeighbours(std::vector<Element3D*>& neighbours) const
+{
+  neighbours.clear();
+  std::set<Element3D*> ngh;
+  for (size_t ki=0; ki<support_.size(); ++ki)
+    {
+      std::vector<Element3D*>::iterator el;
+      std::vector<Element3D*>::iterator last = support_[ki]->supportedElementEnd();
+      for (el=support_[ki]->supportedElementBegin(); el!=last; ++el)
+        {
+          if ((*el) == this)
+            continue;
+          double u1 = (*el)->umin();
+          double u2 = (*el)->umax();
+          double v1 = (*el)->vmin(); 
+          double v2 = (*el)->vmax();
+          double w1 = (*el)->vmin(); 
+          double w2 = (*el)->vmax();
+          if (start_u_ > u2 || stop_u_ < u1 ||
+              start_v_ > v2 || stop_v_ < v1 ||
+              start_w_ > w2 || stop_w_ < w1)
+            continue;
+
+          // We want Face Neighbors (sharing a 2D plane).
+          // We reject if they only touch at an Edge (line) or Vertex (point).
+          bool touch_u = (start_u_ == u2 || stop_u_ == u1);
+          bool touch_v = (start_v_ == v2 || stop_v_ == v1);
+          bool touch_w = (start_w_ == w2 || stop_w_ == w1);
+
+          // If touching in 2 or more dimensions simultaneously, 
+          // the contact area is < 2D (Line or Point).
+          if ((touch_u && touch_v) || 
+              (touch_u && touch_w) || 
+              (touch_v && touch_w))
+            continue;
+
+          ngh.insert(*el);
+        }
+    }
+  neighbours.insert(neighbours.end(), ngh.begin(), ngh.end());
 }
 
 int Element3D::nmbDataPoints()
