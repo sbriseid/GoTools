@@ -697,7 +697,14 @@ namespace Go
   /// Return pointer to element containing the parameter (u, v).
   const Element2D*  coveringElement(double u, double v) const;
   Element2D*  coveringElement(double u, double v);
-  // Element2D* getElementContaining(double u, double v) const;
+  const Element2D* coveringElement(const double* uv) const
+  {
+    return coveringElement(uv[0], uv[1]);
+  }
+  Element2D* coveringElement(const double* uv)
+  {
+    return coveringElement(uv[0], uv[1]);
+  }  // Element2D* getElementContaining(double u, double v) const;
 
   /// Construct a mesh of pointers to elements. The mesh has one entry for
   /// each possible knot domain. If a knot has multiplicity zero in an area

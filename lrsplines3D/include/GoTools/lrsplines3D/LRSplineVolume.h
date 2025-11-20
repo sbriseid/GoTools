@@ -668,6 +668,14 @@ class LRSplineVolume : public ParamVolume
   /// Identify element (mesh cell) in which the given parameter tripple is situated
   const Element3D* coveringElement(double u, double v, double w) const;
   Element3D* coveringElement(double u, double v, double w);
+  const Element3D* coveringElement(const double* uvw) const
+  {
+    return coveringElement(uvw[0], uvw[1], uvw[2]);
+  }
+  Element3D* coveringElement(const double* uvw)
+  {
+    return coveringElement(uvw[0], uvw[1], uvw[2]);
+  }
   // int getElementContaining(double u, double v, double w) const;
 
   /// Construct a mesh of pointers to elements. The mesh has one entry for
