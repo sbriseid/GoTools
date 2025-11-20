@@ -59,6 +59,7 @@ public:
         datadir = "data/"; // Relative to build/lrsplines3D
 
         infiles.push_back(datadir + "vol.g2");
+        infiles.push_back(datadir + "tpvol.g2");
 
     }
 
@@ -428,20 +429,24 @@ BOOST_FIXTURE_TEST_CASE(computeBasis, Config)
                     double eval_dist_v = lr_vol_pt[2].dist(sum_pt_v);
                     double eval_dist_w = lr_vol_pt[3].dist(sum_pt_w);
 
-#if 0
-                    std::cout << "sum_pt: " << sum_pt << std::endl;
-                    std::cout << "sum_pt_u: " << sum_pt_u << std::endl;
-                    std::cout << "sum_pt_v: " << sum_pt_v << std::endl;
-                    std::cout << "lr_vol_pt.size(): " << lr_vol_pt.size() << std::endl;
-                    std::cout << "lr_vol_pt[0]: " << lr_vol_pt[0] << std::endl;
+                    const double tol = 1e-14;
+#if 1
+                    if (std::max(eval_dist, eval_dist_u) > tol)
+                    {
+                        std::cout << "u: " << u << ", v: " << v << ", w: " << w << std::endl;
+                        std::cout << "sum_pt: " << sum_pt << std::endl;
+                        std::cout << "sum_pt_u: " << sum_pt_u << std::endl;
+                        std::cout << "sum_pt_v: " << sum_pt_v << std::endl;
+                        std::cout << "lr_vol_pt.size(): " << lr_vol_pt.size() << std::endl;
+                        std::cout << "lr_vol_pt[0]: " << lr_vol_pt[0] << std::endl;
+
+                        std::cout << "eval_dist: " << eval_dist << std::endl;
+                        std::cout << "eval_dist_u: " << eval_dist_u << std::endl;
+                        std::cout << "eval_dist_v: " << eval_dist_v << std::endl;
+                        std::cout << "eval_dist_w: " << eval_dist_w << std::endl;
+                    }
 #endif
 
-                    std::cout << "eval_dist: " << eval_dist << std::endl;
-                    std::cout << "eval_dist_u: " << eval_dist_u << std::endl;
-                    std::cout << "eval_dist_v: " << eval_dist_v << std::endl;
-                    std::cout << "eval_dist_w: " << eval_dist_w << std::endl;
-
-                    const double tol = 1e-14;
                     BOOST_CHECK_SMALL(eval_dist, tol);
                     BOOST_CHECK_SMALL(eval_dist_u, tol);
                     BOOST_CHECK_SMALL(eval_dist_v, tol);
@@ -451,4 +456,90 @@ BOOST_FIXTURE_TEST_CASE(computeBasis, Config)
             }
         }
     }
+}
+
+BOOST_FIXTURE_TEST_CASE(point, Config)
+{
+    // Assuming all infiles are SplineVolume. Otherwise the fixture must be changed.
+    for (auto iter = infiles.begin(); iter != infiles.end(); ++iter)
+    {
+	ifstream in1(iter->c_str());
+        BOOST_CHECK_MESSAGE(in1.good(), "Input file not found or file corrupt");
+
+	shared_ptr<SplineVolume> spline_vol(new SplineVolume());
+
+        // BOOST_ERROR("Test hangs during call to read(). Fix!");
+        // continue;
+
+        try
+        {
+            header.read(in1);
+
+            // We expect all the files to contain 1 SplineVolume.
+            BOOST_CHECK_EQUAL(header.classType(), Class_SplineVolume);
+
+            spline_vol->read(in1);
+        }
+        catch (...)
+        {
+            BOOST_ERROR("Reading of lrspline volume failed.");
+            continue;
+        }
+
+        const double knot_tol = 1.0e-06;
+        LRSplineVolume lr_vol(spline_vol.get(), knot_tol);
+
+        vector<double> upars;
+        upars.push_back(0.0);
+        upars.push_back(0.25);
+        upars.push_back(0.5);
+        upars.push_back(1.0);
+
+        vector<double> vpars;
+        vpars.push_back(0.0);
+        vpars.push_back(0.25);
+        vpars.push_back(0.5);
+        vpars.push_back(0.75);
+        vpars.push_back(1.0);
+
+        vector<double> wpars;
+        wpars.push_back(0.0);
+        wpars.push_back(0.5);
+        wpars.push_back(0.75);
+        wpars.push_back(1.0);
+
+        for (auto w : wpars)
+        {
+            for (auto v : vpars)
+            {
+                for (auto u : upars)
+                {
+                    BasisDerivsVol2 result;
+                    Element3D* elem = nullptr;
+                    Point pt;
+                    lr_vol.point(pt, u, v, w);
+
+                    // Fetch coefs from element basis functions.
+                    double new_v = (v < 1.0) ? v + 0.1 : v;
+                    //double new_v = (v > 0.0) ? v - 0.1 : v;
+                    elem = lr_vol.coveringElement(u, new_v, w);
+                    BOOST_CHECK(elem != nullptr); 
+                    //std::cout << "elem->vmin(): " << elem->vmin() << ", elem->vmax(): " << elem->vmax() << ", new_v: " << new_v << std::endl;
+
+                    Point pt2;
+                    lr_vol.point(pt2, u, v, w, elem);
+
+                    double eval_dist = pt.dist(pt2);
+                    //std::cout << "eval_dist: " << eval_dist << std::endl;
+
+                    //std::cout << "pt: " << pt << std::endl;
+
+                    const double tol = 1e-14;
+                    BOOST_CHECK_SMALL(eval_dist, tol);
+                }
+            }
+        }
+    }
+
+
 }
