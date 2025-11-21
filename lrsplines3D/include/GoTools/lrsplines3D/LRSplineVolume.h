@@ -666,6 +666,7 @@ class LRSplineVolume : public ParamVolume
 #endif
   
   /// Identify element (mesh cell) in which the given parameter tripple is situated
+  /// If a parameter is at an internal knot the element to the right is returned.
   const Element3D* coveringElement(double u, double v, double w) const;
   Element3D* coveringElement(double u, double v, double w);
   const Element3D* coveringElement(const double* uvw) const

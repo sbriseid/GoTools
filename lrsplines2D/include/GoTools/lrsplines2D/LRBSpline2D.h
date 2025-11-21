@@ -414,7 +414,7 @@ class LRBSpline2D : public Streamable
   std::vector<Element2D*> getMinimalExtendedSupport();
 #endif
   /// All elements in the support
-  const std::vector<Element2D*>& supportedElements()
+  const std::vector<Element2D*>& supportedElements() const
     {
       return support_;
     }

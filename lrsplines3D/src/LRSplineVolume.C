@@ -1994,24 +1994,22 @@ const Element3D* LRSplineVolume::coveringElement(double u, double v, double w) c
   // First check if a current element exists
   if (curr_element_)
     {
+
       if (curr_element_->contains(u, v, w))
-	return curr_element_;
-      
-      // Check neighbours
-      vector<LRBSpline3D*> bsupp = curr_element_->getSupport();
-      std::set<Element3D*> supp_el;
-      for (size_t ka=0; ka<bsupp.size(); ++ka)
-	{
-	  vector<Element3D*> esupp = bsupp[ka]->supportedElements();
-	  for (size_t kb=0; kb<esupp.size(); ++kb)
-	    {
-	      if (esupp[kb]->contains(u, v, w))
-		{
-		  curr_element_ = esupp[kb];
-		  return curr_element_;
-		}
- 	    }
-	}
+      {
+          // If the triplet lies at a grid line we do not use the curr_element_ even if it contains the triplet. We must
+          // then return the element to the right.
+          int u_ind = mesh_.getKnotIdx(XDIR, u, knot_tol_);
+          bool u_internal_knot = ((u_ind > 0) && (u_ind < mesh_.numDistinctKnots(XDIR) - 1));
+          int v_ind = mesh_.getKnotIdx(YDIR, v, knot_tol_);
+          bool v_internal_knot = ((v_ind > 0) && (v_ind < mesh_.numDistinctKnots(YDIR) - 1));
+          int w_ind = mesh_.getKnotIdx(ZDIR, w, knot_tol_);
+          bool w_internal_knot = ((w_ind > 0) && (w_ind < mesh_.numDistinctKnots(ZDIR) - 1));
+          if (!u_internal_knot && !v_internal_knot && !w_internal_knot)
+          {
+              return curr_element_;
+          }
+      }
     }
 
   int ucorner, vcorner, wcorner;
