@@ -521,6 +521,18 @@ int LRBSpline3D::endmult(Direction3D dir, bool atstart) const
     throw;
   }
 #endif
+
+  //==============================================================================
+  std::vector<const Element3D*> LRBSpline3D::supportedElements() const
+  //==============================================================================
+  {
+    std::vector<const Element3D*> result;
+    result.reserve(support_.size());
+    for (Element3D* e : support_) {
+      result.push_back(e);  // implisitt Element3D* -> const Element3D*
+    }
+    return result;
+  }
  
   //==============================================================================
   bool LRBSpline3D::operator<(const LRBSpline3D& rhs) const

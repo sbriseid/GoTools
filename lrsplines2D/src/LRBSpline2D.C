@@ -660,6 +660,7 @@ std::vector<Element2D*>::iterator LRBSpline2D::supportedElementEnd()
   return support_.end();
 }
 
+//==============================================================================
 std::vector<const Element2D*> LRBSpline2D::supportedElements() const
 //==============================================================================
 {
