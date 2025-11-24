@@ -2262,7 +2262,29 @@ LRSplineVolume::getBoundaryBsplines(Direction3D d, bool atstart)
 	bsplines.push_back(it->second.get());
     }
   return bsplines;
- }
+}
+
+#if 0
+// =============================================================================
+std::vector<const LRBSpline3D*>
+LRSplineVolume::getBoundaryBsplines(Direction3D d, bool atstart) const
+// =============================================================================
+{
+  vector<const LRBSpline3D*> bsplines;
+
+  // Traverse all B-splines and check whether they have maximum multiplicity along
+  // the given edge
+  for (BSplineMap::const_iterator it=basisFunctionsBegin(); 
+       it != basisFunctionsEnd(); ++it)
+    {
+      int deg = it->second->degree(d);
+      int mult = it->second->endmult(d, atstart);
+      if (mult == deg+1)
+	bsplines.push_back(it->second.get());
+    }
+  return bsplines;
+}
+#endif
 
 //==============================================================================
 bool LRSplineVolume::isFullTensorProduct() const

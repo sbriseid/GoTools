@@ -505,9 +505,18 @@ public:
    std::vector<LRBSpline2D*>::const_iterator supportEnd() const  { return support_.end();   };
 
    /// Return a reference to the vector of B-splines with this element in their support
-   const std::vector<LRBSpline2D*>& getSupport() const
+   std::vector<LRBSpline2D*>& getSupport()
    {
      return support_;
+   }
+   std::vector<const LRBSpline2D*> getSupport() const
+   {
+     std::vector<const LRBSpline2D*> result;
+     result.reserve(support_.size());
+     for (auto* p : support_) {
+       result.push_back(p);  // implicit LRBSpline2D* -> const LRBSpline2D*
+     }
+     return result;
    }
 
    /// Check if the parameter pair is contained in the element domain

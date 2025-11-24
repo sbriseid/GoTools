@@ -273,6 +273,17 @@ class Element3D
   {
     return support_;
   }
+#if 0
+  std::vector<const LRBSpline3D*> getSupport() const
+  {
+    std::vector<const LRBSpline3D*> result;
+    result.reserve(support_.size());
+    for (auto* p : support_) {
+      result.push_back(p);  // implicit LRBSpline3D* -> const LRBSpline3D*
+    }
+    return result;
+  }
+#endif
 
    /// Check if the parameter pair is contained in the element domain
   bool contains(double upar, double vpar, double wpar) const

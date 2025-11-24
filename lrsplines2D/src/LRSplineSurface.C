@@ -808,8 +808,29 @@ LRSplineSurface::getBoundaryBsplines(Direction2D d, bool atstart)
 
   // Traverse all B-splines and check whether they have maximum multiplicity along
   // the given edge
-  for (BSplineMap::iterator it=basisFunctionsBeginNonconst(); 
+  for (BSplineMap::iterator it=basisFunctionsBeginNonconst();
        it != basisFunctionsEndNonconst(); ++it)
+    {
+      int deg = it->second->degree(d);
+      int mult = (d == XFIXED) ? it->second->endmult_u(atstart) :
+	it->second->endmult_v(atstart);
+      if (mult == deg+1)
+	bsplines.push_back(it->second.get());
+    }
+  return bsplines;
+ }
+
+// =============================================================================
+vector<const LRBSpline2D*>
+LRSplineSurface::getBoundaryBsplines(Direction2D d, bool atstart) const
+// =============================================================================
+{
+  vector<const LRBSpline2D*> bsplines;
+
+  // Traverse all B-splines and check whether they have maximum multiplicity along
+  // the given edge
+  for (BSplineMap::const_iterator it=basisFunctionsBegin();
+       it != basisFunctionsEnd(); ++it)
     {
       int deg = it->second->degree(d);
       int mult = (d == XFIXED) ? it->second->endmult_u(atstart) :
@@ -1807,14 +1828,14 @@ Point LRSplineSurface::operator()(double u, double v, int u_deriv, int v_deriv) 
       // Check neighbours
       if (curr_element_)
 	{
-	  vector<LRBSpline2D*> bsupp = curr_element_->getSupport();
-	  std::set<Element2D*> supp_el;
+	  vector<const LRBSpline2D*> bsupp = curr_element_->getSupport();
+	  std::set<const Element2D*> supp_el;
 	  for (size_t ka=0; ka<bsupp.size(); ++ka)
 	    {
-	      vector<Element2D*> esupp = bsupp[ka]->supportedElements();
+	      vector<const Element2D*> esupp = bsupp[ka]->supportedElements();
 	      supp_el.insert(esupp.begin(), esupp.end());
 	    }
-	  vector<Element2D*> supp_el2(supp_el.begin(), supp_el.end());
+	  vector<const Element2D*> supp_el2(supp_el.begin(), supp_el.end());
 	  for (size_t ka=0; ka<supp_el2.size(); ++ka)
 	    if (supp_el2[ka]->contains(u, v))
 	      {
@@ -1827,7 +1848,7 @@ Point LRSplineSurface::operator()(double u, double v, int u_deriv, int v_deriv) 
 	{
 	  //std::cout << "Finding element for parameter value (" << u << "," << v << ")" << std::endl;
 	  elem = coveringElement(u, v);
-	  curr_element_ = (Element2D*)elem;
+	  curr_element_ = elem;
 	}
     }
   return operator()(u, v, u_deriv, v_deriv, elem);
@@ -1847,14 +1868,14 @@ Point LRSplineSurface::operator()(double u, double v, int u_deriv, int v_deriv) 
       // Check neighbours
       if (elem)
 	{
-	  vector<LRBSpline2D*> bsupp = elem->getSupport();
-	  std::set<Element2D*> supp_el;
+	  vector<const LRBSpline2D*> bsupp = elem->getSupport();
+	  std::set<const Element2D*> supp_el;
 	  for (size_t ka=0; ka<bsupp.size(); ++ka)
 	    {
-	      vector<Element2D*> esupp = bsupp[ka]->supportedElements();
+	      vector<const Element2D*> esupp = bsupp[ka]->supportedElements();
 	      supp_el.insert(esupp.begin(), esupp.end());
 	    }
-	  vector<Element2D*> supp_el2(supp_el.begin(), supp_el.end());
+	  vector<const Element2D*> supp_el2(supp_el.begin(), supp_el.end());
 	  for (size_t ka=0; ka<supp_el2.size(); ++ka)
 	    if (supp_el2[ka]->contains(u, v))
 	      {
@@ -1871,7 +1892,7 @@ Point LRSplineSurface::operator()(double u, double v, int u_deriv, int v_deriv) 
     }
   
   curr_element_ = elem;
-  const vector<LRBSpline2D*>& covering_B_functions = elem->getSupport();
+  vector<const LRBSpline2D*> covering_B_functions = elem->getSupport();
 
   Point result(this->dimension()); 
   result.setValue(0.0); // will be initialized to 0, with the correct dimension
@@ -2252,11 +2273,11 @@ const RectDomain& LRSplineSurface::parameterDomain() const
       // Check neighbours
       if (curr_element_)
 	{
-	  vector<LRBSpline2D*> bsupp = curr_element_->getSupport();
+	  vector<const LRBSpline2D*> bsupp = curr_element_->getSupport();
 	  std::set<Element2D*> supp_el;
 	  for (size_t ka=0; ka<bsupp.size(); ++ka)
 	    {
-	      vector<Element2D*> esupp = bsupp[ka]->supportedElements();
+	      vector<const Element2D*> esupp = bsupp[ka]->supportedElements();
 	      for (size_t ka=0; ka<esupp.size(); ++ka)
 		if (esupp[ka]->contains(upar, vpar))
 		  {
@@ -2280,7 +2301,7 @@ const RectDomain& LRSplineSurface::parameterDomain() const
 	double eps = 1.0e-12;
 	const bool u_on_end = (upar >= mesh_.maxParam(XFIXED)-eps); //(u == (*b)->umax());
 	const bool v_on_end = (vpar >= mesh_.maxParam(YFIXED)-eps); // (v == (*b)->vmax());
-	const vector<LRBSpline2D*>& bfunctions = curr_element_->getSupport();
+	vector<const LRBSpline2D*> bfunctions = curr_element_->getSupport();
 	size_t bsize = bfunctions.size();
 	//vector<BSplineUniLR*> uni(2*bsize, NULL);
 	vector<double> val(2*bsize);
@@ -2545,14 +2566,14 @@ double LRSplineSurface::endparam_v() const
       // Check neighbours
       if (elem)
 	{
-	  vector<LRBSpline2D*> bsupp = elem->getSupport();
-	  std::set<Element2D*> supp_el;
+	  vector<const LRBSpline2D*> bsupp = elem->getSupport();
+	  std::set<const Element2D*> supp_el;
 	  for (size_t ka=0; ka<bsupp.size(); ++ka)
 	    {
-	      vector<Element2D*> esupp = bsupp[ka]->supportedElements();
+	      vector<const Element2D*> esupp = bsupp[ka]->supportedElements();
 	      supp_el.insert(esupp.begin(), esupp.end());
 	    }
-	  vector<Element2D*> supp_el2(supp_el.begin(), supp_el.end());
+	  vector<const Element2D*> supp_el2(supp_el.begin(), supp_el.end());
 	  for (size_t ka=0; ka<supp_el2.size(); ++ka)
 	    if (supp_el2[ka]->contains(upar, vpar))
 	      {
@@ -2569,7 +2590,7 @@ double LRSplineSurface::endparam_v() const
     }
   
   curr_element_ = elem;
-  const vector<LRBSpline2D*>& covering_B_functions = elem->getSupport();
+  vector<const LRBSpline2D*> covering_B_functions = elem->getSupport();
 
   //vector<Point> tmp(totpts, Point(dim));
 

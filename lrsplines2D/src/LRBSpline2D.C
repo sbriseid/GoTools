@@ -660,6 +660,17 @@ std::vector<Element2D*>::iterator LRBSpline2D::supportedElementEnd()
   return support_.end();
 }
 
+std::vector<const Element2D*> LRBSpline2D::supportedElements() const
+//==============================================================================
+{
+  std::vector<const Element2D*> result;
+  result.reserve(support_.size());
+  for (Element2D* e : support_) {
+    result.push_back(e);  // implisitt Element2D* -> const Element2D*
+  }
+  return result;
+}
+
 //==============================================================================
 bool LRBSpline2D::checkOverload()
 //==============================================================================

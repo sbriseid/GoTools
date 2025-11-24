@@ -748,6 +748,7 @@ namespace Go
   /// \param atstart specifies if the curve is in the start or end of the
   /// other parameter direction
   std::vector<LRBSpline2D*> getBoundaryBsplines(Direction2D d, bool atstart);
+  std::vector<const LRBSpline2D*> getBoundaryBsplines(Direction2D d, bool atstart) const;
 
   /// Returns 'true' if the underlying mesh is a regular grid, i.e. 
   /// the surface is a tensor product spline surface.

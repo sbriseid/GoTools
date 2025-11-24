@@ -644,11 +644,11 @@ private:
     // The same as the above, but with OpenMP support (if flag is turned on).
     void computeAccuracy_omp(std::vector<Element2D*>& ghost_elems);
     void computeAccuracyElement(std::vector<double>& points, int nmb, int del,
-				RectDomain& rd, const Element2D* elem,
+				RectDomain& rd, Element2D* elem,
 				std::vector<double>& prev_points_dist);
     // The same as the above, but with OpenMP support (if flag is turned on).
     void computeAccuracyElement_omp(std::vector<double>& points, int nmb, int del,
-				    RectDomain& rd, const Element2D* elem,
+				    RectDomain& rd, Element2D* elem,
 				    std::vector<double>& prev_points_dist);
 
     void runMBAUpdate(bool computed_accuracy);

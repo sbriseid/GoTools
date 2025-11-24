@@ -2194,7 +2194,7 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 
 //==============================================================================
   void LRSurfApprox::computeAccuracyElement(vector<double>& points, int nmb, int del,
-					    RectDomain& rd, const Element2D* elem,
+					    RectDomain& rd, Element2D* elem,
 					    vector<double>& prev_point_dist)
 //==============================================================================
 {
@@ -2383,7 +2383,7 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 
 //==============================================================================
 void LRSurfApprox::computeAccuracyElement_omp(vector<double>& points, int nmb, int del,
-					      RectDomain& rd, const Element2D* elem,
+					      RectDomain& rd, Element2D* elem,
 					      vector<double>& prev_point_dist)
 //==============================================================================
 {
@@ -2399,7 +2399,7 @@ void LRSurfApprox::computeAccuracyElement_omp(vector<double>& points, int nmb, i
   int del2 = (del > dim+3) ? del-1 : del;
 
   // Fetch basis functions
-  const vector<LRBSpline2D*>& bsplines = elem->getSupport();
+  vector<LRBSpline2D*>& bsplines = elem->getSupport();
   const int nmb_bsplines = (int)bsplines.size();
   //double bval, sfval;
 
