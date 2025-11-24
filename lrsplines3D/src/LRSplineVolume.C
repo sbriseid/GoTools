@@ -2264,7 +2264,6 @@ LRSplineVolume::getBoundaryBsplines(Direction3D d, bool atstart)
   return bsplines;
 }
 
-#if 0
 // =============================================================================
 std::vector<const LRBSpline3D*>
 LRSplineVolume::getBoundaryBsplines(Direction3D d, bool atstart) const
@@ -2284,7 +2283,6 @@ LRSplineVolume::getBoundaryBsplines(Direction3D d, bool atstart) const
     }
   return bsplines;
 }
-#endif
 
 //==============================================================================
 bool LRSplineVolume::isFullTensorProduct() const

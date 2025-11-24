@@ -722,9 +722,8 @@ class LRSplineVolume : public ParamVolume
   /// \param atstart specifies if the curve is in the start or end of the
   /// other parameter direction
   std::vector<LRBSpline3D*> getBoundaryBsplines(Direction3D d, bool atstart);
-#if 0
   std::vector<const LRBSpline3D*> getBoundaryBsplines(Direction3D d, bool atstart) const;
-#endif
+
   /// The following function returns 'true' if the underlying mesh is a regular grid, i.e. 
   /// the volume is a tensor product spline volume.
   bool isFullTensorProduct() const;
