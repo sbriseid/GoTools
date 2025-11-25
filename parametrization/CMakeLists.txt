@@ -61,6 +61,12 @@ endif()
 
 include(CMakePackageConfigHelpers)
 
+target_include_directories(parametrization INTERFACE
+  $<BUILD_INTERFACE:${parametrization_SOURCE_DIR}/include>
+)
+
+export(TARGETS parametrization FILE parametrizationTargets.cmake)
+
 # 'install' target
 IF(WIN32)
   # Windows
