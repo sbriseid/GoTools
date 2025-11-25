@@ -468,10 +468,10 @@ private:
     // The same as the above, but with OpenMP support (if flag is turned on).
     void computeAccuracy_omp(std::vector<Element3D*>& ghost_elems);
     void computeAccuracyElement(std::vector<double>& points, 
-                                int nmb, int del, const Element3D* elem);
+                                int nmb, int del, Element3D* elem);
     //// The same as the above, but with OpenMP support (if flag is turned on).
     void computeAccuracyElement_omp(std::vector<double>& points,
-                                   int nmb, int del, const Element3D* elem);
+                                   int nmb, int del, Element3D* elem);
 
     /// Refine volume
     int refineVol(double threshold);

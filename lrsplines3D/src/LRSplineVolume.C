@@ -427,7 +427,7 @@ const LRSplineVolume& LRSplineVolume::operator= (const LRSplineVolume& other)
       const bool u_at_end = (upar >= mesh_.maxParam(XDIR)-eps); 
       const bool v_at_end = (vpar >= mesh_.maxParam(YDIR)-eps);
       const bool w_at_end = (wpar >= mesh_.maxParam(ZDIR)-eps); 
-      const vector<LRBSpline3D*>& bfunctions = curr_element_->getSupport();
+      vector<const LRBSpline3D*> bfunctions = curr_element_->getSupport();
       size_t bsize = bfunctions.size();
       vector<double> val(3*bsize);
       pt.resize(this->dimension());
@@ -537,7 +537,7 @@ const LRSplineVolume& LRSplineVolume::operator= (const LRSplineVolume& other)
     }
     curr_element_ = elem;
 
-  const vector<LRBSpline3D*>& covering_B_functions = elem->getSupport();
+  vector<const LRBSpline3D*> covering_B_functions = elem->getSupport();
 
   for (size_t kr=0; kr<covering_B_functions.size(); ++kr)
     {
@@ -1548,7 +1548,7 @@ Point LRSplineVolume::operator()(double u, double v, double w, int u_deriv, int 
       elem = coveringElement(u, v, w);
       curr_element_ = (Element3D*)elem;
     }
-  const vector<LRBSpline3D*> covering_B_functions = elem->getSupport();
+  vector<const LRBSpline3D*> covering_B_functions = elem->getSupport();
 
   Point result(this->dimension()); 
   result.setValue(0.0); // will be initialized to 0, with the correct dimension
@@ -1672,16 +1672,16 @@ Point LRSplineVolume::operator()(double u, double v, double w, int u_deriv, int 
       // Check neighbours
       if (elem)
         {
-          vector<LRBSpline3D*> bsupp = elem->getSupport();
-          std::set<Element3D*> supp_el;
+          vector<const LRBSpline3D*> bsupp = elem->getSupport();
+          std::set<const Element3D*> supp_el;
 
           for (size_t ka=0; ka<bsupp.size(); ++ka)
             {
-              vector<Element3D*> esupp = bsupp[ka]->supportedElements();
+              vector<const Element3D*> esupp = bsupp[ka]->supportedElements();
               supp_el.insert(esupp.begin(), esupp.end());
             }
 
-          vector<Element3D*> supp_el2(supp_el.begin(), supp_el.end());
+          vector<const Element3D*> supp_el2(supp_el.begin(), supp_el.end());
 
           for (size_t ka=0; ka<supp_el2.size(); ++ka)
             {
@@ -1701,7 +1701,7 @@ Point LRSplineVolume::operator()(double u, double v, double w, int u_deriv, int 
           }
       }
 
-    const vector<LRBSpline3D*>& covering_B_functions = elem->getSupport();
+    vector<const LRBSpline3D*> covering_B_functions = elem->getSupport();
 
     Point result(this->dimension());
     result.setValue(0.0); // will be initialized to 0, with the correct dimension

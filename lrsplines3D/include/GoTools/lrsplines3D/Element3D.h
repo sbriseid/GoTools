@@ -269,11 +269,10 @@ class Element3D
    /// End iterator to B-splines with this element in their support
   std::vector<LRBSpline3D*>::const_iterator supportEnd() const  { return support_.end();   }
    /// Return a reference to the vector of B-splines with this element in their support
-  const std::vector<LRBSpline3D*>& getSupport() const
+  std::vector<LRBSpline3D*>& getSupport()
   {
     return support_;
   }
-#if 0
   std::vector<const LRBSpline3D*> getSupport() const
   {
     std::vector<const LRBSpline3D*> result;
@@ -283,7 +282,6 @@ class Element3D
     }
     return result;
   }
-#endif
 
    /// Check if the parameter pair is contained in the element domain
   bool contains(double upar, double vpar, double wpar) const
