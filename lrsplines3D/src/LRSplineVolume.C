@@ -1997,15 +1997,17 @@ const Element3D* LRSplineVolume::coveringElement(double u, double v, double w) c
 
       if (curr_element_->contains(u, v, w))
       {
-          // If the triplet lies at a grid line we do not use the curr_element_ even if it contains the triplet. We must
-          // then return the element to the right.
-          int u_ind = mesh_.getKnotIdx(XDIR, u, knot_tol_);
-          bool u_internal_knot = ((u_ind > 0) && (u_ind < mesh_.numDistinctKnots(XDIR) - 1));
-          int v_ind = mesh_.getKnotIdx(YDIR, v, knot_tol_);
-          bool v_internal_knot = ((v_ind > 0) && (v_ind < mesh_.numDistinctKnots(YDIR) - 1));
-          int w_ind = mesh_.getKnotIdx(ZDIR, w, knot_tol_);
-          bool w_internal_knot = ((w_ind > 0) && (w_ind < mesh_.numDistinctKnots(ZDIR) - 1));
-          if (!u_internal_knot && !v_internal_knot && !w_internal_knot)
+          // We always evaluate from the right. This implies that if the triplet lies at the umax/vmax/wmax boundary of
+          // the element, and the border is not at the border of the full volume, we discard the element.
+          bool at_elem_end_u = (fabs(curr_element_->umax() - u) < knot_tol_);
+          bool at_elem_end_v = (fabs(curr_element_->vmax() - v) < knot_tol_);
+          bool at_elem_end_w = (fabs(curr_element_->wmax() - w) < knot_tol_);
+          bool at_global_end_u = (fabs(mesh_.maxParam(XDIR) - u) < knot_tol_);
+          bool at_global_end_v = (fabs(mesh_.maxParam(YDIR) - v) < knot_tol_);
+          bool at_global_end_w = (fabs(mesh_.maxParam(ZDIR) - w) < knot_tol_);
+          if ((!at_elem_end_u || at_global_end_u) &&
+              (!at_elem_end_v || at_global_end_v) &&
+              (!at_elem_end_w || at_global_end_w))
           {
               return curr_element_;
           }
