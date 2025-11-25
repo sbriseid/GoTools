@@ -81,6 +81,12 @@ ENDIF(GoTools_COMPILE_TESTS)
 
 include(CMakePackageConfigHelpers)
 
+target_include_directories(GoQualityModule INTERFACE
+  $<BUILD_INTERFACE:${GoQualityModule_SOURCE_DIR}/include>
+)
+
+export(TARGETS GoQualityModule FILE GoQualityModuleTargets.cmake)
+
 # 'install' target
 IF(WIN32)
   # Windows

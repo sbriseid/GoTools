@@ -94,6 +94,13 @@ install(DIRECTORY include/
     FILES_MATCHING PATTERN "*.h"
 )
 
+target_include_directories(GoTrivariate INTERFACE
+  $<BUILD_INTERFACE:${GoTrivariate_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${GoToolsCore_SOURCE_DIR}/include>
+)
+
+export(TARGETS GoTrivariate FILE GoTrivariateTargets.cmake)
+
 # Export the targets to a file
 install(EXPORT GoTrivariateTargets
     FILE GoTrivariateTargets.cmake

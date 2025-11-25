@@ -127,6 +127,12 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINAR
 
 include(CMakePackageConfigHelpers)
 
+target_include_directories(GoCompositeModel INTERFACE
+  $<BUILD_INTERFACE:${GoCompositeModel_SOURCE_DIR}/include>
+)
+
+export(TARGETS GoCompositeModel FILE GoCompositeModelTargets.cmake)
+
 # 'install' target
 IF(WIN32)
   # Windows

@@ -157,6 +157,12 @@ ELSE(WIN32)
   include(GNUInstallDirs)
 ENDIF(WIN32)
 
+target_include_directories(GoLRspline3D INTERFACE
+  $<BUILD_INTERFACE:${GoLRspline3D_SOURCE_DIR}/include>
+)
+
+export(TARGETS GoLRspline3D FILE GoLRsplines3DTargets.cmake)
+
 # Install the GoLRspline2D target
 install(TARGETS GoLRspline3D
     EXPORT GoLRspline3DTargets

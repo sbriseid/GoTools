@@ -66,6 +66,12 @@ ENDIF(GoTools_COMPILE_TESTS)
 
 include(CMakePackageConfigHelpers)
 
+target_include_directories(GoTopology INTERFACE
+  $<BUILD_INTERFACE:${GoTopology_SOURCE_DIR}/include>
+)
+
+export(TARGETS GoTopology FILE GoTopologyTargets.cmake)
+
 # 'install' target
 IF(WIN32)
   # Windows
