@@ -71,6 +71,12 @@ ENDIF()
 # === Install Targets and Export CMake Package ===
 include(CMakePackageConfigHelpers)
 
+target_include_directories(newmat INTERFACE
+  $<BUILD_INTERFACE:${newmat_SOURCE_DIR}/include>
+)
+
+export(TARGETS newmat FILE newmatTargets.cmake)
+
 # Install the newmat target with export
 install(TARGETS newmat
     EXPORT NewmatTargets

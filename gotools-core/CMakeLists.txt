@@ -112,6 +112,13 @@ ELSE(WIN32)
   include(GNUInstallDirs)
 ENDIF(WIN32)
 
+target_include_directories(GoToolsCore INTERFACE
+  $<BUILD_INTERFACE:${GoToolsCore_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/newmat/include>
+)
+
+export(TARGETS GoToolsCore FILE GoToolsCoreTargets.cmake)
+
 # Install the GoToolsCore target
 install(TARGETS GoToolsCore
     EXPORT GoToolsCoreTargets

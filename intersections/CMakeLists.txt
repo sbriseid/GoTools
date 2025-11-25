@@ -55,6 +55,12 @@ ENDIF(GoTools_COMPILE_APPS)
 
 include(CMakePackageConfigHelpers)
 
+target_include_directories(GoIntersections INTERFACE
+  $<BUILD_INTERFACE:${GoIntersections_SOURCE_DIR}/include>
+)
+
+export(TARGETS GoIntersections FILE GoIntersectionsTargets.cmake)
+
 # 'install' target
 IF(WIN32)
   # Windows
