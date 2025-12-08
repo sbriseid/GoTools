@@ -231,11 +231,15 @@ export CFLAGS="$CFLAGS -I/opt/homebrew/opt/libomp/include"
 export CXXFLAGS="$CXXFLAGS -I/opt/homebrew/opt/libomp/include"
 export LDFLAGS="$LDFLAGS -Wl,-rpath,/opt/homebrew/opt/libomp/lib -L/opt/homebrew/opt/libomp/lib -lomp"
 
-Logging and shared builds are not supported on MacOS.
+Logging and shared builds are not supported on MacOS. We also do not build the sisl viewer due to GLX
+missing from macOS.
 
 Command line steps for configuring, building and installing:
 $ mkdir build_release
 $ cd build_release
-$ cmake ../ -G Ninja
-$ cmake --build .
+$ cmake ../ -G Ninja -Dsisl_COMPILE_APPS=ON -Dsisl_COMPILE_EXAMPLES=ON
+$ cmake --build . --config Release --parallel
 $ sudo cmake --install .
+
+Run the unit tests in parallel:
+$ ctest -j "$(sysctl -n hw.ncpu)"
