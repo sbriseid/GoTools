@@ -74,6 +74,12 @@ endif()
 
 include(CMakePackageConfigHelpers)
 
+target_include_directories(GoImplicitization INTERFACE
+  $<BUILD_INTERFACE:${GoImplicitization_SOURCE_DIR}/include>
+)
+
+export(TARGETS GoImplicitization FILE GoImplicitizationTargets.cmake)
+
 # 'install' target
 IF(WIN32)
   # Windows

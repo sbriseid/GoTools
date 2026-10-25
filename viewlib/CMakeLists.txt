@@ -286,60 +286,92 @@ endif(ViewlibVolAndLRSupport)
 # Create a tmp dir for generated data.
 execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/tmp)
 
-# 'install' target
-if(WIN32)
-  # Windows
-  # lib
-  install(TARGETS viewlib DESTINATION ${GoTools_INSTALL_PREFIX}/lib)
-  # include
-  install(DIRECTORY include/GoTools/viewlib
-    DESTINATION ${GoTools_INSTALL_PREFIX}/include/GoTools
-    FILES_MATCHING PATTERN "*.h"
-    PATTERN ".svn" EXCLUDE
-  )
-  # include ui files
-  install(DIRECTORY ${viewlib_BINARY_DIR}/include/GoTools/viewlib/
-    DESTINATION ${GoTools_INSTALL_PREFIX}/include/GoTools/viewlib
-    FILES_MATCHING PATTERN "ui_*_form.h"
-    PATTERN ".svn" EXCLUDE
-  )
-  # data
-  install(DIRECTORY data/
-    DESTINATION ${GoTools_INSTALL_PREFIX}/share/viewlib
-    FILES_MATCHING PATTERN "*.g2" PATTERN "*.igs"
-    PATTERN ".svn" EXCLUDE
-  )
-  # bin
-  set(goview_INSTALL_PREFIX "$ENV{PROGRAMFILES}/SINTEF/goview"
-    CACHE PATH "Path to install goview")
-  install(TARGETS goview DESTINATION ${goview_INSTALL_PREFIX})
-else()
-  # Linux
-  # lib
-  install(TARGETS viewlib DESTINATION lib COMPONENT viewlib)
-  # include
-  install(DIRECTORY include/GoTools/viewlib
-    DESTINATION include/GoTools
-    COMPONENT viewlib-dev
-    FILES_MATCHING PATTERN "*.h"
-    PATTERN ".svn" EXCLUDE
-  )
-  # include ui files
-  install(DIRECTORY ${viewlib_BINARY_DIR}/include/GoTools/viewlib/
-    DESTINATION include/GoTools/viewlib
-    COMPONENT viewlib-dev
-    FILES_MATCHING PATTERN "ui_*_form.h"
-    PATTERN ".svn" EXCLUDE
-  )
-  # data
-  install(DIRECTORY data/
-    DESTINATION share/GoTools/viewlib
-    COMPONENT viewlib
-    FILES_MATCHING PATTERN "*.g2" PATTERN "*.igs"
-    PATTERN ".svn" EXCLUDE
-  )
-  # bin
-  install(TARGETS goview DESTINATION bin COMPONENT viewlib)
-endif()
+# === Install Targets and Export Package ===
 
-set(CPACK_STRIP_FILES ${CPACK_STRIP_FILES} libviewlib.so)
+include(CMakePackageConfigHelpers)
+
+# 1. Setup Installation Paths
+IF(WIN32)
+  # Windows
+  # Note: Ensure GoTools_WINDOWS_INSTALL_PREFIX is defined in your root CMakeLists or cache
+  set(CMAKE_INSTALL_LIBDIR ${GoTools_WINDOWS_INSTALL_PREFIX}/lib)
+  set(CMAKE_INSTALL_INCLUDEDIR ${GoTools_WINDOWS_INSTALL_PREFIX}/include)
+  set(CMAKE_INSTALL_BINDIR ${GoTools_WINDOWS_INSTALL_PREFIX}/bin)
+  set(CMAKE_INSTALL_DATADIR ${GoTools_WINDOWS_INSTALL_PREFIX}/share)
+ELSE(WIN32)
+  # Linux
+  include(GNUInstallDirs)
+ENDIF(WIN32)
+
+# 2. Define Interface Include Directories for the Build Tree
+target_include_directories(viewlib INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  # If viewlib relies on other internal headers, add them here
+)
+
+# 3. Export Targets to Build Tree
+export(TARGETS viewlib FILE viewlibTargets.cmake)
+
+# 4. Install Targets (Library and Executable)
+# This handles both the library (viewlib) and the app (goview)
+install(TARGETS viewlib goview
+  EXPORT viewlibTargets
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# 5. Install Headers
+# Standard headers
+install(DIRECTORY include/GoTools/viewlib
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/GoTools
+  FILES_MATCHING PATTERN "*.h"
+  PATTERN ".svn" EXCLUDE
+)
+
+# Generated UI headers (from binary dir)
+install(DIRECTORY ${viewlib_BINARY_DIR}/include/GoTools/viewlib/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/GoTools/viewlib
+  FILES_MATCHING PATTERN "ui_*_form.h"
+  PATTERN ".svn" EXCLUDE
+)
+
+# 6. Install Data Files
+install(DIRECTORY data/
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/GoTools/viewlib
+  FILES_MATCHING PATTERN "*.g2" PATTERN "*.igs"
+  PATTERN ".svn" EXCLUDE
+)
+
+# 7. Install Export File (for use by other projects)
+install(EXPORT viewlibTargets
+  FILE viewlibTargets.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/viewlib
+)
+
+# 8. Generate Version File
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/viewlibConfigVersion.cmake"
+  # Assuming viewlib shares the GoTools version, otherwise change to ${viewlib_VERSION...}
+  VERSION ${GoTools_VERSION_MAJOR}.${GoTools_VERSION_MINOR}.${GoTools_VERSION_PATCH}
+  COMPATIBILITY SameMajorVersion
+)
+
+# 9. Generate Config File from Template
+# Ensure you have a 'viewlibConfig.cmake.in' in your 'cmake/' folder
+configure_package_config_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/viewlibConfig.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/viewlibConfig.cmake"
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/viewlib
+)
+
+# 10. Install the Config Files
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/viewlibConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/viewlibConfigVersion.cmake"
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/viewlib
+)
+
+# Optional stripping
+SET(CPACK_STRIP_FILES ${CPACK_STRIP_FILES} libviewlib.so)
