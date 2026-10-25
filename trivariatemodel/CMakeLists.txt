@@ -101,6 +101,12 @@ endif()
 
 include(CMakePackageConfigHelpers)
 
+target_include_directories(GoTrivariateModel INTERFACE
+  $<BUILD_INTERFACE:${GoTrivariateModel_SOURCE_DIR}/include>
+)
+
+export(TARGETS GoTrivariateModel FILE GoTrivariateModelTargets.cmake)
+
 # 'install' target
 IF(WIN32)
   # Windows

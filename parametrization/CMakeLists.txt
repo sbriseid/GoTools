@@ -61,6 +61,12 @@ endif()
 
 include(CMakePackageConfigHelpers)
 
+target_include_directories(parametrization INTERFACE
+  $<BUILD_INTERFACE:${parametrization_SOURCE_DIR}/include>
+)
+
+export(TARGETS parametrization FILE parametrizationTargets.cmake)
+
 # 'install' target
 IF(WIN32)
   # Windows
@@ -72,7 +78,7 @@ ELSE(WIN32)
   include(GNUInstallDirs)
 ENDIF(WIN32)
 
-# Install the GoToolsCore target with export set
+# Install the parametrization target with export set
 install(TARGETS parametrization
     EXPORT parametrizationTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -90,7 +96,7 @@ install(DIRECTORY include/
 # Export the targets to a file
 install(EXPORT parametrizationTargets
     FILE parametrizationTargets.cmake
-    #NAMESPACE GoTools::         # So consumer can do target_link_libraries(... GoTools::GoToolsCore)
+    #NAMESPACE GoTools::         # So consumer can do target_link_libraries(... GoTools::parametrization)
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/parametrization
 )
 

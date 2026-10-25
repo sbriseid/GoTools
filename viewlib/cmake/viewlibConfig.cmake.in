@@ -2,7 +2,8 @@
 
 include("${CMAKE_CURRENT_LIST_DIR}/viewlibTargets.cmake")
 
-set(VIEWLIB_INCLUDE_DIRS "@CMAKE_INSTALL_INCLUDEDIR@")
+# Legacy compatibility
 set(VIEWLIB_LIBRARIES viewlib)
 
-check_required_components(viewlib)
+# Optionally set variables
+set(VIEWLIB_INCLUDE_DIRS "@CMAKE_INSTALL_INCLUDEDIR@/include")

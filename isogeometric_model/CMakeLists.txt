@@ -89,6 +89,12 @@ endif()
 
 include(CMakePackageConfigHelpers)
 
+target_include_directories(GoIsogeometricModel INTERFACE
+  $<BUILD_INTERFACE:${GoIsogeometricModel_SOURCE_DIR}/include>
+)
+
+export(TARGETS GoIsogeometricModel FILE GoIsogeometricModelTargets.cmake)
+
 # 'install' target
 IF(WIN32)
   # Windows

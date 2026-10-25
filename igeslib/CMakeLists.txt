@@ -67,6 +67,12 @@ endif()
 
 include(CMakePackageConfigHelpers)
 
+target_include_directories(GoIgeslib INTERFACE
+  $<BUILD_INTERFACE:${GoIgeslib_SOURCE_DIR}/include>
+)
+
+export(TARGETS GoIgeslib FILE GoIgeslibTargets.cmake)
+
 # 'install' target
 IF(WIN32)
   # Windows
