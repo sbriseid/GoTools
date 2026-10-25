@@ -294,7 +294,7 @@ void LRSurfaceTesselator::tesselate()
 
       //size_t nvx = vertex_par.size();
       int ix = (config == 1) ? tri[ix1+ix2] : -1;
-      Element2D* elem[4];
+      const Element2D* elem[4];
       elem[0] = lrsf->coveringElement(joints[ki][0]-pdel, joints[ki][1]-pdel);
       elem[1] = lrsf->coveringElement(joints[ki][0]+pdel, joints[ki][1]-pdel);
       elem[2] = lrsf->coveringElement(joints[ki][0]-pdel, joints[ki][1]+pdel);
@@ -428,7 +428,7 @@ void LRSurfaceTesselator::tesselate()
 	      if (kx < 0)
 		continue;
 
-	      Element2D *elem2 = elem[kx];
+	      const Element2D *elem2 = elem[kx];
 	      if (!elem2->contains(par[kr][0], par[kr][1]))
 		{
 		  double u = par[kr][0];
@@ -724,8 +724,8 @@ bool do_swap = ((dir == 0 && end_ix[0] >= 0) || (dir == 1 && end_ix[0] < 0));
 	  Point v1 = Point(pp[1]-par1[1], par1[0]-pp[0]);
 	  Point p3 = pp - pv;
 	  Point p4 = pp + pv;
-	  Element2D *elem1 = lrsf->coveringElement(p3[0], p3[1]);
-	  Element2D *elem2 = lrsf->coveringElement(p4[0], p4[1]);
+	  const Element2D *elem1 = lrsf->coveringElement(p3[0], p3[1]);
+	  const Element2D *elem2 = lrsf->coveringElement(p4[0], p4[1]);
 	  int xt3, xt4;
 
 	  bool update = true;
@@ -1033,7 +1033,7 @@ void LRSurfaceTesselator::identifyNearTriangles(pair<Point,Point> gap_par,
 void  LRSurfaceTesselator::updateVertex(Point& par, const LRSplineSurface* lrsf,
 					RectDomain& dom, Point& vertex_par,
 					Point& vertex, Point& vertex_norm,
-					Point& vertex_tex, Element2D *elem)
+					Point& vertex_tex, const Element2D *elem)
 //===========================================================================
 {
   lrsf->point(vertex, par[0], par[1], elem);

@@ -118,7 +118,7 @@ private:
     void  updateVertex(Point& par, const LRSplineSurface* lrsf,
 		       RectDomain& dom, Point& vertex_par,
 		       Point& vertex, Point& vertex_norm,
-		       Point& vertex_tex, Element2D *elem=0);
+		       Point& vertex_tex, const Element2D *elem=0);
 
 
     double edgeDist(Point curr, Point pa, Point pb, Point& pp);
