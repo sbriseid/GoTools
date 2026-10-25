@@ -1536,7 +1536,7 @@ void LRVolApprox::computeAccuracy_omp(vector<Element3D*>& ghost_elems)
 
 //==============================================================================
   void LRVolApprox::computeAccuracyElement(vector<double>& points, int nmb, int del,
-                                           const Element3D* elem)
+                                           Element3D* elem)
 //==============================================================================
 {
   int ki, kj, kk, kr;
@@ -1629,7 +1629,7 @@ void LRVolApprox::computeAccuracy_omp(vector<Element3D*>& ghost_elems)
 
 //==============================================================================
 void LRVolApprox::computeAccuracyElement_omp(vector<double>& points, int nmb, int del,
-                                             const Element3D* elem)
+                                             Element3D* elem)
 //==============================================================================
 {
   int ki, kj, kr;
